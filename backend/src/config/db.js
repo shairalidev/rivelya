@@ -6,11 +6,9 @@ if (!uri) {
   process.exit(1);
 }
 
-mongoose.connect(uri, { autoIndex: true })
+mongoose.connect(uri, {
+  useNewUrlParser: true,
+  useUnifiedTopology: true,
+})
   .then(() => console.log('Mongo connected'))
-  .catch(err => {
-    console.error('Mongo error', err.message);
-    process.exit(1);
-  });
-
-export default mongoose;
+  .catch(err => console.error('Mongo connection error:', err));
