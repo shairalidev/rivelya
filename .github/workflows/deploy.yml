@@ -30,15 +30,15 @@ jobs:
             git fetch origin main
             git reset --hard origin/main
 
-            echo "📂 Installing backend dependencies..."
+            echo "📂 Installing backend dependencies (with --legacy-peer-deps)..."
             cd backend
-            npm ci --omit=dev
+            npm install --legacy-peer-deps --omit=dev
             pm2 restart rivelya-backend || pm2 start server.js --name rivelya-backend
             cd ..
 
-            echo "🧱 Building frontend..."
+            echo "🧱 Building frontend (with --legacy-peer-deps)..."
             cd frontend
-            npm ci
+            npm install --legacy-peer-deps
             npm run build
             cd ..
 
