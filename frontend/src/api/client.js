@@ -9,7 +9,7 @@ const inferDefaultBaseUrl = () => {
     const host = window.location.hostname;
 
     if (host === 'rivelya.duckdns.org') {
-      return 'https://65.0.177.242:8080';
+      return 'http://65.0.177.242:8080';
     }
 
     if (host === 'localhost' || host === '127.0.0.1') {
