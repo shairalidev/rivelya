@@ -1,28 +1,42 @@
-import { Routes, Route, Link, Navigate } from 'react-router-dom';
+import { Routes, Route, Navigate } from 'react-router-dom';
+import { Toaster } from 'react-hot-toast';
+import Layout from './components/Layout.jsx';
 import Home from './pages/Home.jsx';
 import Catalog from './pages/Catalog.jsx';
 import Login from './pages/Login.jsx';
+import Register from './pages/Register.jsx';
 import Wallet from './pages/Wallet.jsx';
 import MasterProfile from './pages/MasterProfile.jsx';
+import Profile from './pages/Profile.jsx';
+import VerifyEmail from './pages/VerifyEmail.jsx';
 
 export default function App() {
   return (
     <>
-      <nav className="nav">
-        <Link to="/">Rivelya</Link>
-        <Link to="/catalog?category=cartomanzia">Cartomanzia</Link>
-        <Link to="/catalog?category=legale">Legale</Link>
-        <Link to="/catalog?category=coaching">Coaching</Link>
-        <Link to="/wallet">Wallet</Link>
-        <Link to="/login">Login</Link>
-      </nav>
+      <Toaster
+        position="top-right"
+        toastOptions={{
+          style: {
+            background: 'rgba(14, 20, 27, 0.92)',
+            color: '#f6f8ff',
+            border: '1px solid rgba(138, 153, 198, 0.24)',
+            borderRadius: '16px',
+            boxShadow: '0 18px 45px -20px rgba(14, 20, 27, 0.8)'
+          }
+        }}
+      />
       <Routes>
-        <Route path="/" element={<Home />} />
-        <Route path="/catalog" element={<Catalog />} />
-        <Route path="/masters/:id" element={<MasterProfile />} />
-        <Route path="/wallet" element={<Wallet />} />
-        <Route path="/login" element={<Login />} />
-        <Route path="*" element={<Navigate to="/" replace />} />
+        <Route element={<Layout />}>
+          <Route path="/" element={<Home />} />
+          <Route path="/catalog" element={<Catalog />} />
+          <Route path="/masters/:id" element={<MasterProfile />} />
+          <Route path="/wallet" element={<Wallet />} />
+          <Route path="/profile" element={<Profile />} />
+          <Route path="/login" element={<Login />} />
+          <Route path="/register" element={<Register />} />
+          <Route path="/verify-email" element={<VerifyEmail />} />
+          <Route path="*" element={<Navigate to="/" replace />} />
+        </Route>
       </Routes>
     </>
   );

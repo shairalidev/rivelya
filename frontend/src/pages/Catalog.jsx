@@ -1,36 +1,169 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { useSearchParams, Link } from 'react-router-dom';
 import client from '../api/client.js';
 
+const categories = [
+  { value: 'all', label: 'Tutte le categorie' },
+  { value: 'cartomanzia', label: 'Cartomanzia' },
+  { value: 'legale', label: 'Legale' },
+  { value: 'coaching', label: 'Coaching' },
+  { value: 'benessere', label: 'Benessere' }
+];
+
+const sorts = [
+  { value: 'rating', label: 'Miglior valutazione' },
+  { value: 'priceAsc', label: 'Tariffa crescente' }
+];
+
 export default function Catalog() {
-  const [data, setData] = useState([]);
-  const [params] = useSearchParams();
-  const category = params.get('category') || '';
+  const [params, setParams] = useSearchParams();
+  const [masters, setMasters] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState('');
+
+  const category = params.get('category') || 'all';
+  const sort = params.get('sort') || 'rating';
+  const availability = params.get('availability') || 'all';
 
   useEffect(() => {
-    client.get('/catalog', { params: { category, sort: 'rating' } })
-      .then(r => setData(r.data))
-      .catch(() => setData([]));
-  }, [category]);
+    const query = { sort };
+    if (category !== 'all') query.category = category;
+    if (availability === 'online') query.online = true;
+
+    setLoading(true);
+    setError('');
+    client.get('/catalog', { params: query })
+      .then(res => setMasters(res.data))
+      .catch(() => {
+        setMasters([]);
+        setError('Impossibile caricare il catalogo. Riprova più tardi.');
+      })
+      .finally(() => setLoading(false));
+  }, [category, sort, availability]);
+
+  const setFilter = (key, value) => {
+    const next = new URLSearchParams(params);
+    if (value === 'all' || value === '' || value == null) next.delete(key);
+    else next.set(key, value);
+    setParams(next, { replace: true });
+  };
+
+  const subtitle = useMemo(() => {
+    const catLabel = categories.find(c => c.value === category)?.label || 'Tutte le categorie';
+    const availLabel = availability === 'online' ? ' · Disponibili ora' : '';
+    return `${catLabel}${availLabel}`;
+  }, [category, availability]);
 
   return (
-    <section className="container">
-      <h2>Catalogo {category}</h2>
-      <div className="grid">
-        {data.map((m, i) => (
-          <div key={i} className="card">
-            <img src={m.media?.avatar_url || 'https://placehold.co/200'} alt="" />
-            <div className="card-body">
-              <div className="title">Rating {m.kpis?.avg_rating?.toFixed?.(1) || 'N/A'}</div>
-              <div className="muted">{m.availability}</div>
-              <div className="price">Tel: {(m.rate_phone_cpm/100).toFixed(2)} €/min</div>
-              <div className="price">Chat: {(m.rate_chat_cpm/100).toFixed(2)} €/min</div>
-              <div className="actions">
-                <Link to={`/masters/${m._id}`} className="btn">Dettagli</Link>
-              </div>
-            </div>
+    <section className="container catalog">
+      <div className="section-head">
+        <span className="badge-soft">Catalogo</span>
+        <h1>Trova il master perfetto per te</h1>
+        <p className="muted">{subtitle}</p>
+      </div>
+
+      <div className="filters">
+        <div className="filter-group">
+          <label>Categoria</label>
+          <div className="filter-pills">
+            {categories.map(cat => (
+              <button
+                key={cat.value}
+                type="button"
+                className={`pill${category === cat.value ? ' active' : ''}`}
+                onClick={() => setFilter('category', cat.value === 'all' ? null : cat.value)}
+              >
+                {cat.label}
+              </button>
+            ))}
           </div>
-        ))}
+        </div>
+        <div className="filter-group">
+          <label>Disponibilità</label>
+          <div className="filter-pills">
+            <button
+              type="button"
+              className={`pill${availability === 'all' ? ' active' : ''}`}
+              onClick={() => setFilter('availability', null)}
+            >
+              Tutti
+            </button>
+            <button
+              type="button"
+              className={`pill${availability === 'online' ? ' active' : ''}`}
+              onClick={() => setFilter('availability', 'online')}
+            >
+              Online ora
+            </button>
+          </div>
+        </div>
+        <div className="filter-group select">
+          <label htmlFor="sort">Ordina per</label>
+          <select id="sort" value={sort} onChange={evt => setFilter('sort', evt.target.value)}>
+            {sorts.map(opt => (
+              <option key={opt.value} value={opt.value}>{opt.label}</option>
+            ))}
+          </select>
+        </div>
+      </div>
+
+      {error && <div className="alert">{error}</div>}
+
+      <div className="master-grid">
+        {loading && (
+          <div className="skeleton-grid">
+            {Array.from({ length: 6 }).map((_, idx) => (
+              <div key={idx} className="skeleton-card" />
+            ))}
+          </div>
+        )}
+
+        {!loading && masters.length === 0 && !error && (
+          <div className="empty-state">
+            <h3>Nessun master trovato</h3>
+            <p className="muted">Modifica i filtri o prova a rimuovere la disponibilità immediata.</p>
+          </div>
+        )}
+
+        {!loading && masters.length > 0 && (
+          <div className="card-grid">
+            {masters.map(master => {
+              const ratingValue = master.kpis?.avg_rating;
+              const rating = typeof ratingValue === 'number' ? ratingValue.toFixed(1) : '—';
+              return (
+                <article key={master._id} className="master-card">
+                  <div className="master-media">
+                    <img src={master.media?.avatar_url || 'https://placehold.co/240x240'} alt="" />
+                    <span className={`status-badge ${master.availability}`}>{master.availability}</span>
+                  </div>
+                  <div className="master-content">
+                    <div className="master-header">
+                      <h3>{master.display_name || 'Master Rivelya'}</h3>
+                      <span className="rating">★ {rating}</span>
+                    </div>
+                    <p className="muted">{master.headline || master.bio || 'Professionista certificato del network Rivelya.'}</p>
+                    <div className="tag-list">
+                      {(master.categories || []).slice(0, 3).map(cat => (
+                        <span key={cat} className="tag">{cat}</span>
+                      ))}
+                      {(master.languages || []).slice(0, 2).map(lang => (
+                        <span key={lang} className="tag ghost">{lang}</span>
+                      ))}
+                    </div>
+                    <div className="master-footer">
+                      <div>
+                        <p className="price">Telefono {(master.rate_phone_cpm / 100).toFixed(2)} €/min</p>
+                        <p className="muted">Chat {(master.rate_chat_cpm / 100).toFixed(2)} €/min</p>
+                      </div>
+                      <Link to={`/masters/${master._id}`} className="btn ghost">Dettagli</Link>
+                    </div>
+                    <p className="micro">{master.experience_years ? `${master.experience_years}+ anni di esperienza · ` : ''}{master.kpis?.review_count || 0} recensioni</p>
+                  </div>
+                </article>
+              );
+            })}
+          </div>
+        )}
       </div>
     </section>
   );

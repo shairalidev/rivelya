@@ -1,33 +1,102 @@
 import { useEffect, useState } from 'react';
+import { useNavigate } from 'react-router-dom';
+import toast from 'react-hot-toast';
 import client from '../api/client.js';
 
+const formatDate = iso => {
+  const date = iso ? new Date(iso) : null;
+  if (!date || Number.isNaN(date.getTime())) return 'Data non disponibile';
+  return date.toLocaleString('it-IT', {
+    day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit'
+  });
+};
+
 export default function Wallet() {
-  const [data, setData] = useState({ balance_cents: 0, ledger: [] });
+  const navigate = useNavigate();
+  const [data, setData] = useState({ balance_cents: 0, ledger: [], currency: 'EUR' });
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState('');
 
   useEffect(() => {
-    client.get('/wallet/ledger').then(r => setData(r.data)).catch(()=>{});
-  }, []);
+    if (!localStorage.getItem('token')) {
+      toast.error('Accedi per visualizzare il tuo wallet.');
+      navigate('/login?returnTo=/wallet');
+      return;
+    }
+    client.get('/wallet/ledger')
+      .then(res => {
+        setData(res.data);
+        setError('');
+      })
+      .catch(() => {
+        setError('Impossibile recuperare il wallet in questo momento.');
+      })
+      .finally(() => setLoading(false));
+  }, [navigate]);
 
   const topup = async amount => {
-    const r = await client.post('/wallet/topup', { provider: 'stripe', amount_cents: amount });
-    if (r.data.url) window.location = r.data.url;
+    try {
+      const res = await client.post('/wallet/topup', { provider: 'stripe', amount_cents: amount });
+      toast.success('Ricarica creata, verrai reindirizzato al pagamento.');
+      if (res.data.url) window.location = res.data.url;
+    } catch (error) {
+      const message = error?.response?.data?.message || 'Impossibile creare la ricarica.';
+      toast.error(message);
+    }
   };
 
+  const balance = (data.balance_cents / 100).toFixed(2);
+
   return (
-    <section className="container">
-      <h2>Wallet</h2>
-      <p>Saldo: {(data.balance_cents/100).toFixed(2)} €</p>
-      <div className="actions">
-        <button className="btn" onClick={()=>topup(1000)}>Ricarica 10€</button>
-        <button className="btn" onClick={()=>topup(3000)}>Ricarica 30€</button>
-        <button className="btn" onClick={()=>topup(5000)}>Ricarica 50€</button>
+    <section className="container wallet">
+      <div className="section-head">
+        <span className="badge-soft">Wallet</span>
+        <h1>Gestisci il tuo credito</h1>
+        <p className="muted">Ricariche rapide, promozioni automatiche e storico movimenti trasparente.</p>
       </div>
-      <h3>Movimenti</h3>
-      <ul className="list">
-        {data.ledger.map(l => (
-          <li key={l._id}>{l.type} {(l.amount/100).toFixed(2)} €</li>
-        ))}
-      </ul>
+
+      {error && <div className="alert">{error}</div>}
+
+      <div className="wallet-grid">
+        <div className="wallet-summary">
+          <p>Saldo disponibile</p>
+          <h2>{balance} €</h2>
+          <p className="muted">Valuta: {data.currency || 'EUR'}</p>
+          <div className="wallet-actions">
+            <button className="btn primary" onClick={() => topup(1000)}>Ricarica 10 €</button>
+            <button className="btn outline" onClick={() => topup(3000)}>Ricarica 30 €</button>
+            <button className="btn outline" onClick={() => topup(5000)}>Ricarica 50 €</button>
+          </div>
+          <p className="micro">Ogni ricarica include ricevuta fiscale e aggiornamento istantaneo del saldo.</p>
+        </div>
+
+        <div className="wallet-ledger">
+          <h3>Movimenti recenti</h3>
+          {loading ? (
+            <div className="skeleton-list">
+              {Array.from({ length: 4 }).map((_, idx) => (
+                <div key={idx} className="skeleton-item" />
+              ))}
+            </div>
+          ) : (
+            <ul className="ledger-list">
+              {data.ledger.map(entry => (
+                <li key={entry._id} className={`ledger-item ${entry.type}`}>
+                  <div>
+                    <p className="ledger-title">{entry.meta?.description || entry.meta?.master || entry.type}</p>
+                    <p className="muted">
+                      {formatDate(entry.createdAt)}
+                      {entry.meta?.master ? ` · ${entry.meta.master}` : ''}
+                      {entry.meta?.channel ? ` · ${entry.meta.channel}` : ''}
+                    </p>
+                  </div>
+                  <span className="ledger-amount">{(entry.amount / 100).toFixed(2)} €</span>
+                </li>
+              ))}
+            </ul>
+          )}
+        </div>
+      </div>
     </section>
   );
 }
