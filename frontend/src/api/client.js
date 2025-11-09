@@ -2,19 +2,22 @@ import axios from 'axios';
 
 const inferDefaultBaseUrl = () => {
   if (import.meta.env.VITE_API_URL) {
-    return import.meta.env.VITE_API_URL;
+    return import.meta.env.VITE_API_URL.replace(/\/$/, '');
   }
 
   if (typeof window !== 'undefined') {
-    const host = window.location.hostname;
+    const { protocol, hostname } = window.location;
 
-    if (host === 'rivelya.duckdns.org') {
-      return 'http://65.0.177.242:8080';
-    }
-
-    if (host === 'localhost' || host === '127.0.0.1') {
+    if (hostname === 'localhost' || hostname === '127.0.0.1') {
       return 'http://localhost:8080';
     }
+
+    if (hostname === '65.0.177.242') {
+      return `${protocol}//65.0.177.242:8080`;
+    }
+
+    const origin = window.location.origin.replace(/\/$/, '');
+    return `${origin}/api`;
   }
 
   return 'http://localhost:8080';
