@@ -10,7 +10,13 @@ const PASSWORD = process.env.SEED_USER_PASSWORD || 'Rivelya!2024';
 
 const createAccount = async (userPayload, walletPayload = {}) => {
   const wallet = await Wallet.create({ currency: 'EUR', balance_cents: 0, ...walletPayload });
-  const user = await User.create({ ...userPayload, wallet_id: wallet._id });
+  const user = await User.create({
+    ...userPayload,
+    wallet_id: wallet._id,
+    is_email_verified: true,
+    email_verification_token: undefined,
+    email_verification_expires: undefined
+  });
   wallet.owner_id = user._id;
   await wallet.save();
   return { user, wallet };
@@ -137,12 +143,16 @@ try {
   const masterAccounts = [];
   for (const entry of mastersSeed) {
     const { account, profile } = entry;
+    const [firstName, ...rest] = profile.display_name.split(' ');
     const { user, wallet } = await createAccount({
       email: account.email,
       password: PASSWORD,
       phone: account.phone,
       roles: account.roles,
-      locale: 'it-IT'
+      locale: 'it-IT',
+      first_name: account.first_name || firstName,
+      last_name: account.last_name || rest.join(' '),
+      display_name: profile.display_name
     });
 
     const master = await Master.create({
@@ -160,7 +170,10 @@ try {
     password: PASSWORD,
     phone: '+39 333 987 6543',
     roles: ['consumer'],
-    locale: 'it-IT'
+    locale: 'it-IT',
+    first_name: 'Giulia',
+    last_name: 'Conti',
+    display_name: 'Giulia Conti'
   });
 
   console.log('Generating wallet ledger and sessions...');

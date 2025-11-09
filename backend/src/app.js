@@ -13,13 +13,49 @@ import reviewRoutes from './routes/review.routes.js';
 import adminRoutes from './routes/admin.routes.js';
 import webhookRoutes from './routes/webhook.routes.js';
 import cmsRoutes from './routes/cms.routes.js';
+import profileRoutes from './routes/profile.routes.js';
 
 import { notFound, errorHandler } from './middleware/error.js';
 
 export const app = express();
 
+const defaultOrigins = [
+  process.env.FRONTEND_URL,
+  process.env.FRONTEND_URL?.replace('http://', 'https://'),
+  process.env.PUBLIC_SITE_URL,
+  process.env.PUBLIC_APP_URL,
+  'https://rivelya.duckdns.org',
+  'http://rivelya.duckdns.org',
+  'https://rivelya.duckdns.org:5173',
+  'http://rivelya.duckdns.org:5173',
+  'https://www.rivelya.duckdns.org',
+  'http://localhost:5173',
+  'https://65.0.177.242',
+  'http://65.0.177.242',
+  'https://65.0.177.242:5173',
+  'http://65.0.177.242:5173'
+];
+
+if (process.env.CORS_ALLOWED_ORIGINS) {
+  defaultOrigins.push(...process.env.CORS_ALLOWED_ORIGINS.split(',').map(value => value.trim()));
+}
+
+const allowedOrigins = [...new Set(defaultOrigins.filter(Boolean))];
+
 app.use(helmet());
-app.use(cors({ origin: process.env.FRONTEND_URL, credentials: true }));
+app.use(cors({
+  origin(origin, callback) {
+    if (!origin) return callback(null, true);
+    const isAllowed = allowedOrigins.some(allowed => {
+      if (!allowed) return false;
+      if (origin === allowed) return true;
+      return origin.startsWith(`${allowed}/`);
+    });
+    if (isAllowed) return callback(null, true);
+    return callback(new Error('Not allowed by CORS'));
+  },
+  credentials: true
+}));
 app.use(express.json({ limit: '1mb' }));
 app.use(morgan('tiny'));
 app.use(rateLimit({ windowMs: 60_000, max: 300 }));
@@ -34,6 +70,7 @@ app.use('/reviews', reviewRoutes);
 app.use('/admin', adminRoutes);
 app.use('/cms', cmsRoutes);
 app.use('/webhooks', webhookRoutes);
+app.use('/profile', profileRoutes);
 
 app.use(notFound);
 app.use(errorHandler);

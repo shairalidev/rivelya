@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { Link, useNavigate, useSearchParams } from 'react-router-dom';
 import toast from 'react-hot-toast';
 import client from '../api/client.js';
@@ -8,8 +8,16 @@ export default function Login() {
   const navigate = useNavigate();
   const [form, setForm] = useState({ email: '', password: '' });
   const [loading, setLoading] = useState(false);
+  const [notice, setNotice] = useState('');
   const returnTo = params.get('returnTo');
   const registerLink = returnTo ? `/register?returnTo=${encodeURIComponent(returnTo)}` : '/register';
+
+  useEffect(() => {
+    const verifyStatus = params.get('verify');
+    if (verifyStatus === 'sent') {
+      setNotice('Abbiamo inviato un link di conferma. Controlla la tua email per completare la registrazione.');
+    }
+  }, [params]);
 
   const update = evt => {
     const { name, value } = evt.target;
@@ -29,7 +37,11 @@ export default function Login() {
       const target = returnTo || '/';
       navigate(target);
     } catch (error) {
+      const status = error?.response?.status;
       const message = error?.response?.data?.message || 'Credenziali non valide.';
+      if (status === 403) {
+        setNotice(message);
+      }
       toast.error(message);
     } finally {
       setLoading(false);
@@ -44,6 +56,7 @@ export default function Login() {
         <p className="muted">
           Gestisci le tue ricariche, consulta lo storico delle sessioni e riprendi le conversazioni con i master di fiducia.
         </p>
+        {notice && <p className="auth-notice">{notice}</p>}
         <form className="form" onSubmit={submit}>
           <label className="input-label">
             Email

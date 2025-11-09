@@ -7,6 +7,8 @@ import Login from './pages/Login.jsx';
 import Register from './pages/Register.jsx';
 import Wallet from './pages/Wallet.jsx';
 import MasterProfile from './pages/MasterProfile.jsx';
+import Profile from './pages/Profile.jsx';
+import VerifyEmail from './pages/VerifyEmail.jsx';
 
 export default function App() {
   return (
@@ -29,8 +31,10 @@ export default function App() {
           <Route path="/catalog" element={<Catalog />} />
           <Route path="/masters/:id" element={<MasterProfile />} />
           <Route path="/wallet" element={<Wallet />} />
+          <Route path="/profile" element={<Profile />} />
           <Route path="/login" element={<Login />} />
           <Route path="/register" element={<Register />} />
+          <Route path="/verify-email" element={<VerifyEmail />} />
           <Route path="*" element={<Navigate to="/" replace />} />
         </Route>
       </Routes>
