@@ -1,7 +1,27 @@
 import axios from 'axios';
 
+const inferDefaultBaseUrl = () => {
+  if (import.meta.env.VITE_API_URL) {
+    return import.meta.env.VITE_API_URL;
+  }
+
+  if (typeof window !== 'undefined') {
+    const host = window.location.hostname;
+
+    if (host === 'rivelya.duckdns.org') {
+      return 'https://65.0.177.242:8080';
+    }
+
+    if (host === 'localhost' || host === '127.0.0.1') {
+      return 'http://localhost:8080';
+    }
+  }
+
+  return 'http://localhost:8080';
+};
+
 const client = axios.create({
-  baseURL: import.meta.env.VITE_API_URL,
+  baseURL: inferDefaultBaseUrl(),
   withCredentials: false
 });
 
