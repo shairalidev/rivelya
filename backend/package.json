@@ -12,6 +12,8 @@
     "test": "node --test"
   },
   "dependencies": {
+    "@aws-sdk/client-s3": "^3.614.0",
+    "@aws-sdk/s3-request-presigner": "^3.614.0",
     "bcryptjs": "^2.4.3",
     "cors": "^2.8.5",
     "dotenv": "^16.4.5",
@@ -22,16 +24,14 @@
     "jsonwebtoken": "^9.0.2",
     "mongoose": "^8.6.0",
     "morgan": "^1.10.0",
+    "multer": "^1.4.5-lts.1",
+    "nodemailer": "^6.9.13",
     "stripe": "^16.6.0",
     "twilio": "^5.3.6",
     "uuid": "^9.0.1"
   },
   "devDependencies": {
-    "eslint": "^9.11.1",
-    "eslint-config-standard": "^17.1.0",
-    "eslint-plugin-import": "^2.31.0",
-    "eslint-plugin-n": "^17.11.1",
-    "eslint-plugin-promise": "^6.6.0",
+    "eslint": "^8.57.0",
     "nodemon": "^3.1.4"
   }
 }

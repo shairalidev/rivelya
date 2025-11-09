@@ -20,4 +20,12 @@ router.get('/', async (req, res, next) => {
   } catch (e) { next(e); }
 });
 
+router.get('/:id', async (req, res, next) => {
+  try {
+    const master = await Master.findById(req.params.id);
+    if (!master) return res.status(404).json({ message: 'Master not found' });
+    res.json(master);
+  } catch (e) { next(e); }
+});
+
 export default router;

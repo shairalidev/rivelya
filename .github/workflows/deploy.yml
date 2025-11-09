@@ -24,7 +24,7 @@ jobs:
           script_stop: true
           script: |
             echo "🚀 Starting deployment on $(hostname)"
-            cd /var/www/rivelya || { echo "❌ Directory /var/www/rivelya not found"; exit 1; }
+            cd /var/www/rivelya/rivelya || { echo "❌ Directory /var/www/rivelya/rivelya not found"; exit 1; }
 
             echo "📦 Pulling latest code..."
             git fetch origin main

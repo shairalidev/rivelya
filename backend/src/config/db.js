@@ -1,6 +1,9 @@
 import mongoose from 'mongoose';
+import dotenv from 'dotenv';    
 
-const uri = process.env.MONGO_URI;
+dotenv.config();
+
+const uri = process.env.MONGO_URI || dotenv.config().parsed.MONGO_URI;
 if (!uri) {
   console.error('MONGO_URI missing');
   process.exit(1);

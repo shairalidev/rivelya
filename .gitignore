@@ -17,13 +17,7 @@ Thumbs.db
 # =========================================================
 # Environment files (critical: DO NOT COMMIT SECRETS)
 # =========================================================
-.env
-.env.local
-.env.development.local
-.env.production.local
-.env.test.local
-backend/.env
-frontend/.env
+
 
 # =========================================================
 # Node / NPM / PNPM / Yarn
