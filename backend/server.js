@@ -30,7 +30,8 @@ if (!process.env.MONGO_URI) {
 
 // Import application AFTER env is loaded
 import http from 'http';
-import { app } from './src/app.js';
+
+const { app } = await import('./src/app.js');
 
 const port = process.env.PORT || 8080;
 const server = http.createServer(app);
