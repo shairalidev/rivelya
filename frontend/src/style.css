@@ -184,12 +184,42 @@ a { color: inherit; text-decoration: none; }
 .mobile-auth .auth-avatar {
   width: 100%;
   flex-direction: column;
-  align-items: flex-start;
-  gap: 1rem;
+  align-items: stretch;
+  gap: 0.75rem;
 }
 
-.mobile-auth .auth-dropdown {
+.mobile-auth .avatar-trigger {
   width: 100%;
+  justify-content: space-between;
+  padding: 0.75rem 1rem;
+  border-radius: var(--radius-md);
+  background: rgba(255, 255, 255, 0.06);
+  border: 1px solid rgba(138, 153, 198, 0.28);
+}
+
+.mobile-auth .avatar-trigger:hover {
+  background: rgba(255, 255, 255, 0.12);
+}
+
+.mobile-auth .auth-avatar .auth-dropdown {
+  position: static;
+  width: 100%;
+  box-shadow: none;
+  padding: 1rem;
+  border-radius: var(--radius-md);
+  opacity: 1;
+  visibility: visible;
+  pointer-events: auto;
+  transform: none;
+  display: none;
+}
+
+.mobile-auth .auth-avatar .auth-dropdown::before {
+  display: none;
+}
+
+.mobile-auth .auth-avatar.open .auth-dropdown {
+  display: flex;
 }
 
 .mobile-auth .auth-buttons {
@@ -202,8 +232,8 @@ a { color: inherit; text-decoration: none; }
 }
 
 .mobile-auth .auth-avatar .avatar-circle {
-  width: 48px;
-  height: 48px;
+  width: 44px;
+  height: 44px;
 }
 
 .mobile-auth .auth-buttons .btn.ghost {
@@ -281,19 +311,38 @@ body.nav-open {
 
 
 .auth-avatar {
+  position: relative;
   display: flex;
   align-items: center;
-  gap: 0.9rem;
-  padding: 0.4rem 0.65rem;
+}
+
+.avatar-trigger {
+  border: none;
   background: rgba(17, 24, 38, 0.65);
-  border-radius: 18px;
   border: 1px solid rgba(138, 153, 198, 0.24);
-  min-width: 240px;
+  border-radius: 999px;
+  padding: 0.25rem 0.4rem 0.25rem 0.25rem;
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  cursor: pointer;
+  transition: background 0.2s ease, border-color 0.2s ease, transform 0.2s ease;
+}
+
+.avatar-trigger:hover {
+  background: rgba(17, 24, 38, 0.82);
+  border-color: rgba(138, 153, 198, 0.38);
+  transform: translateY(-1px);
+}
+
+.avatar-trigger:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
 }
 
 .avatar-circle {
-  width: 42px;
-  height: 42px;
+  width: 40px;
+  height: 40px;
   border-radius: 50%;
   background: linear-gradient(135deg, var(--brand), var(--accent));
   display: grid;
@@ -309,20 +358,106 @@ body.nav-open {
   object-fit: cover;
 }
 
+.avatar-caret {
+  width: 0;
+  height: 0;
+  border-left: 5px solid transparent;
+  border-right: 5px solid transparent;
+  border-top: 6px solid rgba(152, 165, 199, 0.8);
+  transition: transform 0.2s ease;
+}
+
+.auth-avatar.open .avatar-caret {
+  transform: rotate(180deg);
+}
+
 .auth-dropdown {
+  position: absolute;
+  top: calc(100% + 12px);
+  right: 0;
+  width: min(280px, 78vw);
   display: flex;
   flex-direction: column;
-  gap: 0.35rem;
+  gap: 0.75rem;
+  background: rgba(12, 18, 30, 0.96);
+  border: 1px solid rgba(98, 114, 158, 0.35);
+  border-radius: 18px;
+  box-shadow: 0 25px 60px -30px rgba(6, 8, 18, 0.75);
+  padding: 1.1rem;
+  opacity: 0;
+  visibility: hidden;
+  pointer-events: none;
+  transform: translateY(-6px);
+  transition: opacity 0.2s ease, transform 0.2s ease;
+  z-index: 60;
+}
+
+.auth-avatar.open .auth-dropdown {
+  opacity: 1;
+  visibility: visible;
+  pointer-events: auto;
+  transform: translateY(0);
+}
+
+.auth-dropdown::before {
+  content: '';
+  position: absolute;
+  top: -6px;
+  right: 24px;
+  width: 12px;
+  height: 12px;
+  background: inherit;
+  border-left: 1px solid rgba(98, 114, 158, 0.35);
+  border-top: 1px solid rgba(98, 114, 158, 0.35);
+  transform: rotate(45deg);
+}
+
+.auth-dropdown-header {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
 }
 
 .auth-name {
+  margin: 0;
   font-weight: 700;
   color: var(--text);
 }
 
 .auth-email {
+  margin: 0;
   font-size: 0.85rem;
   color: var(--muted);
+}
+
+.auth-divider {
+  height: 1px;
+  background: rgba(152, 165, 199, 0.18);
+  border-radius: 999px;
+}
+
+.auth-dropdown-actions {
+  display: flex;
+  flex-direction: column;
+  gap: 0.4rem;
+}
+
+.dropdown-link {
+  padding: 0.55rem 0.75rem;
+  border-radius: 12px;
+  background: rgba(255, 255, 255, 0.04);
+  font-weight: 600;
+  color: var(--text);
+  transition: background 0.2s ease, transform 0.2s ease;
+}
+
+.dropdown-link:hover {
+  background: rgba(255, 255, 255, 0.08);
+  transform: translateX(2px);
+}
+
+.btn.full-width {
+  width: 100%;
 }
 
 .subnav-wrapper {

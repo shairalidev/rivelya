@@ -1,5 +1,5 @@
 import { Link, NavLink, Outlet, useLocation, useNavigate } from 'react-router-dom';
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 
 const navItems = [
   { label: 'Esperienza', to: '/', exact: true },
@@ -20,6 +20,8 @@ export default function Layout() {
   const location = useLocation();
   const navigate = useNavigate();
   const [menuOpen, setMenuOpen] = useState(false);
+  const [profileOpen, setProfileOpen] = useState(false);
+  const profileRef = useRef(null);
   const [user, setUser] = useState(() => {
     try {
       const raw = localStorage.getItem('user');
@@ -57,6 +59,7 @@ export default function Layout() {
       window.scrollTo({ top: 0, behavior: 'smooth' });
     }
     setMenuOpen(false);
+    setProfileOpen(false);
   }, [location.pathname, location.hash]);
 
   useEffect(() => {
@@ -80,12 +83,46 @@ export default function Layout() {
     document.body.classList.remove('nav-open');
   }, []);
 
+  useEffect(() => {
+    if (!profileOpen) return undefined;
+
+    const handlePointer = event => {
+      if (profileRef.current && !profileRef.current.contains(event.target)) {
+        setProfileOpen(false);
+      }
+    };
+
+    const handleKey = event => {
+      if (event.key === 'Escape') {
+        setProfileOpen(false);
+      }
+    };
+
+    window.addEventListener('mousedown', handlePointer);
+    window.addEventListener('touchstart', handlePointer);
+    window.addEventListener('keydown', handleKey);
+
+    return () => {
+      window.removeEventListener('mousedown', handlePointer);
+      window.removeEventListener('touchstart', handlePointer);
+      window.removeEventListener('keydown', handleKey);
+    };
+  }, [profileOpen]);
+
   const toggleMenu = () => {
     setMenuOpen(prev => !prev);
   };
 
   const closeMenu = () => {
     setMenuOpen(false);
+  };
+
+  const toggleProfileMenu = () => {
+    setProfileOpen(prev => !prev);
+  };
+
+  const closeProfileMenu = () => {
+    setProfileOpen(false);
   };
 
   const logout = () => {
@@ -119,29 +156,58 @@ export default function Layout() {
     }
   };
 
+  const handleProfileNavigation = () => {
+    handleNavClick();
+    closeProfileMenu();
+  };
+
   const authControls = user ? (
-    <div className="auth-avatar">
-      {user.avatarUrl ? (
-        <span className="avatar-circle avatar-image">
-          <img src={user.avatarUrl} alt={user.displayName || user.email} />
-        </span>
-      ) : (
-        <span className="avatar-circle">{(user.displayName || user.email)?.slice(0, 2).toUpperCase()}</span>
-      )}
-      <div className="auth-dropdown">
-        <p className="auth-name">{user.displayName || user.email}</p>
-        <p className="auth-email">{user.email}</p>
-        <div className="auth-buttons">
-          <Link to="/profile" className="btn ghost" onClick={handleNavClick}>
+    <div className={`auth-avatar${profileOpen ? ' open' : ''}`} ref={profileRef}>
+      <button
+        type="button"
+        className="avatar-trigger"
+        aria-haspopup="true"
+        aria-expanded={profileOpen}
+        aria-label="Menu utente"
+        onClick={toggleProfileMenu}
+      >
+        {user.avatarUrl ? (
+          <span className="avatar-circle avatar-image">
+            <img src={user.avatarUrl} alt={user.displayName || user.email} />
+          </span>
+        ) : (
+          <span className="avatar-circle">{(user.displayName || user.email)?.slice(0, 2).toUpperCase()}</span>
+        )}
+        <span className="avatar-caret" aria-hidden="true" />
+      </button>
+      <div className="auth-dropdown" role="menu">
+        <div className="auth-dropdown-header">
+          <p className="auth-name">{user.displayName || user.email}</p>
+          <p className="auth-email">{user.email}</p>
+        </div>
+        <div className="auth-divider" aria-hidden="true" />
+        <div className="auth-dropdown-actions">
+          <Link to="/profile" className="dropdown-link" onClick={handleProfileNavigation}>
             Profilo
           </Link>
-          <Link to="/wallet" className="btn ghost" onClick={handleNavClick}>
+          <Link to="/wallet" className="dropdown-link" onClick={handleProfileNavigation}>
             Wallet
           </Link>
-          <button type="button" className="btn outline" onClick={() => { logout(); closeMenu(); }}>
-            Esci
-          </button>
+          <Link to="/settings" className="dropdown-link" onClick={handleProfileNavigation}>
+            Impostazioni
+          </Link>
         </div>
+        <button
+          type="button"
+          className="btn outline full-width"
+          onClick={() => {
+            logout();
+            closeMenu();
+            closeProfileMenu();
+          }}
+        >
+          Esci
+        </button>
       </div>
     </div>
   ) : (
