@@ -19,6 +19,7 @@ const catalogNav = [
 export default function Layout() {
   const location = useLocation();
   const navigate = useNavigate();
+  const [menuOpen, setMenuOpen] = useState(false);
   const [user, setUser] = useState(() => {
     try {
       const raw = localStorage.getItem('user');
@@ -55,7 +56,37 @@ export default function Layout() {
     } else {
       window.scrollTo({ top: 0, behavior: 'smooth' });
     }
+    setMenuOpen(false);
   }, [location.pathname, location.hash]);
+
+  useEffect(() => {
+    document.body.classList.toggle('nav-open', menuOpen);
+
+    if (!menuOpen) return undefined;
+
+    const onKeyDown = event => {
+      if (event.key === 'Escape') {
+        setMenuOpen(false);
+      }
+    };
+
+    window.addEventListener('keydown', onKeyDown);
+    return () => {
+      window.removeEventListener('keydown', onKeyDown);
+    };
+  }, [menuOpen]);
+
+  useEffect(() => () => {
+    document.body.classList.remove('nav-open');
+  }, []);
+
+  const toggleMenu = () => {
+    setMenuOpen(prev => !prev);
+  };
+
+  const closeMenu = () => {
+    setMenuOpen(false);
+  };
 
   const logout = () => {
     localStorage.removeItem('token');
@@ -82,6 +113,48 @@ export default function Layout() {
     return false;
   };
 
+  const handleNavClick = () => {
+    if (menuOpen) {
+      closeMenu();
+    }
+  };
+
+  const authControls = user ? (
+    <div className="auth-avatar">
+      {user.avatarUrl ? (
+        <span className="avatar-circle avatar-image">
+          <img src={user.avatarUrl} alt={user.displayName || user.email} />
+        </span>
+      ) : (
+        <span className="avatar-circle">{(user.displayName || user.email)?.slice(0, 2).toUpperCase()}</span>
+      )}
+      <div className="auth-dropdown">
+        <p className="auth-name">{user.displayName || user.email}</p>
+        <p className="auth-email">{user.email}</p>
+        <div className="auth-buttons">
+          <Link to="/profile" className="btn ghost" onClick={handleNavClick}>
+            Profilo
+          </Link>
+          <Link to="/wallet" className="btn ghost" onClick={handleNavClick}>
+            Wallet
+          </Link>
+          <button type="button" className="btn outline" onClick={() => { logout(); closeMenu(); }}>
+            Esci
+          </button>
+        </div>
+      </div>
+    </div>
+  ) : (
+    <div className="auth-buttons">
+      <Link to="/login" className="btn ghost" onClick={handleNavClick}>
+        Accedi
+      </Link>
+      <Link to="/register" className="btn primary" onClick={handleNavClick}>
+        Inizia ora
+      </Link>
+    </div>
+  );
+
   return (
     <div className="app-shell">
       <div className="app-glow" aria-hidden="true" />
@@ -91,10 +164,24 @@ export default function Layout() {
             <span className="brand-mark">Rivelya</span>
             <span className="brand-sub">Consulenze in tempo reale</span>
           </Link>
+          <button
+            type="button"
+            className="menu-toggle"
+            aria-expanded={menuOpen}
+            aria-controls="mobile-navigation"
+            onClick={toggleMenu}
+          >
+            <span className="menu-icon" aria-hidden="true">
+              <span />
+              <span />
+              <span />
+            </span>
+            <span className="menu-label">Menu</span>
+          </button>
           <nav className="primary-nav">
             {navItems.map(item =>
               item.anchor ? (
-                <Link key={item.label} to={item.to} className="nav-link">
+                <Link key={item.label} to={item.to} className="nav-link" onClick={handleNavClick}>
                   {item.label}
                 </Link>
               ) : (
@@ -103,39 +190,49 @@ export default function Layout() {
                   to={item.to}
                   end={item.exact}
                   className={({ isActive }) => `nav-link${isActive ? ' active' : ''}`}
+                  onClick={handleNavClick}
                 >
                   {item.label}
                 </NavLink>
               )
             )}
           </nav>
-          <div className="auth-actions">
-            {user ? (
-              <div className="auth-avatar">
-                {user.avatarUrl ? (
-                  <span className="avatar-circle avatar-image">
-                    <img src={user.avatarUrl} alt={user.displayName || user.email} />
-                  </span>
-                ) : (
-                  <span className="avatar-circle">{(user.displayName || user.email)?.slice(0, 2).toUpperCase()}</span>
-                )}
-                <div className="auth-dropdown">
-                  <p className="auth-name">{user.displayName || user.email}</p>
-                  <p className="auth-email">{user.email}</p>
-                  <div className="auth-buttons">
-                    <Link to="/profile" className="btn ghost">Profilo</Link>
-                    <Link to="/wallet" className="btn ghost">Wallet</Link>
-                    <button type="button" className="btn outline" onClick={logout}>Esci</button>
-                  </div>
-                </div>
-              </div>
-            ) : (
-              <div className="auth-buttons">
-                <Link to="/login" className="btn ghost">Accedi</Link>
-                <Link to="/register" className="btn primary">Inizia ora</Link>
-              </div>
-            )}
+          <div className="auth-actions">{authControls}</div>
+        </div>
+        <div
+          className={`mobile-nav${menuOpen ? ' open' : ''}`}
+          id="mobile-navigation"
+          aria-hidden={!menuOpen}
+          role="dialog"
+          aria-modal="true"
+          aria-labelledby="mobile-nav-title"
+        >
+          <div className="mobile-nav-header">
+            <p className="mobile-nav-title" id="mobile-nav-title">Navigazione</p>
+            <button type="button" className="menu-close" onClick={closeMenu} aria-label="Chiudi menu">
+              <span aria-hidden="true">×</span>
+            </button>
           </div>
+          <nav className="mobile-nav-links">
+            {navItems.map(item =>
+              item.anchor ? (
+                <Link key={item.label} to={item.to} className="nav-link" onClick={handleNavClick}>
+                  {item.label}
+                </Link>
+              ) : (
+                <NavLink
+                  key={item.label}
+                  to={item.to}
+                  end={item.exact}
+                  className={({ isActive }) => `nav-link${isActive ? ' active' : ''}`}
+                  onClick={handleNavClick}
+                >
+                  {item.label}
+                </NavLink>
+              )
+            )}
+          </nav>
+          <div className="mobile-auth">{authControls}</div>
         </div>
         {isCatalog && (
           <div className="container subnav-wrapper">
