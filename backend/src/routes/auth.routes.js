@@ -117,8 +117,17 @@ router.post('/login', async (req, res, next) => {
     if (!user) return res.status(401).json({ message: 'Invalid credentials' });
     const ok = await user.comparePassword(password);
     if (!ok) return res.status(401).json({ message: 'Invalid credentials' });
-    if (!user.is_email_verified) {
+
+    const isEmailVerified = typeof user.is_email_verified === 'boolean'
+      ? user.is_email_verified
+      : true;
+
+    if (!isEmailVerified) {
       return res.status(403).json({ message: 'Verifica la tua email per accedere.' });
+    }
+    if (typeof user.is_email_verified !== 'boolean') {
+      user.is_email_verified = true;
+      await user.save();
     }
     const token = jwt.sign({ sub: user._id }, process.env.JWT_SECRET, { expiresIn: process.env.JWT_EXPIRES_IN || '7d' });
     res.json({ token, user: serializeUser(user) });
