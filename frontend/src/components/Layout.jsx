@@ -58,6 +58,7 @@ export default function Layout() {
     } else {
       window.scrollTo({ top: 0, behavior: 'smooth' });
     }
+    // Close menus after route changes
     setMenuOpen(false);
     setProfileOpen(false);
   }, [location.pathname, location.hash]);
@@ -109,21 +110,10 @@ export default function Layout() {
     };
   }, [profileOpen]);
 
-  const toggleMenu = () => {
-    setMenuOpen(prev => !prev);
-  };
-
-  const closeMenu = () => {
-    setMenuOpen(false);
-  };
-
-  const toggleProfileMenu = () => {
-    setProfileOpen(prev => !prev);
-  };
-
-  const closeProfileMenu = () => {
-    setProfileOpen(false);
-  };
+  const toggleMenu = () => setMenuOpen(prev => !prev);
+  const closeMenu = () => setMenuOpen(false);
+  const toggleProfileMenu = () => setProfileOpen(prev => !prev);
+  const closeProfileMenu = () => setProfileOpen(false);
 
   const logout = () => {
     localStorage.removeItem('token');
@@ -151,15 +141,15 @@ export default function Layout() {
   };
 
   const handleNavClick = () => {
-    if (menuOpen) {
-      closeMenu();
-    }
+    if (menuOpen) closeMenu();
   };
 
-  const handleProfileNavigation = to => () => {
-    closeMenu();
-    closeProfileMenu();
+  // Critical fix: navigate on mousedown so the route change happens before the global mousedown closer unmounts the dropdown
+  const handleProfileNavMouseDown = to => e => {
+    e.preventDefault();
+    e.stopPropagation();
     navigate(to);
+    // Menus will close via the location effect
   };
 
   const authControls = user ? (
@@ -181,30 +171,53 @@ export default function Layout() {
         )}
         <span className="avatar-caret" aria-hidden="true" />
       </button>
-      <div className="auth-dropdown" role="menu">
+
+      {/* Stop outside-closer from eating events inside the dropdown */}
+      <div
+        className="auth-dropdown"
+        role="menu"
+        onMouseDown={e => e.stopPropagation()}
+        onTouchStart={e => e.stopPropagation()}
+      >
         <div className="auth-dropdown-header">
           <p className="auth-name">{user.displayName || user.email}</p>
           <p className="auth-email">{user.email}</p>
         </div>
         <div className="auth-divider" aria-hidden="true" />
         <div className="auth-dropdown-actions">
-          <Link to="/profile" role="menuitem" className="dropdown-link" onClick={handleProfileNavigation('/profile')}>
+          {/* Use onMouseDown to navigate deterministically */}
+          <Link
+            to="/profile"
+            role="menuitem"
+            className="dropdown-link"
+            onMouseDown={handleProfileNavMouseDown('/profile')}
+          >
             Profilo
           </Link>
-          <Link to="/wallet" role="menuitem" className="dropdown-link" onClick={handleProfileNavigation('/wallet')}>
+          <Link
+            to="/wallet"
+            role="menuitem"
+            className="dropdown-link"
+            onMouseDown={handleProfileNavMouseDown('/wallet')}
+          >
             Wallet
           </Link>
-          <Link to="/settings" role="menuitem" className="dropdown-link" onClick={handleProfileNavigation('/settings')}>
+          <Link
+            to="/settings"
+            role="menuitem"
+            className="dropdown-link"
+            onMouseDown={handleProfileNavMouseDown('/settings')}
+          >
             Impostazioni
           </Link>
         </div>
         <button
           type="button"
           className="btn outline full-width"
-          onClick={() => {
+          onMouseDown={e => {
+            e.preventDefault();
+            e.stopPropagation();
             logout();
-            closeMenu();
-            closeProfileMenu();
           }}
         >
           Esci
@@ -266,6 +279,7 @@ export default function Layout() {
           </nav>
           <div className="auth-actions">{authControls}</div>
         </div>
+
         <div className={`mobile-nav${menuOpen ? ' open' : ''}`} aria-hidden={!menuOpen}>
           <div className="mobile-nav-backdrop" onClick={closeMenu} role="presentation" />
           <div
@@ -303,6 +317,7 @@ export default function Layout() {
             <div className="mobile-auth">{authControls}</div>
           </div>
         </div>
+
         {isCatalog && (
           <div className="container subnav-wrapper">
             <div className="subnav">
@@ -322,9 +337,11 @@ export default function Layout() {
           </div>
         )}
       </header>
+
       <main className="main">
         <Outlet />
       </main>
+
       <footer className="footer">
         <div className="container footer-top">
           <div className="footer-brand">
