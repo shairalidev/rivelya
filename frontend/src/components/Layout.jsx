@@ -1,5 +1,5 @@
 import { Link, NavLink, Outlet, useLocation, useNavigate } from 'react-router-dom';
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { forwardRef, useEffect, useMemo, useRef, useState } from 'react';
 
 const navItems = [
   { label: 'Esperienza', to: '/', exact: true },
@@ -21,7 +21,8 @@ export default function Layout() {
   const navigate = useNavigate();
   const [menuOpen, setMenuOpen] = useState(false);
   const [profileOpen, setProfileOpen] = useState(false);
-  const profileRef = useRef(null);
+  const desktopProfileRef = useRef(null);
+  const mobileProfileRef = useRef(null);
   const [user, setUser] = useState(() => {
     try {
       const raw = localStorage.getItem('user');
@@ -87,7 +88,10 @@ export default function Layout() {
     if (!profileOpen) return undefined;
 
     const handlePointer = event => {
-      if (profileRef.current && !profileRef.current.contains(event.target)) {
+      const desktopContains = desktopProfileRef.current?.contains(event.target);
+      const mobileContains = mobileProfileRef.current?.contains(event.target);
+
+      if (!desktopContains && !mobileContains) {
         setProfileOpen(false);
       }
     };
@@ -156,74 +160,31 @@ export default function Layout() {
     }
   };
 
-  const handleProfileNavigation = to => event => {
-    if (event?.preventDefault) {
-      event.preventDefault();
-    }
+  const handleProfileNavigation = to => {
     closeMenu();
     closeProfileMenu();
     navigate(to);
   };
 
-  const authControls = user ? (
-    <div className={`auth-avatar${profileOpen ? ' open' : ''}`} ref={profileRef}>
-      <button
-        type="button"
-        className="avatar-trigger"
-        aria-haspopup="true"
-        aria-expanded={profileOpen}
-        aria-label="Menu utente"
-        onClick={toggleProfileMenu}
-      >
-        {user.avatarUrl ? (
-          <span className="avatar-circle avatar-image">
-            <img src={user.avatarUrl} alt={user.displayName || user.email} />
-          </span>
-        ) : (
-          <span className="avatar-circle">{(user.displayName || user.email)?.slice(0, 2).toUpperCase()}</span>
-        )}
-        <span className="avatar-caret" aria-hidden="true" />
-      </button>
-      <div className="auth-dropdown" role="menu">
-        <div className="auth-dropdown-header">
-          <p className="auth-name">{user.displayName || user.email}</p>
-          <p className="auth-email">{user.email}</p>
-        </div>
-        <div className="auth-divider" aria-hidden="true" />
-        <div className="auth-dropdown-actions">
-          <Link to="/profile" role="menuitem" className="dropdown-link" onClick={handleProfileNavigation('/profile')}>
-            Profilo
-          </Link>
-          <Link to="/wallet" role="menuitem" className="dropdown-link" onClick={handleProfileNavigation('/wallet')}>
-            Wallet
-          </Link>
-          <Link to="/settings" role="menuitem" className="dropdown-link" onClick={handleProfileNavigation('/settings')}>
-            Impostazioni
-          </Link>
-        </div>
-        <button
-          type="button"
-          className="btn outline full-width"
-          onClick={() => {
-            logout();
-            closeMenu();
-            closeProfileMenu();
-          }}
-        >
-          Esci
-        </button>
-      </div>
-    </div>
-  ) : (
-    <div className="auth-buttons">
-      <Link to="/login" className="btn ghost" onClick={handleNavClick}>
-        Accedi
-      </Link>
-      <Link to="/register" className="btn primary" onClick={handleNavClick}>
-        Inizia ora
-      </Link>
-    </div>
-  );
+  const handleLogout = () => {
+    logout();
+    closeMenu();
+    closeProfileMenu();
+  };
+
+  const renderAuthControls = ref =>
+    user ? (
+      <AuthDropdown
+        ref={ref}
+        user={user}
+        profileOpen={profileOpen}
+        toggleProfileMenu={toggleProfileMenu}
+        onNavigate={handleProfileNavigation}
+        onLogout={handleLogout}
+      />
+    ) : (
+      <AuthButtons onNavClick={handleNavClick} />
+    );
 
   return (
     <div className="app-shell">
@@ -267,42 +228,44 @@ export default function Layout() {
               )
             )}
           </nav>
-          <div className="auth-actions">{authControls}</div>
+          <div className="auth-actions">{renderAuthControls(desktopProfileRef)}</div>
         </div>
-        <div
-          className={`mobile-nav${menuOpen ? ' open' : ''}`}
-          id="mobile-navigation"
-          aria-hidden={!menuOpen}
-          role="dialog"
-          aria-modal="true"
-          aria-labelledby="mobile-nav-title"
-        >
-          <div className="mobile-nav-header">
-            <p className="mobile-nav-title" id="mobile-nav-title">Navigazione</p>
-            <button type="button" className="menu-close" onClick={closeMenu} aria-label="Chiudi menu">
-              <span aria-hidden="true">×</span>
-            </button>
+        <div className={`mobile-nav${menuOpen ? ' open' : ''}`} aria-hidden={!menuOpen}>
+          <div className="mobile-nav-backdrop" onClick={closeMenu} role="presentation" />
+          <div
+            className="mobile-nav-panel"
+            id="mobile-navigation"
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="mobile-nav-title"
+          >
+            <div className="mobile-nav-header">
+              <p className="mobile-nav-title" id="mobile-nav-title">Navigazione</p>
+              <button type="button" className="menu-close" onClick={closeMenu} aria-label="Chiudi menu">
+                <span aria-hidden="true">×</span>
+              </button>
+            </div>
+            <nav className="mobile-nav-links">
+              {navItems.map(item =>
+                item.anchor ? (
+                  <Link key={item.label} to={item.to} className="nav-link" onClick={handleNavClick}>
+                    {item.label}
+                  </Link>
+                ) : (
+                  <NavLink
+                    key={item.label}
+                    to={item.to}
+                    end={item.exact}
+                    className={({ isActive }) => `nav-link${isActive ? ' active' : ''}`}
+                    onClick={handleNavClick}
+                  >
+                    {item.label}
+                  </NavLink>
+                )
+              )}
+            </nav>
+            <div className="mobile-auth">{renderAuthControls(mobileProfileRef)}</div>
           </div>
-          <nav className="mobile-nav-links">
-            {navItems.map(item =>
-              item.anchor ? (
-                <Link key={item.label} to={item.to} className="nav-link" onClick={handleNavClick}>
-                  {item.label}
-                </Link>
-              ) : (
-                <NavLink
-                  key={item.label}
-                  to={item.to}
-                  end={item.exact}
-                  className={({ isActive }) => `nav-link${isActive ? ' active' : ''}`}
-                  onClick={handleNavClick}
-                >
-                  {item.label}
-                </NavLink>
-              )
-            )}
-          </nav>
-          <div className="mobile-auth">{authControls}</div>
         </div>
         {isCatalog && (
           <div className="container subnav-wrapper">
@@ -365,6 +328,67 @@ export default function Layout() {
           </div>
         </div>
       </footer>
+    </div>
+  );
+}
+
+const AuthDropdown = forwardRef(function AuthDropdown(
+  { user, profileOpen, toggleProfileMenu, onNavigate, onLogout },
+  ref
+) {
+  return (
+    <div className={`auth-avatar${profileOpen ? ' open' : ''}`} ref={ref}>
+      <button
+        type="button"
+        className="avatar-trigger"
+        aria-haspopup="true"
+        aria-expanded={profileOpen}
+        aria-label="Menu utente"
+        onClick={toggleProfileMenu}
+      >
+        {user.avatarUrl ? (
+          <span className="avatar-circle avatar-image">
+            <img src={user.avatarUrl} alt={user.displayName || user.email} />
+          </span>
+        ) : (
+          <span className="avatar-circle">{(user.displayName || user.email)?.slice(0, 2).toUpperCase()}</span>
+        )}
+        <span className="avatar-caret" aria-hidden="true" />
+      </button>
+      <div className="auth-dropdown" role="menu">
+        <div className="auth-dropdown-header">
+          <p className="auth-name">{user.displayName || user.email}</p>
+          <p className="auth-email">{user.email}</p>
+        </div>
+        <div className="auth-divider" aria-hidden="true" />
+        <div className="auth-dropdown-actions">
+          <Link to="/profile" role="menuitem" className="dropdown-link" onClick={() => onNavigate('/profile')}>
+            Profilo
+          </Link>
+          <Link to="/wallet" role="menuitem" className="dropdown-link" onClick={() => onNavigate('/wallet')}>
+            Wallet
+          </Link>
+          <Link to="/settings" role="menuitem" className="dropdown-link" onClick={() => onNavigate('/settings')}>
+            Impostazioni
+          </Link>
+        </div>
+        <button type="button" className="btn outline full-width" onClick={onLogout}>
+          Esci
+        </button>
+      </div>
+    </div>
+  );
+});
+
+function AuthButtons({ onNavClick }) {
+  return (
+    <div className="auth-buttons">
+      <Link to="/login" className="btn ghost" onClick={onNavClick}>
+        Accedi
+      </Link>
+      <Link to="/register" className="btn primary" onClick={onNavClick}>
+        Inizia ora
+      </Link>
     </div>
   );
 }
