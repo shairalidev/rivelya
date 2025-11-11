@@ -1,4 +1,29 @@
-import '../config/db.js';
+#!/usr/bin/env node
+import dotenv from 'dotenv';
+import path from 'path';
+import { fileURLToPath } from 'url';
+
+// Resolve __dirname
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
+
+// Always load .env from backend root
+const envPath = path.resolve(process.cwd(), '.env');
+dotenv.config({ path: envPath });
+
+console.log("✅ Loaded .env from:", envPath);
+console.log("MONGO_URI =>", process.env.MONGO_URI);
+
+// Validate
+if (!process.env.MONGO_URI) {
+  console.error("❌ MONGO_URI missing. Check .env file.");
+  process.exit(1);
+}
+
+// ✅ IMPORT DB *AFTER* dotenv is loaded
+await import('../config/db.js');
+
+// ✅ Now import models
 import { Master } from '../models/master.model.js';
 import { User } from '../models/user.model.js';
 import { Wallet } from '../models/wallet.model.js';
@@ -6,6 +31,8 @@ import { Transaction } from '../models/transaction.model.js';
 import { Session } from '../models/session.model.js';
 import { Review } from '../models/review.model.js';
 
+
+// --- Seeder logic starts here ---
 const PASSWORD = process.env.SEED_USER_PASSWORD || 'Rivelya!2024';
 
 const createAccount = async (userPayload, walletPayload = {}) => {
@@ -23,7 +50,7 @@ const createAccount = async (userPayload, walletPayload = {}) => {
 };
 
 try {
-  console.log('Resetting collections...');
+  console.log('🔄 Resetting collections...');
   await Promise.all([
     Master.deleteMany({}),
     User.deleteMany({}),
@@ -33,7 +60,8 @@ try {
     Review.deleteMany({})
   ]);
 
-  console.log('Creating demo users and masters...');
+
+  console.log('✨ Creating demo users and masters...');
 
   const mastersSeed = [
     {
@@ -140,30 +168,32 @@ try {
     }
   ];
 
-  const masterAccounts = [];
-  for (const entry of mastersSeed) {
-    const { account, profile } = entry;
-    const [firstName, ...rest] = profile.display_name.split(' ');
-    const { user, wallet } = await createAccount({
-      email: account.email,
-      password: PASSWORD,
-      phone: account.phone,
-      roles: account.roles,
-      locale: 'it-IT',
-      first_name: account.first_name || firstName,
-      last_name: account.last_name || rest.join(' '),
-      display_name: profile.display_name
-    });
+  // Create master accounts in parallel
+  const masterAccounts = await Promise.all(
+    mastersSeed.map(async (entry) => {
+      const { account, profile } = entry;
+      const [firstName = '', ...rest] = (profile.display_name || '').split(' ');
+      const { user, wallet } = await createAccount({
+        email: account.email,
+        password: PASSWORD,
+        phone: account.phone,
+        roles: account.roles,
+        locale: 'it-IT',
+        first_name: firstName,
+        last_name: rest.join(' '),
+        display_name: profile.display_name
+      });
 
-    const master = await Master.create({
-      user_id: user._id,
-      status: 'active',
-      kyc_level: 'verified',
-      ...profile
-    });
+      const master = await Master.create({
+        user_id: user._id,
+        status: 'active',
+        kyc_level: 'verified',
+        ...profile
+      });
 
-    masterAccounts.push({ master, user, wallet });
-  }
+      return { master, user, wallet };
+    })
+  );
 
   const consumerAccount = await createAccount({
     email: 'client@rivelya.com',
@@ -176,7 +206,7 @@ try {
     display_name: 'Giulia Conti'
   });
 
-  console.log('Generating wallet ledger and sessions...');
+  console.log('🧾 Generating sessions and reviews...');
   const sessions = await Session.create([
     {
       user_id: consumerAccount.user._id,
@@ -233,11 +263,15 @@ try {
   consumerAccount.wallet.balance_cents = finalBalance;
   await consumerAccount.wallet.save();
 
-  console.log('Seed completed successfully.');
-  console.log('Demo consumer -> email: client@rivelya.com | password:', PASSWORD);
-  console.log('Demo master (esempio) -> email: luna@rivelya.com | password:', PASSWORD);
-  process.exit(0);
+  // Double ensure all users are email verified
+  await User.updateMany({}, { $set: { is_email_verified: true } });
+
+  console.log('✅ Seed completed successfully.');
+  console.log('👤 Demo consumer -> email: client@rivelya.com | password:', PASSWORD);
+  console.log('👤 Demo master -> email: luna@rivelya.com | password:', PASSWORD);
+
+  setTimeout(() => process.exit(0), 100);
 } catch (error) {
-  console.error('Seed failed', error);
-  process.exit(1);
+  console.error('❌ Seed failed:', error);
+  setTimeout(() => process.exit(1), 100);
 }
