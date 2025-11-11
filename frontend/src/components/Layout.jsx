@@ -156,10 +156,7 @@ export default function Layout() {
     }
   };
 
-  const handleProfileNavigation = to => event => {
-    if (event?.preventDefault) {
-      event.preventDefault();
-    }
+  const handleProfileNavigation = to => () => {
     closeMenu();
     closeProfileMenu();
     navigate(to);
@@ -269,40 +266,42 @@ export default function Layout() {
           </nav>
           <div className="auth-actions">{authControls}</div>
         </div>
-        <div
-          className={`mobile-nav${menuOpen ? ' open' : ''}`}
-          id="mobile-navigation"
-          aria-hidden={!menuOpen}
-          role="dialog"
-          aria-modal="true"
-          aria-labelledby="mobile-nav-title"
-        >
-          <div className="mobile-nav-header">
-            <p className="mobile-nav-title" id="mobile-nav-title">Navigazione</p>
-            <button type="button" className="menu-close" onClick={closeMenu} aria-label="Chiudi menu">
-              <span aria-hidden="true">×</span>
-            </button>
+        <div className={`mobile-nav${menuOpen ? ' open' : ''}`} aria-hidden={!menuOpen}>
+          <div className="mobile-nav-backdrop" onClick={closeMenu} role="presentation" />
+          <div
+            className="mobile-nav-panel"
+            id="mobile-navigation"
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="mobile-nav-title"
+          >
+            <div className="mobile-nav-header">
+              <p className="mobile-nav-title" id="mobile-nav-title">Navigazione</p>
+              <button type="button" className="menu-close" onClick={closeMenu} aria-label="Chiudi menu">
+                <span aria-hidden="true">×</span>
+              </button>
+            </div>
+            <nav className="mobile-nav-links">
+              {navItems.map(item =>
+                item.anchor ? (
+                  <Link key={item.label} to={item.to} className="nav-link" onClick={handleNavClick}>
+                    {item.label}
+                  </Link>
+                ) : (
+                  <NavLink
+                    key={item.label}
+                    to={item.to}
+                    end={item.exact}
+                    className={({ isActive }) => `nav-link${isActive ? ' active' : ''}`}
+                    onClick={handleNavClick}
+                  >
+                    {item.label}
+                  </NavLink>
+                )
+              )}
+            </nav>
+            <div className="mobile-auth">{authControls}</div>
           </div>
-          <nav className="mobile-nav-links">
-            {navItems.map(item =>
-              item.anchor ? (
-                <Link key={item.label} to={item.to} className="nav-link" onClick={handleNavClick}>
-                  {item.label}
-                </Link>
-              ) : (
-                <NavLink
-                  key={item.label}
-                  to={item.to}
-                  end={item.exact}
-                  className={({ isActive }) => `nav-link${isActive ? ' active' : ''}`}
-                  onClick={handleNavClick}
-                >
-                  {item.label}
-                </NavLink>
-              )
-            )}
-          </nav>
-          <div className="mobile-auth">{authControls}</div>
         </div>
         {isCatalog && (
           <div className="container subnav-wrapper">
