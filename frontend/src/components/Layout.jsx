@@ -156,13 +156,9 @@ export default function Layout() {
     }
   };
 
-  const handleProfileNavigation = (to, event) => {
-    if (event) {
-      event.preventDefault();
-    }
+  const handleProfileNavigation = () => {
     closeMenu();
     closeProfileMenu();
-    navigate(to);
   };
 
   const authControls = user ? (
@@ -191,28 +187,13 @@ export default function Layout() {
         </div>
         <div className="auth-divider" aria-hidden="true" />
         <div className="auth-dropdown-actions">
-          <Link
-            to="/profile"
-            role="menuitem"
-            className="dropdown-link"
-            onClick={event => handleProfileNavigation('/profile', event)}
-          >
+          <Link to="/profile" role="menuitem" className="dropdown-link" onClick={handleProfileNavigation}>
             Profilo
           </Link>
-          <Link
-            to="/wallet"
-            role="menuitem"
-            className="dropdown-link"
-            onClick={event => handleProfileNavigation('/wallet', event)}
-          >
+          <Link to="/wallet" role="menuitem" className="dropdown-link" onClick={handleProfileNavigation}>
             Wallet
           </Link>
-          <Link
-            to="/settings"
-            role="menuitem"
-            className="dropdown-link"
-            onClick={event => handleProfileNavigation('/settings', event)}
-          >
+          <Link to="/settings" role="menuitem" className="dropdown-link" onClick={handleProfileNavigation}>
             Impostazioni
           </Link>
         </div>
