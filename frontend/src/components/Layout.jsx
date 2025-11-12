@@ -10,10 +10,9 @@ const navItems = [
 
 const catalogNav = [
   { label: 'Tutti i master', to: '/catalog?sort=rating' },
-  { label: 'Cartomanzia', to: '/catalog?category=cartomanzia' },
-  { label: 'Legale', to: '/catalog?category=legale' },
-  { label: 'Coaching', to: '/catalog?category=coaching' },
-  { label: 'Benessere', to: '/catalog?category=benessere' }
+  { label: 'Cartomancy & Divination', to: '/catalog?category=cartomancy-divination' },
+  { label: 'Spirituality & Intuition', to: '/catalog?category=spirituality-intuition' },
+  { label: 'Inner Wellness & Life Coaching', to: '/catalog?category=inner-wellness-life-coaching' }
 ];
 
 export default function Layout() {
@@ -347,7 +346,7 @@ export default function Layout() {
           <div className="footer-brand">
             <p className="brand-mark">Rivelya</p>
             <p className="footer-copy">
-              Una piattaforma curata di consulenti certificati in cartomanzia, legale, coaching e benessere. Sessioni immediate, trasparenti e sicure.
+              Una piattaforma curata di consulenti certificati in cartomanzia, spiritualità e percorsi di inner wellness. Sessioni immediate, trasparenti e sicure.
             </p>
             <p className="footer-copy">Sede operativa: Via Monte Napoleone 8, Milano</p>
           </div>

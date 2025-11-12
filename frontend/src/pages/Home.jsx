@@ -10,18 +10,18 @@ const stats = [
 
 const pillars = [
   {
-    title: 'Cartomanzia & spiritualità',
-    description: 'Tarocchi evolutivi, astrologia e rituali energetici condotti da professionisti con percorsi certificati.',
+    title: 'Cartomancy & Divination',
+    description: 'Tarocchi, sibille, oracoli, rune e pendolo per risposte chiare e guidate dai migliori cartomanti.',
     icon: '🔮'
   },
   {
-    title: 'Consulenza legale immediata',
-    description: 'Avvocati e fiscalisti per supporto rapido su tutela familiare, contratti e gestione aziendale.',
-    icon: '⚖️'
+    title: 'Spirituality & Intuition',
+    description: "Channeling, letture energetiche, numerologia, missione dell'anima e interpretazione dei sogni per una guida autentica.",
+    icon: '✨'
   },
   {
-    title: 'Coaching & benessere',
-    description: 'Mindset coach, psicologi e mentori per performance, gestione dello stress e benessere mentale.',
+    title: 'Inner Wellness & Life Coaching',
+    description: 'Percorsi di rebalancing, mindfulness, gestione emotiva e law of attraction con coach certificati.',
     icon: '🌿'
   }
 ];
@@ -39,7 +39,7 @@ const testimonials = [
   },
   {
     quote: 'Consulenti affidabili e onboarding impeccabile. Le ricariche istantanee hanno migliorato la nostra retention.',
-    author: 'Luca R., Founder studio legale digitale'
+    author: 'Luca R., Founder community olistica digitale'
   }
 ];
 
@@ -59,7 +59,7 @@ export default function Home() {
           <span className="badge-soft">Rivelya Platform</span>
           <h1>Consulenze professionali on-demand, senza attese.</h1>
           <p className="lead">
-            Attiva in pochi secondi una sessione con cartomanti, avvocati e coach certificati. Ricariche smart, report automatici e supporto 24/7.
+            Attiva in pochi secondi una sessione con cartomanti, guide spirituali e coach del benessere certificati. Ricariche smart, report automatici e supporto 24/7.
           </p>
           <div className="hero-actions">
             <Link to="/catalog" className="btn primary">Esplora i master</Link>
