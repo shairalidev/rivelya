@@ -2,6 +2,7 @@ import { useParams } from 'react-router-dom';
 import { useEffect, useState } from 'react';
 import toast from 'react-hot-toast';
 import client from '../api/client.js';
+import { buildDailySchedule, resolveTimezoneLabel } from '../utils/schedule.js';
 
 export default function MasterProfile() {
   const { id } = useParams();
@@ -68,6 +69,9 @@ export default function MasterProfile() {
 
   const ratingValue = master.kpis?.avg_rating;
   const rating = typeof ratingValue === 'number' ? ratingValue.toFixed(1) : '—';
+  const dailySchedule = buildDailySchedule(master.working_hours);
+  const hasSchedule = dailySchedule.some(day => day.slots.length > 0);
+  const timezoneLabel = resolveTimezoneLabel(master.working_hours);
 
   return (
     <section className="container profile">
@@ -122,6 +126,35 @@ export default function MasterProfile() {
           <p className="muted">Risposte asincrone e follow-up via report dedicato.</p>
           <button className="btn outline" onClick={() => startSession('chat')}>Apri chat</button>
         </div>
+      </div>
+      <div className="schedule-card">
+        <div className="schedule-header">
+          <h2>Disponibilità settimanale</h2>
+          <span className="micro muted">{timezoneLabel}</span>
+        </div>
+        {hasSchedule ? (
+          <ul className="schedule-grid">
+            {dailySchedule.map(day => (
+              <li key={day.day}>
+                <span className="day-label">{day.label}</span>
+                {day.slots.length > 0 ? (
+                  <div className="day-slots">
+                    {day.slots.map((slot, idx) => (
+                      <span key={`${day.day}-${idx}`}>{slot.start} - {slot.end}</span>
+                    ))}
+                  </div>
+                ) : (
+                  <span className="day-slots off">—</span>
+                )}
+              </li>
+            ))}
+          </ul>
+        ) : (
+          <p className="muted">Gli orari di questo master sono disponibili su richiesta. Scrivici per fissare un appuntamento.</p>
+        )}
+        {master.working_hours?.notes && (
+          <p className="micro muted">Note: {master.working_hours.notes}</p>
+        )}
       </div>
     </section>
   );

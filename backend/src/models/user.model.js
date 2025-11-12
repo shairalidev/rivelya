@@ -20,7 +20,9 @@ const userSchema = new mongoose.Schema({
   avatar_key: { type: String },
   is_email_verified: { type: Boolean, default: false },
   email_verification_token: { type: String },
-  email_verification_expires: { type: Date }
+  email_verification_expires: { type: Date },
+  password_reset_token: { type: String },
+  password_reset_expires: { type: Date }
 }, { timestamps: true });
 
 userSchema.pre('save', async function hashPass(next) {
@@ -45,6 +47,18 @@ userSchema.methods.clearEmailVerification = function () {
   this.email_verification_token = undefined;
   this.email_verification_expires = undefined;
   this.is_email_verified = true;
+};
+
+userSchema.methods.createPasswordReset = function () {
+  const token = crypto.randomBytes(48).toString('hex');
+  this.password_reset_token = token;
+  this.password_reset_expires = new Date(Date.now() + 1000 * 60 * 60); // 1h
+  return token;
+};
+
+userSchema.methods.clearPasswordReset = function () {
+  this.password_reset_token = undefined;
+  this.password_reset_expires = undefined;
 };
 
 userSchema.methods.toSafeObject = function () {

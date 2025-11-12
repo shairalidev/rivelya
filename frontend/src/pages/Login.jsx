@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import { Link, useNavigate, useSearchParams } from 'react-router-dom';
 import toast from 'react-hot-toast';
 import client from '../api/client.js';
+import GoogleLoginButton from '../components/GoogleLoginButton.jsx';
 
 export default function Login() {
   const [params] = useSearchParams();
@@ -11,6 +12,7 @@ export default function Login() {
   const [notice, setNotice] = useState('');
   const returnTo = params.get('returnTo');
   const registerLink = returnTo ? `/register?returnTo=${encodeURIComponent(returnTo)}` : '/register';
+  const forgotLink = '/forgot-password';
 
   useEffect(() => {
     const verifyStatus = params.get('verify');
@@ -84,6 +86,15 @@ export default function Login() {
             {loading ? 'Accesso in corso…' : 'Entra in Rivelya'}
           </button>
         </form>
+        <div className="auth-links">
+          <Link to={forgotLink} className="micro">Hai dimenticato la password?</Link>
+        </div>
+        <div className="auth-separator">
+          <span />
+          <p className="micro muted">oppure</p>
+          <span />
+        </div>
+        <GoogleLoginButton onSuccess={() => navigate(returnTo || '/', { replace: true })} />
         <p className="muted">
           Nuovo su Rivelya? <Link to={registerLink}>Crea un account</Link>
         </p>

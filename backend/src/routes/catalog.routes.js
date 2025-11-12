@@ -11,7 +11,7 @@ router.get('/', async (req, res, next) => {
     if (category) q.categories = category;
     if (online === 'true') q.availability = 'online';
 
-    let cursor = Master.find(q).select('media.avatar_url user_id kpis.avg_rating rate_phone_cpm rate_chat_cpm availability categories');
+    let cursor = Master.find(q).select('media.avatar_url display_name headline bio categories languages specialties experience_years rate_phone_cpm rate_chat_cpm availability working_hours kpis');
     if (sort === 'rating') cursor = cursor.sort({ 'kpis.avg_rating': -1 });
     if (sort === 'priceAsc') cursor = cursor.sort({ rate_phone_cpm: 1 });
 
