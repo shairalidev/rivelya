@@ -4,10 +4,9 @@ import client from '../api/client.js';
 
 const categories = [
   { value: 'all', label: 'Tutte le categorie' },
-  { value: 'cartomanzia', label: 'Cartomanzia' },
-  { value: 'legale', label: 'Legale' },
-  { value: 'coaching', label: 'Coaching' },
-  { value: 'benessere', label: 'Benessere' }
+  { value: 'cartomancy-divination', label: 'Cartomancy & Divination' },
+  { value: 'spirituality-intuition', label: 'Spirituality & Intuition' },
+  { value: 'inner-wellness-life-coaching', label: 'Inner Wellness & Life Coaching' }
 ];
 
 const sorts = [

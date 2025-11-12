@@ -3,7 +3,7 @@ import { Master } from '../models/master.model.js';
 
 const router = Router();
 
-// GET /catalog?category=cartomanzia&online=true&sort=rating
+// GET /catalog?category=cartomancy-divination&online=true&sort=rating
 router.get('/', async (req, res, next) => {
   try {
     const { category, online, sort } = req.query;

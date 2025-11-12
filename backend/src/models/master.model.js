@@ -6,7 +6,7 @@ const masterSchema = new mongoose.Schema({
   kyc_level: { type: String, default: 'none' },
   display_name: { type: String, default: '' },
   headline: { type: String, default: '' },
-  categories: { type: [String], index: true }, // cartomanzia, legale, coaching, etc.
+  categories: { type: [String], index: true }, // cartomancy-divination, spirituality-intuition, inner-wellness-life-coaching, etc.
   bio: String,
   specialties: { type: [String], default: [] },
   experience_years: { type: Number, default: 0 },
