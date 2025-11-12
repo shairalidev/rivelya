@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import { useSearchParams, Link } from 'react-router-dom';
 import client from '../api/client.js';
+import { summarizeWorkingHours, resolveTimezoneLabel } from '../utils/schedule.js';
 
 const categories = [
   { value: 'all', label: 'Tutte le categorie' },
@@ -129,6 +130,8 @@ export default function Catalog() {
             {masters.map(master => {
               const ratingValue = master.kpis?.avg_rating;
               const rating = typeof ratingValue === 'number' ? ratingValue.toFixed(1) : '—';
+              const scheduleSummary = summarizeWorkingHours(master.working_hours);
+              const timezoneLabel = resolveTimezoneLabel(master.working_hours);
               return (
                 <article key={master._id} className="master-card">
                   <div className="master-media">
@@ -156,6 +159,7 @@ export default function Catalog() {
                       </div>
                       <Link to={`/masters/${master._id}`} className="btn ghost">Dettagli</Link>
                     </div>
+                    <p className="micro muted schedule-info">Orari: {scheduleSummary}{timezoneLabel ? ` · ${timezoneLabel}` : ''}</p>
                     <p className="micro">{master.experience_years ? `${master.experience_years}+ anni di esperienza · ` : ''}{master.kpis?.review_count || 0} recensioni</p>
                   </div>
                 </article>

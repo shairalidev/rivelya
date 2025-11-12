@@ -1,5 +1,15 @@
 import mongoose from 'mongoose';
 
+const weeklySlotSchema = new mongoose.Schema({
+  day: {
+    type: String,
+    enum: ['monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday', 'sunday'],
+    required: true
+  },
+  start: { type: String, required: true, match: /^\d{2}:\d{2}$/ },
+  end: { type: String, required: true, match: /^\d{2}:\d{2}$/ }
+}, { _id: false });
+
 const masterSchema = new mongoose.Schema({
   user_id: { type: mongoose.Schema.Types.ObjectId, ref: 'User', index: true },
   status: { type: String, enum: ['draft', 'active', 'suspended'], default: 'draft' },
@@ -17,6 +27,11 @@ const masterSchema = new mongoose.Schema({
   media: {
     avatar_url: String,
     intro_video_url: String
+  },
+  working_hours: {
+    timezone: { type: String, default: 'Europe/Rome' },
+    slots: { type: [weeklySlotSchema], default: [] },
+    notes: { type: String, default: '' }
   },
   kpis: {
     lifetime_calls: { type: Number, default: 0 },

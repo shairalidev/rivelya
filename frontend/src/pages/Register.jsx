@@ -5,7 +5,7 @@ import client from '../api/client.js';
 
 export default function Register() {
   const [params] = useSearchParams();
-  const [form, setForm] = useState({ firstName: '', lastName: '', email: '', phone: '', password: '' });
+  const [form, setForm] = useState({ firstName: '', lastName: '', email: '', phone: '', password: '', accountType: 'consumer' });
   const [loading, setLoading] = useState(false);
   const [completed, setCompleted] = useState(false);
   const [sentTo, setSentTo] = useState('');
@@ -60,6 +60,32 @@ export default function Register() {
               Accedi a una rete selezionata di master certificati. Ricariche veloci, cronologia trasparente e prime consulenze con bonus di benvenuto.
             </p>
             <form className="form" onSubmit={submit}>
+              <fieldset className="form-fieldset">
+                <legend>Tipo di account</legend>
+                <div className="account-type-toggle" role="radiogroup" aria-label="Tipo di account">
+                  <button
+                    type="button"
+                    className={`pill${form.accountType === 'consumer' ? ' active' : ''}`}
+                    role="radio"
+                    aria-checked={form.accountType === 'consumer'}
+                    onClick={() => setForm(prev => ({ ...prev, accountType: 'consumer' }))}
+                  >
+                    Cliente
+                  </button>
+                  <button
+                    type="button"
+                    className={`pill${form.accountType === 'master' ? ' active' : ''}`}
+                    role="radio"
+                    aria-checked={form.accountType === 'master'}
+                    onClick={() => setForm(prev => ({ ...prev, accountType: 'master' }))}
+                  >
+                    Master professionista
+                  </button>
+                </div>
+                <p className="micro muted">
+                  I master riceveranno un profilo dedicato con orari configurabili dopo la verifica dell'email.
+                </p>
+              </fieldset>
               <div className="form-grid">
                 <label className="input-label">
                   Nome

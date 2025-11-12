@@ -77,6 +77,16 @@ try {
         rate_phone_cpm: 249,
         rate_chat_cpm: 199,
         availability: 'online',
+        working_hours: {
+          timezone: 'Europe/Rome',
+          slots: [
+            { day: 'monday', start: '09:00', end: '13:00' },
+            { day: 'monday', start: '14:30', end: '18:00' },
+            { day: 'wednesday', start: '10:00', end: '16:00' },
+            { day: 'friday', start: '09:30', end: '14:00' }
+          ],
+          notes: 'Disponibile per rituali personalizzati su appuntamento in fascia serale.'
+        },
         media: { avatar_url: 'https://images.unsplash.com/photo-1545239351-1141bd82e8a6?auto=format&fit=crop&w=640&q=80' },
         kpis: { lifetime_calls: 1824, lifetime_chats: 932, avg_rating: 4.9, review_count: 318 }
       }
@@ -94,6 +104,15 @@ try {
         rate_phone_cpm: 349,
         rate_chat_cpm: 299,
         availability: 'online',
+        working_hours: {
+          timezone: 'Europe/Rome',
+          slots: [
+            { day: 'tuesday', start: '11:00', end: '17:00' },
+            { day: 'thursday', start: '12:00', end: '18:30' },
+            { day: 'saturday', start: '10:00', end: '14:00' }
+          ],
+          notes: 'Sessioni di channeling serali disponibili il giovedì su richiesta.'
+        },
         media: { avatar_url: 'https://images.unsplash.com/photo-1524504388940-b1c1722653e1?auto=format&fit=crop&w=640&q=80' },
         kpis: { lifetime_calls: 956, lifetime_chats: 1204, avg_rating: 4.8, review_count: 276 }
       }
@@ -111,6 +130,15 @@ try {
         rate_phone_cpm: 299,
         rate_chat_cpm: 249,
         availability: 'busy',
+        working_hours: {
+          timezone: 'Europe/Rome',
+          slots: [
+            { day: 'monday', start: '08:30', end: '12:30' },
+            { day: 'tuesday', start: '14:00', end: '19:00' },
+            { day: 'thursday', start: '09:00', end: '13:00' }
+          ],
+          notes: 'Percorsi executive disponibili anche nel weekend previo preavviso.'
+        },
         media: { avatar_url: 'https://images.unsplash.com/photo-1544723795-3fb6469f5b39?auto=format&fit=crop&w=640&q=80' },
         kpis: { lifetime_calls: 1432, lifetime_chats: 2011, avg_rating: 4.7, review_count: 412 }
       }
@@ -128,6 +156,15 @@ try {
         rate_phone_cpm: 329,
         rate_chat_cpm: 289,
         availability: 'online',
+        working_hours: {
+          timezone: 'Europe/Rome',
+          slots: [
+            { day: 'monday', start: '15:00', end: '20:00' },
+            { day: 'wednesday', start: '09:30', end: '13:30' },
+            { day: 'friday', start: '15:00', end: '20:30' }
+          ],
+          notes: 'Disponibile per urgenze ansia/burnout via chat entro 2 ore.'
+        },
         media: { avatar_url: 'https://images.unsplash.com/photo-1524504388940-b1c1722653e1?auto=format&fit=crop&w=640&q=80' },
         kpis: { lifetime_calls: 764, lifetime_chats: 1689, avg_rating: 4.95, review_count: 502 }
       }
@@ -145,6 +182,15 @@ try {
         rate_phone_cpm: 279,
         rate_chat_cpm: 229,
         availability: 'offline',
+        working_hours: {
+          timezone: 'Europe/Rome',
+          slots: [
+            { day: 'tuesday', start: '09:00', end: '12:00' },
+            { day: 'tuesday', start: '16:00', end: '19:00' },
+            { day: 'friday', start: '10:00', end: '18:00' }
+          ],
+          notes: 'Rituali di luna piena prenotabili con almeno 48h di anticipo.'
+        },
         media: { avatar_url: 'https://images.unsplash.com/photo-1545243424-0ce743321e11?auto=format&fit=crop&w=640&q=80' },
         kpis: { lifetime_calls: 2210, lifetime_chats: 1408, avg_rating: 4.6, review_count: 268 }
       }
@@ -162,6 +208,15 @@ try {
         rate_phone_cpm: 309,
         rate_chat_cpm: 259,
         availability: 'online',
+        working_hours: {
+          timezone: 'Europe/Rome',
+          slots: [
+            { day: 'monday', start: '10:00', end: '18:00' },
+            { day: 'wednesday', start: '10:00', end: '18:00' },
+            { day: 'saturday', start: '09:00', end: '12:00' }
+          ],
+          notes: 'Sessioni di mindset serali disponibili il lunedì alle 21:00 su richiesta.'
+        },
         media: { avatar_url: 'https://images.unsplash.com/photo-1545239351-ef35f43d514b?auto=format&fit=crop&w=640&q=80' },
         kpis: { lifetime_calls: 542, lifetime_chats: 873, avg_rating: 4.85, review_count: 189 }
       }

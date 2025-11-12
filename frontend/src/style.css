@@ -895,6 +895,7 @@ body.nav-open {
 }
 
 .price { font-weight: 600; }
+.schedule-info { margin-top: 0.4rem; }
 .micro { font-size: 0.8rem; color: var(--muted); }
 
 .alert {
@@ -1187,6 +1188,67 @@ body.nav-open {
   gap: 1rem;
 }
 
+.schedule-card {
+  padding: 2rem;
+  border-radius: var(--radius-lg);
+  background: rgba(255, 255, 255, 0.04);
+  border: 1px solid rgba(255, 255, 255, 0.06);
+  display: grid;
+  gap: 1.2rem;
+}
+
+.schedule-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  gap: 1rem;
+}
+
+.schedule-grid {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+  display: grid;
+  gap: 0.75rem;
+}
+
+.schedule-grid li {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 1rem;
+  padding-bottom: 0.4rem;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+}
+
+.schedule-grid li:last-child {
+  border-bottom: none;
+}
+
+.day-label {
+  font-weight: 600;
+  min-width: 120px;
+}
+
+.day-slots {
+  display: flex;
+  gap: 0.6rem;
+  flex-wrap: wrap;
+  color: var(--muted);
+}
+
+.day-slots span {
+  background: rgba(255, 255, 255, 0.06);
+  border-radius: 999px;
+  padding: 0.3rem 0.75rem;
+  font-size: 0.85rem;
+}
+
+.day-slots.off {
+  color: rgba(255, 255, 255, 0.4);
+  font-style: italic;
+}
+
 .wallet-grid {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
@@ -1283,6 +1345,32 @@ body.nav-open {
 
 .form { display: grid; gap: 1rem; margin: 2rem 0; }
 
+.form-fieldset {
+  border: 1px solid rgba(255, 255, 255, 0.06);
+  border-radius: var(--radius-md);
+  padding: 1.2rem 1.4rem 1.1rem;
+  display: grid;
+  gap: 0.6rem;
+  background: rgba(255, 255, 255, 0.03);
+}
+
+.form-fieldset legend {
+  font-weight: 700;
+  font-size: 0.95rem;
+  padding: 0 0.4rem;
+}
+
+.account-type-toggle {
+  display: flex;
+  gap: 0.6rem;
+  flex-wrap: wrap;
+}
+
+.account-type-toggle .pill {
+  min-width: 140px;
+  justify-content: center;
+}
+
 .form-grid {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
@@ -1296,6 +1384,40 @@ body.nav-open {
   border: 1px solid var(--border);
   background: rgba(255, 255, 255, 0.05);
   color: var(--text);
+}
+
+.auth-links {
+  display: flex;
+  justify-content: flex-end;
+  margin-top: -0.5rem;
+}
+
+.auth-links .micro {
+  color: var(--muted);
+}
+
+.auth-links .micro:hover {
+  color: var(--text);
+}
+
+.auth-separator {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  margin: 1.4rem 0;
+  color: var(--muted);
+}
+
+.auth-separator span {
+  flex: 1;
+  height: 1px;
+  background: rgba(255, 255, 255, 0.08);
+}
+
+.google-signin {
+  display: flex;
+  justify-content: center;
+  margin-bottom: 1.2rem;
 }
 
 .auth-hint {
