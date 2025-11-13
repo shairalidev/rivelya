@@ -38,7 +38,13 @@ const buildThreadPayload = (thread, { lastMessage = null, unreadCount = 0 } = {}
       id: thread.master_id._id,
       name: thread.master_id.display_name,
       userId: thread.master_user_id?._id || thread.master_user_id,
-      avatarUrl: thread.master_user_id?.avatar_url || null
+      avatarUrl: thread.master_user_id?.avatar_url || null,
+      phoneRateCpm: typeof thread.master_id.rate_phone_cpm === 'number'
+        ? thread.master_id.rate_phone_cpm
+        : null,
+      chatRateCpm: typeof thread.master_id.rate_chat_cpm === 'number'
+        ? thread.master_id.rate_chat_cpm
+        : null
     } : null,
     customer: thread.customer_id ? {
       id: thread.customer_id._id,
@@ -67,7 +73,7 @@ const buildThreadPayload = (thread, { lastMessage = null, unreadCount = 0 } = {}
 const ensureThreadForUser = async (threadId, user) => {
   const thread = await ChatThread.findById(threadId)
     .populate('booking_id', 'date start_time end_time channel status')
-    .populate('master_id', 'display_name')
+    .populate('master_id', 'display_name rate_phone_cpm rate_chat_cpm')
     .populate('master_user_id', 'display_name first_name last_name email avatar_url')
     .populate('customer_id', 'display_name first_name last_name email avatar_url');
   if (!thread) return null;
@@ -92,7 +98,7 @@ router.get('/threads', requireAuth, async (req, res, next) => {
       .sort({ updatedAt: -1 })
       .limit(100)
       .populate('booking_id', 'date start_time end_time channel status')
-      .populate('master_id', 'display_name')
+      .populate('master_id', 'display_name rate_phone_cpm rate_chat_cpm')
       .populate('master_user_id', 'display_name first_name last_name email avatar_url')
       .populate('customer_id', 'display_name first_name last_name email avatar_url');
 

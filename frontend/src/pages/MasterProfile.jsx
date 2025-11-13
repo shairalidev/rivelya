@@ -198,6 +198,25 @@ const channelOptions = [
   const startSelectOptions = useMemo(() => startOptions.map(value => ({ value, label: value })), [startOptions]);
   const endSelectOptions = useMemo(() => endOptions.map(value => ({ value, label: value })), [endOptions]);
 
+  const durationMinutes = useMemo(() => {
+    if (!booking.start || !booking.end) return 0;
+    const startValue = timeToMinutes(booking.start);
+    const endValue = timeToMinutes(booking.end);
+    if (Number.isNaN(startValue) || Number.isNaN(endValue) || endValue <= startValue) return 0;
+    return endValue - startValue;
+  }, [booking.start, booking.end]);
+
+  const activeRateCents = useMemo(() => {
+    if (!master) return null;
+    const value = booking.channel === 'phone' ? master.rate_phone_cpm : master.rate_chat_cpm;
+    return typeof value === 'number' ? value : null;
+  }, [master, booking.channel]);
+
+  const estimatedCost = useMemo(() => {
+    if (!durationMinutes || activeRateCents == null) return null;
+    return (durationMinutes * activeRateCents) / 100;
+  }, [durationMinutes, activeRateCents]);
+
   const selectedDateLabel = useMemo(
     () => (selectedDateObject ? dayjs(selectedDateObject).format('dddd DD MMMM') : 'Seleziona un giorno'),
     [selectedDateObject]
@@ -431,6 +450,27 @@ const channelOptions = [
                 Canale preferito
                 <FancySelect name="channel" value={booking.channel} options={channelOptions} onChange={updateBooking} />
               </label>
+              <div className="booking-summary">
+                <div>
+                  <span className="summary-label">Durata selezionata</span>
+                  <strong>{durationMinutes ? `${durationMinutes} min` : '—'}</strong>
+                </div>
+                <div>
+                  <span className="summary-label">
+                    Tariffa {booking.channel === 'phone' ? 'telefonica' : 'chat'}
+                  </span>
+                  <strong>
+                    {activeRateCents != null ? `${(activeRateCents / 100).toFixed(2)} € / min` : '—'}
+                  </strong>
+                </div>
+                <div>
+                  <span className="summary-label">Totale stimato</span>
+                  <strong>{estimatedCost != null ? `${estimatedCost.toFixed(2)} €` : '—'}</strong>
+                </div>
+              </div>
+              <p className="booking-summary-note">
+                L&apos;importo viene prenotato dal tuo wallet e addebitato solo dopo la conferma del master.
+              </p>
               <label className="input-label">
                 Note per il master (opzionale)
                 <textarea
