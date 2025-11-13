@@ -1,4 +1,5 @@
 import axios from 'axios';
+import { getToken } from '../lib/auth.js';
 
 const inferDefaultBaseUrl = () => {
   if (import.meta.env.VITE_API_URL) {
@@ -29,7 +30,7 @@ const client = axios.create({
 });
 
 client.interceptors.request.use(cfg => {
-  const token = localStorage.getItem('token');
+  const token = getToken();
   if (token) cfg.headers.Authorization = `Bearer ${token}`;
   return cfg;
 });

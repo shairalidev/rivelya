@@ -10,6 +10,7 @@ import {
 } from '../api/booking.js';
 import client from '../api/client.js';
 import FancySelect from '../components/FancySelect.jsx';
+import { getUser as getStoredUser, subscribeAuthChange } from '../lib/auth.js';
 
 const weekdays = ['Lun', 'Mar', 'Mer', 'Gio', 'Ven', 'Sab', 'Dom'];
 const statusLabels = {
@@ -85,14 +86,7 @@ const initialBlockForm = { start: '09:00', end: '12:00' };
 
 export default function MasterDashboard() {
   const navigate = useNavigate();
-  const [user, setUser] = useState(() => {
-    try {
-      const raw = localStorage.getItem('user');
-      return raw ? JSON.parse(raw) : null;
-    } catch {
-      return null;
-    }
-  });
+  const [user, setUser] = useState(() => getStoredUser());
   const [monthCursor, setMonthCursor] = useState(() => {
     const now = new Date();
     return { year: now.getFullYear(), month: now.getMonth() + 1 };
@@ -127,18 +121,11 @@ export default function MasterDashboard() {
 
   useEffect(() => {
     const sync = () => {
-      try {
-        const raw = localStorage.getItem('user');
-        setUser(raw ? JSON.parse(raw) : null);
-      } catch {
-        setUser(null);
-      }
+      setUser(getStoredUser());
     };
-    window.addEventListener('storage', sync);
-    window.addEventListener('rivelya-auth-change', sync);
+    const unsubscribe = subscribeAuthChange(sync);
     return () => {
-      window.removeEventListener('storage', sync);
-      window.removeEventListener('rivelya-auth-change', sync);
+      unsubscribe();
     };
   }, []);
 

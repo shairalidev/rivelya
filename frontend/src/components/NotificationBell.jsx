@@ -4,6 +4,7 @@ import dayjs from 'dayjs';
 import relativeTime from 'dayjs/plugin/relativeTime.js';
 import useSocket from '../hooks/useSocket.js';
 import { fetchNotifications, markNotificationRead, markNotificationsRead } from '../api/notifications.js';
+import { getToken, subscribeAuthChange } from '../lib/auth.js';
 
 dayjs.extend(relativeTime);
 
@@ -16,7 +17,7 @@ export default function NotificationBell() {
   const [open, setOpen] = useState(false);
   const panelRef = useRef(null);
   const queryClient = useQueryClient();
-  const token = typeof window !== 'undefined' ? localStorage.getItem('token') : null;
+  const token = typeof window !== 'undefined' ? getToken() : null;
 
   const notificationsQuery = useQuery({
     queryKey: ['notifications'],
@@ -80,11 +81,9 @@ export default function NotificationBell() {
     const handleAuth = () => {
       queryClient.removeQueries({ queryKey: ['notifications'] });
     };
-    window.addEventListener('storage', handleAuth);
-    window.addEventListener('rivelya-auth-change', handleAuth);
+    const unsubscribe = subscribeAuthChange(handleAuth);
     return () => {
-      window.removeEventListener('storage', handleAuth);
-      window.removeEventListener('rivelya-auth-change', handleAuth);
+      unsubscribe();
     };
   }, [queryClient]);
 

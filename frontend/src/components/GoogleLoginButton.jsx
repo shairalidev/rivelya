@@ -2,6 +2,7 @@ import { useEffect, useRef } from 'react';
 import PropTypes from 'prop-types';
 import toast from 'react-hot-toast';
 import client from '../api/client.js';
+import { notifyAuthChange, setToken, setUser } from '../lib/auth.js';
 
 const scriptId = 'google-identity-services';
 
@@ -19,10 +20,10 @@ export default function GoogleLoginButton({ onSuccess }) {
         callback: async response => {
           try {
             const res = await client.post('/auth/google', { credential: response.credential });
-            localStorage.setItem('token', res.data.token);
-            localStorage.setItem('user', JSON.stringify(res.data.user));
+            setToken(res.data.token);
+            setUser(res.data.user);
             toast.success('Accesso con Google riuscito!');
-            window.dispatchEvent(new Event('rivelya-auth-change'));
+            notifyAuthChange();
             onSuccess?.();
           } catch (error) {
             const message = error?.response?.data?.message || 'Impossibile completare l\'accesso con Google.';

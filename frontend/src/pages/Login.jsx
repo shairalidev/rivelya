@@ -3,6 +3,7 @@ import { Link, useNavigate, useSearchParams } from 'react-router-dom';
 import toast from 'react-hot-toast';
 import client from '../api/client.js';
 import GoogleLoginButton from '../components/GoogleLoginButton.jsx';
+import { notifyAuthChange, setToken, setUser as storeUser } from '../lib/auth.js';
 
 export default function Login() {
   const [params] = useSearchParams();
@@ -32,10 +33,10 @@ export default function Login() {
     try {
       setLoading(true);
       const res = await client.post('/auth/login', form);
-      localStorage.setItem('token', res.data.token);
-      localStorage.setItem('user', JSON.stringify(res.data.user));
+      setToken(res.data.token);
+      storeUser(res.data.user);
       toast.success('Bentornato su Rivelya!');
-      window.dispatchEvent(new Event('rivelya-auth-change'));
+      notifyAuthChange();
       const target = returnTo || '/';
       navigate(target);
     } catch (error) {

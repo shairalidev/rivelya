@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import toast from 'react-hot-toast';
 import { fetchProfile, updateProfile, uploadAvatar, removeAvatar } from '../api/profile.js';
 import FancySelect from '../components/FancySelect.jsx';
+import { getToken, notifyAuthChange, setUser as storeUser } from '../lib/auth.js';
 
 const initialForm = {
   firstName: '',
@@ -62,10 +63,10 @@ export default function Profile() {
 
   const syncUser = updated => {
     setUser(updated);
-    const storedToken = localStorage.getItem('token');
+    const storedToken = getToken();
     if (storedToken) {
-      localStorage.setItem('user', JSON.stringify(updated));
-      window.dispatchEvent(new Event('rivelya-auth-change'));
+      storeUser(updated);
+      notifyAuthChange();
     }
   };
 
