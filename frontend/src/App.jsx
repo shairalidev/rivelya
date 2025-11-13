@@ -11,6 +11,7 @@ import Wallet from './pages/Wallet.jsx';
 import MasterProfile from './pages/MasterProfile.jsx';
 import Profile from './pages/Profile.jsx';
 import VerifyEmail from './pages/VerifyEmail.jsx';
+import MasterDashboard from './pages/MasterDashboard.jsx';
 
 export default function App() {
   return (
@@ -32,6 +33,7 @@ export default function App() {
           <Route path="/" element={<Home />} />
           <Route path="/catalog" element={<Catalog />} />
           <Route path="/masters/:id" element={<MasterProfile />} />
+          <Route path="/master/dashboard" element={<MasterDashboard />} />
           <Route path="/wallet" element={<Wallet />} />
           <Route path="/profile" element={<Profile />} />
           <Route path="/login" element={<Login />} />

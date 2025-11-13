@@ -154,7 +154,12 @@ router.post('/login', async (req, res, next) => {
       return res.status(403).json({ message: 'Verifica la tua email per accedere.' });
     }
     const token = jwt.sign({ sub: user._id }, process.env.JWT_SECRET, { expiresIn: process.env.JWT_EXPIRES_IN || '7d' });
-    res.json({ token, user: serializeUser(user) });
+    const master = user.roles.includes('master')
+      ? await Master.findOne({ user_id: user._id }).select('_id')
+      : null;
+    const payload = serializeUser(user);
+    if (master) payload.masterId = master._id;
+    res.json({ token, user: payload });
   } catch (e) { next(e); }
 });
 

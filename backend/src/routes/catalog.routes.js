@@ -1,7 +1,16 @@
 import { Router } from 'express';
+import Joi from 'joi';
 import { Master } from '../models/master.model.js';
+import { MasterAvailability } from '../models/master-availability.model.js';
+import { Booking } from '../models/booking.model.js';
+import { computeMonthAvailability } from '../utils/availability.js';
 
 const router = Router();
+
+const monthSchema = Joi.object({
+  year: Joi.number().integer().min(2024).required(),
+  month: Joi.number().integer().min(1).max(12).required()
+});
 
 // GET /catalog?category=cartomancy-divination&online=true&sort=rating
 router.get('/', async (req, res, next) => {
@@ -26,6 +35,69 @@ router.get('/:id', async (req, res, next) => {
     if (!master) return res.status(404).json({ message: 'Master not found' });
     res.json(master);
   } catch (e) { next(e); }
+});
+
+router.get('/:id/availability', async (req, res, next) => {
+  try {
+    const master = await Master.findById(req.params.id).select('_id');
+    if (!master) return res.status(404).json({ message: 'Master not found' });
+
+    const params = await monthSchema.validateAsync({
+      year: Number(req.query.year) || new Date().getFullYear(),
+      month: Number(req.query.month) || (new Date().getMonth() + 1)
+    });
+
+    const availability = await MasterAvailability.findOne({
+      master_id: master._id,
+      year: params.year,
+      month: params.month
+    });
+
+    const startDate = `${params.year}-${String(params.month).padStart(2, '0')}-01`;
+    const lastDay = new Date(params.year, params.month, 0).getDate();
+    const endDate = `${params.year}-${String(params.month).padStart(2, '0')}-${String(lastDay).padStart(2, '0')}`;
+
+    const bookings = await Booking.find({
+      master_id: master._id,
+      date: { $gte: startDate, $lte: endDate },
+      status: { $in: ['awaiting_master', 'confirmed'] }
+    }).select('date start_time end_time status channel');
+
+    const monthData = computeMonthAvailability({
+      year: params.year,
+      month: params.month,
+      blocks: availability?.blocks || [],
+      bookings
+    });
+
+    res.json({
+      year: params.year,
+      month: params.month,
+      days: monthData.days.map(day => ({
+        date: day.date,
+        weekday: day.weekday,
+        availableRanges: day.availableRanges,
+        fullDayBlocked: day.fullDayBlocked,
+        blocked: day.blocks.map(block => ({
+          id: block._id,
+          fullDay: block.full_day,
+          start: block.start,
+          end: block.end
+        })),
+        bookings: day.bookings.map(entry => ({
+          start: entry.start,
+          end: entry.end,
+          status: entry.status,
+          channel: entry.channel
+        }))
+      }))
+    });
+  } catch (error) {
+    if (error.isJoi) {
+      return res.status(400).json({ message: 'Invalid month parameters' });
+    }
+    next(error);
+  }
 });
 
 export default router;

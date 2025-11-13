@@ -14,6 +14,8 @@ import adminRoutes from './routes/admin.routes.js';
 import webhookRoutes from './routes/webhook.routes.js';
 import cmsRoutes from './routes/cms.routes.js';
 import profileRoutes from './routes/profile.routes.js';
+import availabilityRoutes from './routes/availability.routes.js';
+import bookingRoutes from './routes/booking.routes.js';
 
 import { notFound, errorHandler } from './middleware/error.js';
 
@@ -71,6 +73,8 @@ app.use('/admin', adminRoutes);
 app.use('/cms', cmsRoutes);
 app.use('/webhooks', webhookRoutes);
 app.use('/profile', profileRoutes);
+app.use('/availability', availabilityRoutes);
+app.use('/bookings', bookingRoutes);
 
 app.use(notFound);
 app.use(errorHandler);

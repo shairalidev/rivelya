@@ -1,14 +1,20 @@
-import { useParams } from 'react-router-dom';
-import { useEffect, useState } from 'react';
+import { useNavigate, useParams } from 'react-router-dom';
+import { useEffect, useMemo, useState } from 'react';
 import toast from 'react-hot-toast';
 import client from '../api/client.js';
 import { buildDailySchedule, resolveTimezoneLabel } from '../utils/schedule.js';
+import { createBooking, fetchMasterMonthAvailability } from '../api/booking.js';
 
 export default function MasterProfile() {
   const { id } = useParams();
+  const navigate = useNavigate();
   const [master, setMaster] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
+  const [availability, setAvailability] = useState({});
+  const [availabilityLoading, setAvailabilityLoading] = useState(false);
+  const [booking, setBooking] = useState({ date: '', start: '', end: '', channel: 'chat', notes: '' });
+  const [bookingLoading, setBookingLoading] = useState(false);
 
   useEffect(() => {
     setLoading(true);
@@ -32,6 +38,77 @@ export default function MasterProfile() {
     return true;
   };
 
+  const timeToMinutes = value => {
+    if (!/^\d{2}:\d{2}$/.test(value)) return Number.NaN;
+    const [hours, minutes] = value.split(':').map(Number);
+    return hours * 60 + minutes;
+  };
+
+  const minutesToTime = value => `${String(Math.floor(value / 60)).padStart(2, '0')}:${String(value % 60).padStart(2, '0')}`;
+
+  const rangeToStarts = ranges =>
+    ranges.flatMap(range => {
+      const start = timeToMinutes(range.start);
+      const end = timeToMinutes(range.end);
+      if (Number.isNaN(start) || Number.isNaN(end) || end <= start) return [];
+      const options = [];
+      for (let pointer = start; pointer < end; pointer += 30) {
+        options.push(minutesToTime(pointer));
+      }
+      return options;
+    }).filter(Boolean).filter((value, index, self) => self.indexOf(value) === index).sort();
+
+  const buildEndOptions = (ranges, startValue) => {
+    if (!/^\d{2}:\d{2}$/.test(startValue)) return [];
+    const startMinutes = timeToMinutes(startValue);
+    const options = [];
+    ranges.forEach(range => {
+      const rangeStart = timeToMinutes(range.start);
+      const rangeEnd = timeToMinutes(range.end);
+      if (Number.isNaN(rangeStart) || Number.isNaN(rangeEnd)) return;
+      if (startMinutes < rangeStart || startMinutes >= rangeEnd) return;
+      for (let pointer = Math.max(startMinutes + 30, rangeStart + 30); pointer <= rangeEnd; pointer += 30) {
+        options.push(minutesToTime(pointer));
+      }
+    });
+    return Array.from(new Set(options)).sort();
+  };
+
+  const loadAvailability = async masterId => {
+    if (!masterId) return;
+    try {
+      setAvailabilityLoading(true);
+      const now = new Date();
+      const next = new Date(now.getFullYear(), now.getMonth() + 1, 1);
+      const months = [
+        { year: now.getFullYear(), month: now.getMonth() + 1 },
+        { year: next.getFullYear(), month: next.getMonth() + 1 }
+      ];
+      const responses = await Promise.all(
+        months.map(params => fetchMasterMonthAvailability(masterId, params).catch(() => null))
+      );
+      const map = {};
+      responses.filter(Boolean).forEach(result => {
+        result.days.forEach(day => {
+          map[day.date] = day;
+        });
+      });
+      setAvailability(map);
+    } catch (err) {
+      console.warn('availability error', err);
+    } finally {
+      setAvailabilityLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    if (master?._id) {
+      setAvailability({});
+      setBooking(prev => ({ ...prev, date: '', start: '', end: '' }));
+      loadAvailability(master._id);
+    }
+  }, [master?._id]);
+
   const startSession = async channel => {
     if (!master || !ensureAuth()) return;
     try {
@@ -48,6 +125,118 @@ export default function MasterProfile() {
     } catch (error) {
       const message = error?.response?.data?.message || 'Impossibile avviare la sessione in questo momento.';
       toast.error(message);
+    }
+  };
+
+  const availableDays = useMemo(
+    () =>
+      Object.values(availability)
+        .filter(day => day.availableRanges?.length > 0 && !day.fullDayBlocked)
+        .sort((a, b) => a.date.localeCompare(b.date)),
+    [availability]
+  );
+
+  useEffect(() => {
+    if (availableDays.length > 0 && !booking.date) {
+      const first = availableDays[0];
+      const startOptions = rangeToStarts(first.availableRanges);
+      const start = startOptions[0] || '09:00';
+      const endOptions = buildEndOptions(first.availableRanges, start);
+      setBooking(prev => ({
+        ...prev,
+        date: first.date,
+        start,
+        end: endOptions[0] || minutesToTime(timeToMinutes(start) + 30)
+      }));
+    }
+  }, [availableDays]);
+
+  const selectedDay = booking.date ? availability[booking.date] : null;
+  const startOptions = selectedDay ? rangeToStarts(selectedDay.availableRanges || []) : [];
+  const endOptions = selectedDay ? buildEndOptions(selectedDay.availableRanges || [], booking.start) : [];
+
+  useEffect(() => {
+    if (!booking.date) return;
+    const day = availability[booking.date];
+    if (!day || day.availableRanges?.length === 0) {
+      setBooking(prev => ({ ...prev, date: '', start: '', end: '' }));
+      return;
+    }
+    const starts = rangeToStarts(day.availableRanges || []);
+    if (!starts.includes(booking.start)) {
+      const nextStart = starts[0] || '';
+      const nextEnd = buildEndOptions(day.availableRanges || [], nextStart)[0] || '';
+      if (nextStart !== booking.start || nextEnd !== booking.end) {
+        setBooking(prev => ({ ...prev, start: nextStart, end: nextEnd }));
+      }
+      return;
+    }
+    const ends = buildEndOptions(day.availableRanges || [], booking.start);
+    if (!ends.includes(booking.end)) {
+      const nextEnd = ends[0] || '';
+      if (nextEnd !== booking.end) {
+        setBooking(prev => ({ ...prev, end: nextEnd }));
+      }
+    }
+  }, [availability, booking.date, booking.start, booking.end]);
+
+  const updateBooking = evt => {
+    const { name, value } = evt.target;
+    setBooking(prev => {
+      if (name === 'start') {
+        const nextEndOptions = selectedDay ? buildEndOptions(selectedDay.availableRanges || [], value) : [];
+        return {
+          ...prev,
+          start: value,
+          end: nextEndOptions[0] || prev.end || minutesToTime(timeToMinutes(value) + 30)
+        };
+      }
+      if (name === 'date') {
+        const nextDay = availability[value];
+        const startOptionsForDay = nextDay ? rangeToStarts(nextDay.availableRanges || []) : [];
+        const nextStart = startOptionsForDay[0] || '';
+        const nextEnd = nextDay ? buildEndOptions(nextDay.availableRanges || [], nextStart)[0] || nextStart : '';
+        return {
+          ...prev,
+          date: value,
+          start: nextStart,
+          end: nextEnd
+        };
+      }
+      return { ...prev, [name]: value };
+    });
+  };
+
+  const submitBooking = async () => {
+    if (!master || !ensureAuth()) return;
+    if (!booking.date || !booking.start || !booking.end) {
+      toast.error('Seleziona data e fascia oraria.');
+      return;
+    }
+    try {
+      setBookingLoading(true);
+      await createBooking({
+        masterId: master._id,
+        channel: booking.channel,
+        date: booking.date,
+        start: booking.start,
+        end: booking.end,
+        notes: booking.notes
+      });
+      toast.success('Richiesta inviata al master. Ti avviseremo quando verrà confermata.');
+      setBooking({ date: booking.date, start: booking.start, end: booking.end, channel: booking.channel, notes: '' });
+      loadAvailability(master._id);
+    } catch (err) {
+      const status = err?.response?.status;
+      if (status === 402) {
+        toast.error('Saldo insufficiente. Ricarica il wallet per completare la prenotazione.');
+        navigate('/wallet');
+      } else {
+        const message = err?.response?.data?.message || 'Impossibile completare la prenotazione.';
+        toast.error(message);
+      }
+    } finally {
+      setBookingLoading(false);
     }
   };
 
@@ -126,6 +315,84 @@ export default function MasterProfile() {
           <p className="muted">Risposte asincrone e follow-up via report dedicato.</p>
           <button className="btn outline" onClick={() => startSession('chat')}>Apri chat</button>
         </div>
+      </div>
+      <div className="booking-card">
+        <div className="booking-head">
+          <h2>Prenota una consulenza</h2>
+          <p className="muted">
+            Seleziona giorno e orario tra le disponibilità reali del master. Il credito verrà prenotato e confermato al momento
+            dell&apos;accettazione.
+          </p>
+        </div>
+        {availabilityLoading && <div className="booking-skeleton" aria-hidden="true" />}
+        {!availabilityLoading && availableDays.length === 0 && (
+          <p className="muted">Questo master non ha ancora pubblicato disponibilità per le prossime settimane.</p>
+        )}
+        {!availabilityLoading && availableDays.length > 0 && (
+          <div className="booking-form">
+            <label className="input-label">
+              Giorno disponibile
+              <select name="date" value={booking.date} onChange={updateBooking}>
+                {availableDays.map(day => (
+                  <option key={day.date} value={day.date}>
+                    {new Date(`${day.date}T00:00:00`).toLocaleDateString('it-IT', {
+                      weekday: 'long',
+                      day: '2-digit',
+                      month: 'long'
+                    })}
+                  </option>
+                ))}
+              </select>
+            </label>
+            <div className="booking-time-grid">
+              <label className="input-label">
+                Inizio
+                <select name="start" value={booking.start} onChange={updateBooking}>
+                  {startOptions.map(option => (
+                    <option key={`start-${option}`} value={option}>
+                      {option}
+                    </option>
+                  ))}
+                </select>
+              </label>
+              <label className="input-label">
+                Fine
+                <select name="end" value={booking.end} onChange={updateBooking}>
+                  {endOptions.map(option => (
+                    <option key={`end-${option}`} value={option}>
+                      {option}
+                    </option>
+                  ))}
+                </select>
+              </label>
+            </div>
+            <label className="input-label">
+              Canale preferito
+              <select name="channel" value={booking.channel} onChange={updateBooking}>
+                <option value="chat">Chat</option>
+                <option value="phone">Telefono</option>
+              </select>
+            </label>
+            <label className="input-label">
+              Note per il master (opzionale)
+              <textarea
+                name="notes"
+                rows="3"
+                value={booking.notes}
+                onChange={updateBooking}
+                placeholder="Inserisci eventuali preferenze o contesto della sessione"
+              />
+            </label>
+            <button
+              type="button"
+              className="btn primary"
+              onClick={submitBooking}
+              disabled={bookingLoading || !booking.date || !booking.start || !booking.end}
+            >
+              {bookingLoading ? 'Prenotazione in corso…' : 'Conferma prenotazione'}
+            </button>
+          </div>
+        )}
       </div>
       <div className="schedule-card">
         <div className="schedule-header">

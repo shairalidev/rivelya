@@ -184,6 +184,16 @@ export default function Layout() {
         </div>
         <div className="auth-divider" aria-hidden="true" />
         <div className="auth-dropdown-actions">
+          {user?.roles?.includes('master') && (
+            <Link
+              to="/master/dashboard"
+              role="menuitem"
+              className="dropdown-link"
+              onMouseDown={handleProfileNavMouseDown('/master/dashboard')}
+            >
+              Area master
+            </Link>
+          )}
           {/* Use onMouseDown to navigate deterministically */}
           <Link
             to="/profile"
