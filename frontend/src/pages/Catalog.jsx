@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from 'react';
 import { useSearchParams, Link } from 'react-router-dom';
 import client from '../api/client.js';
 import { summarizeWorkingHours, resolveTimezoneLabel } from '../utils/schedule.js';
+import FancySelect from '../components/FancySelect.jsx';
 
 const categories = [
   { value: 'all', label: 'Tutte le categorie' },
@@ -99,11 +100,12 @@ export default function Catalog() {
         </div>
         <div className="filter-group select">
           <label htmlFor="sort">Ordina per</label>
-          <select id="sort" value={sort} onChange={evt => setFilter('sort', evt.target.value)}>
-            {sorts.map(opt => (
-              <option key={opt.value} value={opt.value}>{opt.label}</option>
-            ))}
-          </select>
+          <FancySelect
+            name="sort"
+            value={sort}
+            options={sorts}
+            onChange={evt => setFilter('sort', evt.target.value)}
+          />
         </div>
       </div>
 

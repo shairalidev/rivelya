@@ -1,5 +1,6 @@
 import { Link, NavLink, Outlet, useLocation, useNavigate } from 'react-router-dom';
 import { useEffect, useMemo, useRef, useState } from 'react';
+import NotificationBell from './NotificationBell.jsx';
 
 const navItems = [
   { label: 'Esperienza', to: '/', exact: true },
@@ -152,77 +153,97 @@ export default function Layout() {
   };
 
   const authControls = user ? (
-    <div className={`auth-avatar${profileOpen ? ' open' : ''}`} ref={profileRef}>
-      <button
-        type="button"
-        className="avatar-trigger"
-        aria-haspopup="true"
-        aria-expanded={profileOpen}
-        aria-label="Menu utente"
-        onClick={toggleProfileMenu}
-      >
-        {user.avatarUrl ? (
-          <span className="avatar-circle avatar-image">
-            <img src={user.avatarUrl} alt={user.displayName || user.email} />
-          </span>
-        ) : (
-          <span className="avatar-circle">{(user.displayName || user.email)?.slice(0, 2).toUpperCase()}</span>
-        )}
-        <span className="avatar-caret" aria-hidden="true" />
-      </button>
-
-      {/* Stop outside-closer from eating events inside the dropdown */}
-      <div
-        className="auth-dropdown"
-        role="menu"
-        onMouseDown={e => e.stopPropagation()}
-        onTouchStart={e => e.stopPropagation()}
-      >
-        <div className="auth-dropdown-header">
-          <p className="auth-name">{user.displayName || user.email}</p>
-          <p className="auth-email">{user.email}</p>
-        </div>
-        <div className="auth-divider" aria-hidden="true" />
-        <div className="auth-dropdown-actions">
-          {/* Use onMouseDown to navigate deterministically */}
-          <Link
-            to="/profile"
-            role="menuitem"
-            className="dropdown-link"
-            onMouseDown={handleProfileNavMouseDown('/profile')}
-          >
-            Profilo
-          </Link>
-          <Link
-            to="/wallet"
-            role="menuitem"
-            className="dropdown-link"
-            onMouseDown={handleProfileNavMouseDown('/wallet')}
-          >
-            Wallet
-          </Link>
-          <Link
-            to="/settings"
-            role="menuitem"
-            className="dropdown-link"
-            onMouseDown={handleProfileNavMouseDown('/settings')}
-          >
-            Impostazioni
-          </Link>
-        </div>
+    <>
+      <NotificationBell />
+      <div className={`auth-avatar${profileOpen ? ' open' : ''}`} ref={profileRef}>
         <button
           type="button"
-          className="btn outline full-width"
-          onMouseDown={e => {
-            e.preventDefault();
-            e.stopPropagation();
-            logout();
-          }}
+          className="avatar-trigger"
+          aria-haspopup="true"
+          aria-expanded={profileOpen}
+          aria-label="Menu utente"
+          onClick={toggleProfileMenu}
         >
-          Esci
+          {user.avatarUrl ? (
+            <span className="avatar-circle avatar-image">
+              <img src={user.avatarUrl} alt={user.displayName || user.email} />
+            </span>
+          ) : (
+            <span className="avatar-circle">{(user.displayName || user.email)?.slice(0, 2).toUpperCase()}</span>
+          )}
+          <span className="avatar-caret" aria-hidden="true" />
         </button>
+
+        {/* Stop outside-closer from eating events inside the dropdown */}
+        <div
+          className="auth-dropdown"
+          role="menu"
+          onMouseDown={e => e.stopPropagation()}
+          onTouchStart={e => e.stopPropagation()}
+        >
+          <div className="auth-dropdown-header">
+            <p className="auth-name">{user.displayName || user.email}</p>
+            <p className="auth-email">{user.email}</p>
+          </div>
+          <div className="auth-divider" aria-hidden="true" />
+          <div className="auth-dropdown-actions">
+            {user?.roles?.includes('master') && (
+              <Link
+                to="/master/dashboard"
+                role="menuitem"
+                className="dropdown-link"
+                onMouseDown={handleProfileNavMouseDown('/master/dashboard')}
+              >
+                Area master
+              </Link>
+            )}
+            <Link
+              to="/chat"
+              role="menuitem"
+              className="dropdown-link"
+              onMouseDown={handleProfileNavMouseDown('/chat')}
+            >
+              Chat
+            </Link>
+            <Link
+              to="/profile"
+              role="menuitem"
+              className="dropdown-link"
+              onMouseDown={handleProfileNavMouseDown('/profile')}
+            >
+              Profilo
+            </Link>
+            <Link
+              to="/wallet"
+              role="menuitem"
+              className="dropdown-link"
+              onMouseDown={handleProfileNavMouseDown('/wallet')}
+            >
+              Wallet
+            </Link>
+            <Link
+              to="/settings"
+              role="menuitem"
+              className="dropdown-link"
+              onMouseDown={handleProfileNavMouseDown('/settings')}
+            >
+              Impostazioni
+            </Link>
+          </div>
+          <button
+            type="button"
+            className="btn outline full-width"
+            onMouseDown={e => {
+              e.preventDefault();
+              e.stopPropagation();
+              logout();
+            }}
+          >
+            Esci
+          </button>
+        </div>
       </div>
-    </div>
+    </>
   ) : (
     <div className="auth-buttons">
       <Link to="/login" className="btn ghost" onClick={handleNavClick}>

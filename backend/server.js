@@ -32,9 +32,12 @@ if (!process.env.MONGO_URI) {
 import http from 'http';
 
 const { app } = await import('./src/app.js');
+const { initSocket } = await import('./src/lib/socket.js');
 
 const port = process.env.PORT || 8080;
 const server = http.createServer(app);
+
+initSocket(server);
 
 server.listen(port, () => {
   console.log(`✅ API running on port ${port} - Mode: ${process.env.NODE_ENV}`);

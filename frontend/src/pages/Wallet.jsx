@@ -16,6 +16,9 @@ export default function Wallet() {
   const [data, setData] = useState({ balance_cents: 0, ledger: [], currency: 'EUR' });
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
+  const [testAmount, setTestAmount] = useState('2000');
+  const [testCard, setTestCard] = useState('4242 4242 4242 4242');
+  const [testLoading, setTestLoading] = useState(false);
 
   useEffect(() => {
     if (!localStorage.getItem('token')) {
@@ -45,6 +48,28 @@ export default function Wallet() {
     }
   };
 
+  const testTopup = async evt => {
+    evt.preventDefault();
+    try {
+      setTestLoading(true);
+      const res = await client.post('/wallet/test-topup', {
+        card_number: testCard,
+        amount_cents: Number(testAmount)
+      });
+      setData(prev => ({
+        ...prev,
+        balance_cents: res.data.balance_cents,
+        ledger: [res.data.transaction, ...prev.ledger]
+      }));
+      toast.success('Ricarica di test completata.');
+    } catch (err) {
+      const message = err?.response?.data?.message || 'Impossibile completare la ricarica di test.';
+      toast.error(message);
+    } finally {
+      setTestLoading(false);
+    }
+  };
+
   const balance = (data.balance_cents / 100).toFixed(2);
 
   return (
@@ -68,6 +93,22 @@ export default function Wallet() {
             <button className="btn outline" onClick={() => topup(5000)}>Ricarica 50 €</button>
           </div>
           <p className="micro">Ogni ricarica include ricevuta fiscale e aggiornamento istantaneo del saldo.</p>
+          <form className="test-topup" onSubmit={testTopup}>
+            <p className="micro">Ricarica di test (usa la carta 4242 4242 4242 4242)</p>
+            <div className="test-grid">
+              <label className="input-label">
+                Numero carta
+                <input value={testCard} onChange={evt => setTestCard(evt.target.value)} placeholder="4242 4242 4242 4242" />
+              </label>
+              <label className="input-label">
+                Importo (cent)
+                <input value={testAmount} onChange={evt => setTestAmount(evt.target.value)} type="number" min="100" step="100" />
+              </label>
+            </div>
+            <button type="submit" className="btn outline" disabled={testLoading}>
+              {testLoading ? 'Caricamento…' : 'Aggiungi credito di test'}
+            </button>
+          </form>
         </div>
 
         <div className="wallet-ledger">

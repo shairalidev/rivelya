@@ -14,6 +14,10 @@ import adminRoutes from './routes/admin.routes.js';
 import webhookRoutes from './routes/webhook.routes.js';
 import cmsRoutes from './routes/cms.routes.js';
 import profileRoutes from './routes/profile.routes.js';
+import availabilityRoutes from './routes/availability.routes.js';
+import bookingRoutes from './routes/booking.routes.js';
+import chatRoutes from './routes/chat.routes.js';
+import notificationRoutes from './routes/notification.routes.js';
 
 import { notFound, errorHandler } from './middleware/error.js';
 
@@ -40,7 +44,7 @@ if (process.env.CORS_ALLOWED_ORIGINS) {
   defaultOrigins.push(...process.env.CORS_ALLOWED_ORIGINS.split(',').map(value => value.trim()));
 }
 
-const allowedOrigins = [...new Set(defaultOrigins.filter(Boolean))];
+export const allowedOrigins = [...new Set(defaultOrigins.filter(Boolean))];
 
 app.use(helmet());
 app.use(cors({
@@ -71,6 +75,10 @@ app.use('/admin', adminRoutes);
 app.use('/cms', cmsRoutes);
 app.use('/webhooks', webhookRoutes);
 app.use('/profile', profileRoutes);
+app.use('/availability', availabilityRoutes);
+app.use('/bookings', bookingRoutes);
+app.use('/chat', chatRoutes);
+app.use('/notifications', notificationRoutes);
 
 app.use(notFound);
 app.use(errorHandler);

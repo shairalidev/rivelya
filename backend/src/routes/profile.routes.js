@@ -4,6 +4,7 @@ import multer from 'multer';
 import { randomUUID } from 'crypto';
 import { requireAuth } from '../middleware/auth.js';
 import { User } from '../models/user.model.js';
+import { Master } from '../models/master.model.js';
 import { deleteFromS3, uploadToS3 } from '../lib/s3.js';
 
 const router = Router();
@@ -34,11 +35,20 @@ const serializeUser = user => ({
   isEmailVerified: user.is_email_verified
 });
 
+const decorateWithMaster = async user => {
+  const payload = serializeUser(user);
+  if (user.roles?.includes('master')) {
+    const master = await Master.findOne({ user_id: user._id }).select('_id');
+    if (master) payload.masterId = master._id;
+  }
+  return payload;
+};
+
 router.get('/me', requireAuth, async (req, res, next) => {
   try {
     const user = await User.findById(req.user._id);
     if (!user) return res.status(404).json({ message: 'Utente non trovato' });
-    res.json({ user: serializeUser(user) });
+    res.json({ user: await decorateWithMaster(user) });
   } catch (e) {
     next(e);
   }
@@ -62,7 +72,7 @@ router.put('/me', requireAuth, async (req, res, next) => {
     user.location = payload.location?.trim() ?? '';
 
     await user.save();
-    res.json({ user: serializeUser(user) });
+    res.json({ user: await decorateWithMaster(user) });
   } catch (e) {
     if (e.isJoi) {
       return res.status(400).json({ message: 'Dati non validi', details: e.details });
@@ -96,7 +106,7 @@ router.post('/me/avatar', requireAuth, upload.single('avatar'), async (req, res,
     user.avatar_url = url;
     await user.save();
 
-    res.json({ user: serializeUser(user) });
+    res.json({ user: await decorateWithMaster(user) });
   } catch (e) {
     next(e);
   }
@@ -112,7 +122,7 @@ router.delete('/me/avatar', requireAuth, async (req, res, next) => {
       user.avatar_url = undefined;
       await user.save();
     }
-    res.json({ user: serializeUser(user) });
+    res.json({ user: await decorateWithMaster(user) });
   } catch (e) {
     next(e);
   }

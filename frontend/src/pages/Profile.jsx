@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import toast from 'react-hot-toast';
 import { fetchProfile, updateProfile, uploadAvatar, removeAvatar } from '../api/profile.js';
+import FancySelect from '../components/FancySelect.jsx';
 
 const initialForm = {
   firstName: '',
@@ -12,6 +13,12 @@ const initialForm = {
   bio: '',
   location: ''
 };
+
+const localeOptions = [
+  { value: 'it-IT', label: 'Italiano' },
+  { value: 'en-GB', label: 'English' },
+  { value: 'es-ES', label: 'Español' }
+];
 
 export default function Profile() {
   const [form, setForm] = useState(initialForm);
@@ -225,11 +232,7 @@ export default function Profile() {
               </label>
               <label className="input-label">
                 Lingua
-                <select name="locale" value={form.locale} onChange={updateField}>
-                  <option value="it-IT">Italiano</option>
-                  <option value="en-GB">English</option>
-                  <option value="es-ES">Español</option>
-                </select>
+                <FancySelect name="locale" value={form.locale} options={localeOptions} onChange={updateField} />
               </label>
             </div>
           </div>
