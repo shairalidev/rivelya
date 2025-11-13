@@ -1,6 +1,12 @@
 import { Link, NavLink, Outlet, useLocation, useNavigate } from 'react-router-dom';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import NotificationBell from './NotificationBell.jsx';
+import {
+  clearAuth,
+  getUser as getStoredUser,
+  notifyAuthChange,
+  subscribeAuthChange
+} from '../lib/auth.js';
 
 const navItems = [
   { label: 'Esperienza', to: '/', exact: true },
@@ -22,30 +28,16 @@ export default function Layout() {
   const [menuOpen, setMenuOpen] = useState(false);
   const [profileOpen, setProfileOpen] = useState(false);
   const profileRef = useRef(null);
-  const [user, setUser] = useState(() => {
-    try {
-      const raw = localStorage.getItem('user');
-      return raw ? JSON.parse(raw) : null;
-    } catch (err) {
-      console.warn('Unable to parse stored user', err);
-      return null;
-    }
-  });
+  const [user, setUser] = useState(() => getStoredUser());
 
   useEffect(() => {
     const sync = () => {
-      try {
-        const raw = localStorage.getItem('user');
-        setUser(raw ? JSON.parse(raw) : null);
-      } catch {
-        setUser(null);
-      }
+      setUser(getStoredUser());
     };
-    window.addEventListener('storage', sync);
-    window.addEventListener('rivelya-auth-change', sync);
+
+    const unsubscribe = subscribeAuthChange(sync);
     return () => {
-      window.removeEventListener('storage', sync);
-      window.removeEventListener('rivelya-auth-change', sync);
+      unsubscribe();
     };
   }, []);
 
@@ -116,9 +108,9 @@ export default function Layout() {
   const closeProfileMenu = () => setProfileOpen(false);
 
   const logout = () => {
-    localStorage.removeItem('token');
-    localStorage.removeItem('user');
-    window.dispatchEvent(new Event('rivelya-auth-change'));
+    clearAuth();
+    setUser(null);
+    notifyAuthChange();
     navigate('/');
   };
 

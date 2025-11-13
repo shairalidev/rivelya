@@ -9,6 +9,7 @@ import client from '../api/client.js';
 import FancySelect from '../components/FancySelect.jsx';
 import { buildDailySchedule, resolveTimezoneLabel } from '../utils/schedule.js';
 import { createBooking, fetchMasterMonthAvailability } from '../api/booking.js';
+import { getToken } from '../lib/auth.js';
 
 dayjs.locale('it');
 
@@ -38,7 +39,7 @@ export default function MasterProfile() {
   }, [id]);
 
   const ensureAuth = () => {
-    if (!localStorage.getItem('token')) {
+    if (!getToken()) {
       toast.error('Effettua il login per avviare una sessione.');
       return false;
     }

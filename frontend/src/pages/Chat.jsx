@@ -7,6 +7,7 @@ import 'dayjs/locale/it.js';
 import { fetchThreads, fetchThread, sendMessage } from '../api/chat.js';
 import useSocket from '../hooks/useSocket.js';
 import useCountdown from '../hooks/useCountdown.js';
+import { getToken, subscribeAuthChange } from '../lib/auth.js';
 
 const formatDuration = seconds => {
   if (seconds == null) return '--:--';
@@ -65,20 +66,18 @@ export default function Chat() {
   const navigate = useNavigate();
   const location = useLocation();
   const [draft, setDraft] = useState('');
-  const [token, setToken] = useState(() => localStorage.getItem('token'));
+  const [token, setTokenState] = useState(() => getToken());
   const messageEndRef = useRef(null);
   const queryClient = useQueryClient();
   const socket = useSocket();
 
   useEffect(() => {
     const sync = () => {
-      setToken(localStorage.getItem('token'));
+      setTokenState(getToken());
     };
-    window.addEventListener('storage', sync);
-    window.addEventListener('rivelya-auth-change', sync);
+    const unsubscribe = subscribeAuthChange(sync);
     return () => {
-      window.removeEventListener('storage', sync);
-      window.removeEventListener('rivelya-auth-change', sync);
+      unsubscribe();
     };
   }, []);
 

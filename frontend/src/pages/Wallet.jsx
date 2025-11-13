@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import toast from 'react-hot-toast';
 import client from '../api/client.js';
+import { getToken } from '../lib/auth.js';
 
 const formatDate = iso => {
   const date = iso ? new Date(iso) : null;
@@ -21,7 +22,7 @@ export default function Wallet() {
   const [testLoading, setTestLoading] = useState(false);
 
   useEffect(() => {
-    if (!localStorage.getItem('token')) {
+    if (!getToken()) {
       toast.error('Accedi per visualizzare il tuo wallet.');
       navigate('/login?returnTo=/wallet');
       return;

@@ -1,11 +1,12 @@
 import { useEffect, useState } from 'react';
 import { io } from 'socket.io-client';
 import client from '../api/client.js';
+import { getToken, subscribeAuthChange } from '../lib/auth.js';
 
 let socketRef = null;
 
 const connectSocket = () => {
-  const token = localStorage.getItem('token');
+  const token = getToken();
   if (!token) {
     if (socketRef) {
       socketRef.disconnect();
@@ -36,7 +37,7 @@ const connectSocket = () => {
 };
 
 const teardownIfNoToken = () => {
-  const token = localStorage.getItem('token');
+  const token = getToken();
   if (!token && socketRef) {
     socketRef.disconnect();
     socketRef = null;
@@ -59,12 +60,10 @@ export default function useSocket() {
       setup();
     };
 
-    window.addEventListener('storage', handleAuthChange);
-    window.addEventListener('rivelya-auth-change', handleAuthChange);
+    const unsubscribe = subscribeAuthChange(handleAuthChange);
 
     return () => {
-      window.removeEventListener('storage', handleAuthChange);
-      window.removeEventListener('rivelya-auth-change', handleAuthChange);
+      unsubscribe();
     };
   }, []);
 
