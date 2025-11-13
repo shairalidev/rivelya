@@ -5,6 +5,34 @@ import { User } from '../models/user.model.js';
 
 let ioInstance = null;
 
+const normalizeUserId = userId => {
+  if (!userId) return null;
+  if (typeof userId === 'string') return userId;
+
+  if (typeof userId === 'object') {
+    if (typeof userId.toHexString === 'function') {
+      return userId.toHexString();
+    }
+    if (userId._id) {
+      return normalizeUserId(userId._id);
+    }
+  }
+
+  if (typeof userId === 'number') {
+    return userId.toString();
+  }
+
+  if (typeof userId === 'bigint') {
+    return userId.toString();
+  }
+
+  if (typeof userId.toString === 'function') {
+    return userId.toString();
+  }
+
+  return null;
+};
+
 export const initSocket = server => {
   if (ioInstance) return ioInstance;
 
@@ -45,6 +73,8 @@ export const getIO = () => {
 };
 
 export const emitToUser = (userId, event, payload) => {
-  if (!ioInstance || !userId) return;
-  ioInstance.to(`user:${userId.toString()}`).emit(event, payload);
+  if (!ioInstance) return;
+  const target = normalizeUserId(userId);
+  if (!target) return;
+  ioInstance.to(`user:${target}`).emit(event, payload);
 };
