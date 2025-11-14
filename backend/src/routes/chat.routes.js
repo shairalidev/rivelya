@@ -5,6 +5,7 @@ import { ChatThread } from '../models/chat-thread.model.js';
 import { ChatMessage } from '../models/chat-message.model.js';
 import { Master } from '../models/master.model.js';
 import { emitToUser } from '../lib/socket.js';
+import { ChatThreadNote } from '../models/chat-thread-note.model.js';
 
 const router = Router();
 
@@ -17,6 +18,10 @@ const resolveDisplayName = user =>
   || [user?.first_name, user?.last_name].filter(Boolean).join(' ')
   || user?.email
   || 'Utente';
+
+const noteSchema = Joi.object({
+  note: Joi.string().allow('', null).max(4000)
+});
 
 const buildThreadPayload = (thread, { lastMessage = null, unreadCount = 0 } = {}) => {
   const now = Date.now();
@@ -160,6 +165,8 @@ router.get('/threads/:threadId', requireAuth, async (req, res, next) => {
 
     const remaining = thread.expires_at ? Math.max(0, Math.floor((thread.expires_at.getTime() - Date.now()) / 1000)) : 0;
 
+    const note = await ChatThreadNote.findOne({ thread_id: thread._id, user_id: req.user._id }).select('note updatedAt');
+
     res.json({
       thread: buildThreadPayload(thread),
       viewerRole: isMaster ? 'master' : isCustomer ? 'client' : 'guest',
@@ -171,9 +178,34 @@ router.get('/threads/:threadId', requireAuth, async (req, res, next) => {
         createdAt: message.createdAt
       })),
       remainingSeconds: remaining,
-      canPost: remaining > 0 && thread.status === 'open'
+      canPost: remaining > 0 && thread.status === 'open',
+      note: note?.note || '',
+      noteUpdatedAt: note?.updatedAt || null
     });
   } catch (error) {
+    next(error);
+  }
+});
+
+router.put('/threads/:threadId/note', requireAuth, async (req, res, next) => {
+  try {
+    const payload = await noteSchema.validateAsync(req.body);
+    const ensured = await ensureThreadForUser(req.params.threadId, req.user);
+    if (!ensured) return res.status(404).json({ message: 'Conversazione non trovata.' });
+
+    const noteContent = typeof payload.note === 'string' ? payload.note : '';
+
+    const note = await ChatThreadNote.findOneAndUpdate(
+      { thread_id: ensured.thread._id, user_id: req.user._id },
+      { $set: { note: noteContent } },
+      { new: true, upsert: true, setDefaultsOnInsert: true }
+    );
+
+    res.json({ note: note.note || '', noteUpdatedAt: note.updatedAt });
+  } catch (error) {
+    if (error.isJoi) {
+      return res.status(400).json({ message: 'Nota non valida.' });
+    }
     next(error);
   }
 });
