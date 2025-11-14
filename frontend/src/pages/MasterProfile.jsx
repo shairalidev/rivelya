@@ -19,12 +19,6 @@ const ChatGlyph = props => (
   </svg>
 );
 
-const PhoneGlyph = props => (
-  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true" {...props}>
-    <path d="M5.5 3H8a1.5 1.5 0 011.43 1.05l.9 2.8a1.5 1.5 0 01-.52 1.63l-1 1a12.5 12.5 0 005.66 5.66l1-1a1.5 1.5 0 011.63-.52l2.8.9A1.5 1.5 0 0121 15.5V18a1.5 1.5 0 01-1.5 1.5h-.25C11.268 19.5 4.5 12.732 4.5 4.75V4.5A1.5 1.5 0 015.5 3z" />
-  </svg>
-);
-
 const VideoGlyph = props => (
   <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true" {...props}>
     <rect x="3" y="5" width="14" height="14" rx="2" />
@@ -34,13 +28,12 @@ const VideoGlyph = props => (
 
 const serviceMeta = {
   chat: { label: 'Chat', Icon: ChatGlyph },
-  phone: { label: 'Chiamata', Icon: PhoneGlyph },
   video: { label: 'Video', Icon: VideoGlyph }
 };
 
-const serviceOrder = ['chat', 'phone', 'video'];
+const serviceOrder = ['chat', 'video'];
 
-const channelRateLabels = { chat: 'chat', phone: 'telefonica', video: 'video' };
+const channelRateLabels = { chat: 'chat', video: 'video' };
 
 dayjs.locale('it');
 
@@ -161,15 +154,10 @@ const formatDateKey = date => `${date.getFullYear()}-${String(date.getMonth() + 
       return;
     }
     try {
-      const endpoint = channel === 'phone' ? '/session/phone' : '/session/chat';
-      const res = await client.post(endpoint, { master_id: master._id });
-      if (channel === 'phone') {
-        toast.success('Sessione telefonica creata. Ti richiamiamo a breve.');
-      } else {
-        toast.success('Chat avviata. Ti reindirizziamo alla stanza.');
-        if (res.data.ws_url) {
-          window.open(res.data.ws_url, '_blank', 'noopener');
-        }
+      const res = await client.post('/session/chat', { master_id: master._id });
+      toast.success('Chat avviata. Ti reindirizziamo alla stanza.');
+      if (res.data.ws_url) {
+        window.open(res.data.ws_url, '_blank', 'noopener');
       }
     } catch (error) {
       const message = error?.response?.data?.message || 'Impossibile avviare la sessione in questo momento.';
@@ -185,7 +173,7 @@ const formatDateKey = date => `${date.getFullYear()}-${String(date.getMonth() + 
             if (service === 'video') return Boolean(flag);
             return flag !== false;
           })
-        : ['chat', 'phone'],
+        : ['chat'],
     [master]
   );
 
@@ -277,8 +265,7 @@ const formatDateKey = date => `${date.getFullYear()}-${String(date.getMonth() + 
   const activeRateCents = useMemo(() => {
     if (!master) return null;
     let value;
-    if (booking.channel === 'phone') value = master.rate_phone_cpm;
-    else if (booking.channel === 'video') value = master.rate_video_cpm;
+    if (booking.channel === 'video') value = master.rate_video_cpm;
     else value = master.rate_chat_cpm;
     return typeof value === 'number' ? value : null;
   }, [master, booking.channel]);
@@ -388,7 +375,7 @@ const formatDateKey = date => `${date.getFullYear()}-${String(date.getMonth() + 
   if (loading) {
     return (
       <section className="container profile">
-        <div className="profile-card skeleton" />
+        <div className="profile-summary-card skeleton" />
       </section>
     );
   }
@@ -407,235 +394,254 @@ const formatDateKey = date => `${date.getFullYear()}-${String(date.getMonth() + 
   const hasSchedule = dailySchedule.some(day => day.slots.length > 0);
   const timezoneLabel = resolveTimezoneLabel(master.working_hours);
 
+  const languagesLabel = (master.languages || []).join(', ');
+  const specialties = master.specialties && master.specialties.length > 0 ? master.specialties : master.categories || [];
+  const featuredSpecialties = specialties.slice(0, 6);
+  const categoriesLabel = (master.categories || []).join(', ');
+
   return (
     <section className="container profile">
-      <div className="profile-card">
-        <div className="profile-avatar">
-          <img src={master.media?.avatar_url || 'https://placehold.co/320'} alt={master.display_name || 'Master Rivelya'} />
-          <span className={`status-badge ${master.availability}`}>{master.availability}</span>
-        </div>
-        <div className="profile-content">
-          <span className="badge-soft">Master {master.categories?.[0] || 'Rivelya'}</span>
-          <h1>{master.display_name || 'Master Rivelya'}</h1>
-          <p className="muted">{master.headline || 'Professionista certificato del network Rivelya.'}</p>
-          <div className="profile-rating">
-            <span className="rating-large">★ {rating}</span>
-            <span className="muted">{master.kpis?.review_count || 0} recensioni · {master.experience_years || '5'} anni di esperienza</span>
-          </div>
-          <p>{master.bio || 'Questo master è disponibile per consulenze su richiesta con un approccio empatico e orientato ai risultati.'}</p>
-          <div className="tag-list">
-            {(master.specialties || master.categories || []).slice(0, 4).map(spec => (
-              <span key={spec} className="tag">{spec}</span>
-            ))}
-            {(master.languages || []).map(lang => (
-              <span key={lang} className="tag ghost">{lang}</span>
-            ))}
-          </div>
-          <div className="service-icon-row" role="list" aria-label="Servizi disponibili">
-            {serviceOrder.map(service => {
-              const meta = serviceMeta[service];
-              if (!meta) return null;
-              const flag = master.services?.[service];
-              const enabled = service === 'video' ? Boolean(flag) : flag !== false;
-              const { Icon } = meta;
-              return (
-                <span
-                  key={service}
-                  className={`service-chip${enabled ? ' active' : ''}`}
-                  title={enabled ? meta.label : `${meta.label} non disponibile`}
-                  role="listitem"
-                >
-                  <Icon aria-hidden="true" />
-                </span>
-              );
-            })}
-          </div>
-          <div className="profile-stats">
-            <div>
-              <span className="stat-value">{master.kpis?.lifetime_calls || 0}</span>
-              <span className="stat-label">Chiamate</span>
+      <div className="profile-layout">
+        <aside className="profile-sidebar">
+          <div className="profile-summary-card">
+            <div className="profile-avatar">
+              <img src={master.media?.avatar_url || 'https://placehold.co/320'} alt={master.display_name || 'Master Rivelya'} />
+              <span className={`status-badge ${master.availability}`}>{master.availability}</span>
             </div>
-            <div>
-              <span className="stat-value">{master.kpis?.lifetime_chats || 0}</span>
-              <span className="stat-label">Chat</span>
-            </div>
-            <div>
-              <span className="stat-value">{master.kpis?.review_count || 0}</span>
-              <span className="stat-label">Recensioni</span>
-            </div>
-          </div>
-        </div>
-      </div>
-      <div className="profile-actions">
-        {master.services?.phone !== false && (
-          <div className="rate-card">
-            <p>Tariffa telefonica</p>
-            <h3>{(master.rate_phone_cpm / 100).toFixed(2)} € / min</h3>
-            <p className="muted">Prima chiamata gratuita fino a 5 minuti per i nuovi clienti.</p>
-            <button className="btn primary" onClick={() => startSession('phone')}>
-              Avvia chiamata
-            </button>
-          </div>
-        )}
-        {master.services?.chat !== false && (
-          <div className="rate-card">
-            <p>Tariffa chat</p>
-            <h3>{(master.rate_chat_cpm / 100).toFixed(2)} € / min</h3>
-            <p className="muted">Risposte asincrone e follow-up via report dedicato.</p>
-            <button className="btn outline" onClick={() => startSession('chat')}>
-              Apri chat
-            </button>
-          </div>
-        )}
-        {master.services?.video && (
-          <div className="rate-card">
-            <p>Tariffa video</p>
-            <h3>{(master.rate_video_cpm / 100).toFixed(2)} € / min</h3>
-            <p className="muted">Videochiamata privata su appuntamento.</p>
-            <button className="btn outline" onClick={() => startSession('video')}>
-              Richiedi video
-            </button>
-          </div>
-        )}
-      </div>
-      <div className="booking-card">
-        <div className="booking-head">
-          <h2>Prenota una consulenza</h2>
-          <p className="muted">
-            Seleziona giorno e orario tra le disponibilità reali del master. Il credito verrà prenotato e confermato al momento
-            dell&apos;accettazione.
-          </p>
-        </div>
-        {availabilityLoading && <div className="booking-skeleton" aria-hidden="true" />}
-        {!availabilityLoading && availableDays.length === 0 && (
-          <p className="muted">Questo master non ha ancora pubblicato disponibilità per le prossime settimane.</p>
-        )}
-        {!availabilityLoading && availableDays.length > 0 && (
-          <div className="booking-form">
-            <div className="booking-calendar">
-              <p className="calendar-title">Scegli una data</p>
-              <DayPicker
-                mode="single"
-                selected={selectedDateObject}
-                onSelect={handleDaySelect}
-                disabled={disabledDays}
-                modifiers={modifiers}
-                modifiersClassNames={{ available: 'calendar-available' }}
-                weekStartsOn={1}
-                fromDate={today}
-                numberOfMonths={2}
-                showOutsideDays
-                captionLayout="buttons"
-              />
-              <p className="calendar-selection">{selectedDateLabel}</p>
-            </div>
-            <div className="booking-fields">
-              <div className="booking-time-grid">
-                <label className="input-label">
-                  Inizio
-                  <FancySelect
-                    name="start"
-                    value={booking.start}
-                    options={startSelectOptions}
-                    onChange={updateBooking}
-                    placeholder="Seleziona"
-                    isDisabled={startSelectOptions.length === 0}
-                  />
-                </label>
-                <label className="input-label">
-                  Fine
-                  <FancySelect
-                    name="end"
-                    value={booking.end}
-                    options={endSelectOptions}
-                    onChange={updateBooking}
-                    placeholder="Seleziona"
-                    isDisabled={endSelectOptions.length === 0}
-                  />
-                </label>
+            <div className="profile-summary-body">
+              <span className="badge-soft">Master {master.categories?.[0] || 'Rivelya'}</span>
+              <h1>{master.display_name || 'Master Rivelya'}</h1>
+              <p className="muted">{master.headline || 'Professionista certificato del network Rivelya.'}</p>
+              <div className="profile-rating">
+                <span className="rating-large">★ {rating}</span>
+                <span className="muted">{master.kpis?.review_count || 0} recensioni · {master.experience_years || '5'} anni di esperienza</span>
               </div>
-              <label className="input-label">
-                Canale preferito
-                <FancySelect
-                  name="channel"
-                  value={booking.channel}
-                  options={channelOptions}
-                  onChange={updateBooking}
-                  isDisabled={channelOptions.length === 0}
-                />
-              </label>
-              <div className="booking-summary">
+              <div className="service-icon-row" role="list" aria-label="Servizi disponibili">
+                {serviceOrder.map(service => {
+                  const meta = serviceMeta[service];
+                  if (!meta) return null;
+                  const flag = master.services?.[service];
+                  const enabled = service === 'video' ? Boolean(flag) : flag !== false;
+                  const { Icon } = meta;
+                  return (
+                    <span
+                      key={service}
+                      className={`service-chip${enabled ? ' active' : ''}`}
+                      title={enabled ? meta.label : `${meta.label} non disponibile`}
+                      role="listitem"
+                    >
+                      <Icon aria-hidden="true" />
+                    </span>
+                  );
+                })}
+              </div>
+              <div className="profile-stats">
                 <div>
-                  <span className="summary-label">Durata selezionata</span>
-                  <strong>{durationMinutes ? `${durationMinutes} min` : '—'}</strong>
+                  <span className="stat-value">{master.kpis?.lifetime_chats || 0}</span>
+                  <span className="stat-label">Chat gestite</span>
                 </div>
                 <div>
-                  <span className="summary-label">
-                    Tariffa {channelRateLabels[booking.channel] || 'selezionata'}
-                  </span>
-                  <strong>
-                    {activeRateCents != null ? `${(activeRateCents / 100).toFixed(2)} € / min` : '—'}
-                  </strong>
+                  <span className="stat-value">{master.kpis?.lifetime_calls || 0}</span>
+                  <span className="stat-label">Sessioni live</span>
                 </div>
                 <div>
-                  <span className="summary-label">Totale stimato</span>
-                  <strong>{estimatedCost != null ? `${estimatedCost.toFixed(2)} €` : '—'}</strong>
+                  <span className="stat-value">{master.kpis?.review_count || 0}</span>
+                  <span className="stat-label">Recensioni</span>
                 </div>
               </div>
-              <p className="booking-summary-note">
-                L&apos;importo viene prenotato dal tuo wallet e addebitato solo dopo la conferma del master.
+              {featuredSpecialties.length > 0 && (
+                <div className="tag-list">
+                  {featuredSpecialties.map(spec => (
+                    <span key={spec} className="tag">{spec}</span>
+                  ))}
+                </div>
+              )}
+              {languagesLabel && <p className="micro muted">Lingue: {languagesLabel}</p>}
+            </div>
+          </div>
+        </aside>
+        <div className="profile-main">
+          <div className="profile-main-scroll">
+            <div className="profile-about-card">
+              <h2>Biografia</h2>
+              <p>
+                {master.bio || 'Questo master è disponibile per consulenze su richiesta con un approccio empatico e orientato ai risultati.'}
               </p>
-              <label className="input-label">
-                Note per il master (opzionale)
-                <textarea
-                  name="notes"
-                  rows="3"
-                  value={booking.notes}
-                  onChange={updateBooking}
-                  placeholder="Inserisci eventuali preferenze o contesto della sessione"
-                />
-              </label>
-              <button
-                type="button"
-                className="btn primary"
-                onClick={submitBooking}
-                disabled={bookingLoading || !booking.date || !booking.start || !booking.end || !booking.channel}
-              >
-                {bookingLoading ? 'Prenotazione in corso…' : 'Conferma prenotazione'}
-              </button>
+              <div className="profile-facts">
+                <div>
+                  <span className="fact-label">Esperienza</span>
+                  <span className="fact-value">{master.experience_years || '—'} anni</span>
+                </div>
+                <div>
+                  <span className="fact-label">Categorie</span>
+                  <span className="fact-value">{categoriesLabel || 'Su richiesta'}</span>
+                </div>
+                <div>
+                  <span className="fact-label">Lingue</span>
+                  <span className="fact-value">{languagesLabel || 'Italiano'}</span>
+                </div>
+              </div>
+            </div>
+            <div className="profile-service-cards">
+              {master.services?.chat !== false && (
+                <div className="rate-card emphasis">
+                  <p>Consulenza chat</p>
+                  <h3>{(master.rate_chat_cpm / 100).toFixed(2)} € / min</h3>
+                  <p className="muted">Risposte strutturate, recap finale e assistenza scritta continuativa.</p>
+                  <button className="btn outline" onClick={() => startSession('chat')}>
+                    Avvia chat immediata
+                  </button>
+                </div>
+              )}
+              {master.services?.video && (
+                <div className="rate-card subtle">
+                  <p>Sessione video live</p>
+                  <h3>{(master.rate_video_cpm / 100).toFixed(2)} € / min</h3>
+                  <p className="muted">Prenota una videochiamata privata coordinata direttamente con il master.</p>
+                  <button className="btn outline" onClick={() => startSession('video')}>
+                    Richiedi videochiamata
+                  </button>
+                </div>
+              )}
+            </div>
+            <div className="booking-card">
+              <div className="booking-head">
+                <h2>Prenota una consulenza</h2>
+                <p className="muted">
+                  Seleziona giorno e orario tra le disponibilità reali del master. Il credito verrà prenotato e confermato al momento
+                  dell&apos;accettazione.
+                </p>
+              </div>
+              {availabilityLoading && <div className="booking-skeleton" aria-hidden="true" />}
+              {!availabilityLoading && availableDays.length === 0 && (
+                <p className="muted">Questo master non ha ancora pubblicato disponibilità per le prossime settimane.</p>
+              )}
+              {!availabilityLoading && availableDays.length > 0 && (
+                <div className="booking-form">
+                  <div className="booking-calendar">
+                    <p className="calendar-title">Scegli una data</p>
+                    <DayPicker
+                      mode="single"
+                      selected={selectedDateObject}
+                      onSelect={handleDaySelect}
+                      disabled={disabledDays}
+                      modifiers={modifiers}
+                      modifiersClassNames={{ available: 'calendar-available' }}
+                      weekStartsOn={1}
+                      fromDate={today}
+                      numberOfMonths={2}
+                      showOutsideDays
+                      captionLayout="buttons"
+                    />
+                    <p className="calendar-selection">{selectedDateLabel}</p>
+                  </div>
+                  <div className="booking-fields">
+                    <div className="booking-time-grid">
+                      <label className="input-label">
+                        Inizio
+                        <FancySelect
+                          name="start"
+                          value={booking.start}
+                          options={startSelectOptions}
+                          onChange={updateBooking}
+                          placeholder="Seleziona"
+                          isDisabled={startSelectOptions.length === 0}
+                        />
+                      </label>
+                      <label className="input-label">
+                        Fine
+                        <FancySelect
+                          name="end"
+                          value={booking.end}
+                          options={endSelectOptions}
+                          onChange={updateBooking}
+                          placeholder="Seleziona"
+                          isDisabled={endSelectOptions.length === 0}
+                        />
+                      </label>
+                    </div>
+                    <label className="input-label">
+                      Canale preferito
+                      <FancySelect
+                        name="channel"
+                        value={booking.channel}
+                        options={channelOptions}
+                        onChange={updateBooking}
+                        isDisabled={channelOptions.length === 0}
+                      />
+                    </label>
+                    <div className="booking-summary">
+                      <div>
+                        <span className="summary-label">Durata selezionata</span>
+                        <strong>{durationMinutes ? `${durationMinutes} min` : '—'}</strong>
+                      </div>
+                      <div>
+                        <span className="summary-label">Tariffa {channelRateLabels[booking.channel] || 'selezionata'}</span>
+                        <strong>{activeRateCents != null ? `${(activeRateCents / 100).toFixed(2)} € / min` : '—'}</strong>
+                      </div>
+                      <div>
+                        <span className="summary-label">Totale stimato</span>
+                        <strong>{estimatedCost != null ? `${estimatedCost.toFixed(2)} €` : '—'}</strong>
+                      </div>
+                    </div>
+                    <p className="booking-summary-note">
+                      L&apos;importo viene prenotato dal tuo wallet e addebitato solo dopo la conferma del master.
+                    </p>
+                    <label className="input-label">
+                      Note per il master (opzionale)
+                      <textarea
+                        name="notes"
+                        rows="3"
+                        value={booking.notes}
+                        onChange={updateBooking}
+                        placeholder="Inserisci eventuali preferenze o contesto della sessione"
+                      />
+                    </label>
+                    <button
+                      type="button"
+                      className="btn primary"
+                      onClick={submitBooking}
+                      disabled={bookingLoading || !booking.date || !booking.start || !booking.end || !booking.channel}
+                    >
+                      {bookingLoading ? 'Prenotazione in corso…' : 'Conferma prenotazione'}
+                    </button>
+                  </div>
+                </div>
+              )}
+            </div>
+            <div className="schedule-card">
+              <div className="schedule-header">
+                <h2>Disponibilità settimanale</h2>
+                <span className="micro muted">{timezoneLabel}</span>
+              </div>
+              {hasSchedule ? (
+                <ul className="schedule-grid">
+                  {dailySchedule.map(day => (
+                    <li key={day.day}>
+                      <span className="day-label">{day.label}</span>
+                      {day.slots.length > 0 ? (
+                        <div className="day-slots">
+                          {day.slots.map((slot, idx) => (
+                            <span key={`${day.day}-${idx}`}>{slot.start} - {slot.end}</span>
+                          ))}
+                        </div>
+                      ) : (
+                        <span className="day-slots off">—</span>
+                      )}
+                    </li>
+                  ))}
+                </ul>
+              ) : (
+                <p className="muted">Gli orari di questo master sono disponibili su richiesta. Scrivici per fissare un appuntamento.</p>
+              )}
+              {master.working_hours?.notes && (
+                <p className="micro muted">Note: {master.working_hours.notes}</p>
+              )}
             </div>
           </div>
-        )}
-      </div>
-      <div className="schedule-card">
-        <div className="schedule-header">
-          <h2>Disponibilità settimanale</h2>
-          <span className="micro muted">{timezoneLabel}</span>
         </div>
-        {hasSchedule ? (
-          <ul className="schedule-grid">
-            {dailySchedule.map(day => (
-              <li key={day.day}>
-                <span className="day-label">{day.label}</span>
-                {day.slots.length > 0 ? (
-                  <div className="day-slots">
-                    {day.slots.map((slot, idx) => (
-                      <span key={`${day.day}-${idx}`}>{slot.start} - {slot.end}</span>
-                    ))}
-                  </div>
-                ) : (
-                  <span className="day-slots off">—</span>
-                )}
-              </li>
-            ))}
-          </ul>
-        ) : (
-          <p className="muted">Gli orari di questo master sono disponibili su richiesta. Scrivici per fissare un appuntamento.</p>
-        )}
-        {master.working_hours?.notes && (
-          <p className="micro muted">Note: {master.working_hours.notes}</p>
-        )}
       </div>
     </section>
   );
 }
+
