@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import toast from 'react-hot-toast';
 import {
@@ -11,6 +11,7 @@ import {
 import client from '../api/client.js';
 import FancySelect from '../components/FancySelect.jsx';
 import { getUser as getStoredUser, subscribeAuthChange } from '../lib/auth.js';
+import { fetchMasterProfile, updateMasterProfile } from '../api/master.js';
 
 const weekdays = ['Lun', 'Mar', 'Mer', 'Gio', 'Ven', 'Sab', 'Dom'];
 const statusLabels = {
@@ -19,7 +20,48 @@ const statusLabels = {
   rejected: 'Rifiutato'
 };
 
+const channelLabels = {
+  chat: 'Chat',
+  phone: 'Chiamata',
+  video: 'Videochiamata'
+};
+
 const formatCurrency = cents => (cents / 100).toFixed(2);
+
+const formatCentsInput = value => {
+  if (typeof value !== 'number') return '';
+  return (value / 100).toFixed(2);
+};
+
+const parseEuroInput = value => {
+  if (!value) return 0;
+  const normalized = value.replace(',', '.');
+  const parsed = Number(normalized);
+  if (Number.isNaN(parsed) || parsed < 0) return 0;
+  return Math.round(parsed * 100);
+};
+
+const parseListInput = value =>
+  value
+    .split(',')
+    .map(entry => entry.trim())
+    .filter(Boolean);
+
+const initialProfileForm = {
+  displayName: '',
+  headline: '',
+  bio: '',
+  avatarUrl: '',
+  introVideoUrl: '',
+  languages: '',
+  specialties: '',
+  categories: '',
+  experienceYears: '',
+  rateChat: '',
+  ratePhone: '',
+  rateVideo: '',
+  services: { chat: true, phone: true, video: false }
+};
 
 const formatDateLabel = (year, month) => {
   const date = new Date(year, month - 1, 1);
@@ -97,8 +139,53 @@ export default function MasterDashboard() {
   const [loadingRequests, setLoadingRequests] = useState(true);
   const [modalDay, setModalDay] = useState(null);
   const [blockForm, setBlockForm] = useState(initialBlockForm);
+  const [profileLoading, setProfileLoading] = useState(true);
+  const [profileSaving, setProfileSaving] = useState(false);
+  const [profileError, setProfileError] = useState('');
+  const [profile, setProfile] = useState(null);
+  const [profileForm, setProfileForm] = useState(initialProfileForm);
 
   const masterId = user?.masterId;
+
+  const buildProfileForm = useCallback(data => ({
+    displayName: data?.displayName || '',
+    headline: data?.headline || '',
+    bio: data?.bio || '',
+    avatarUrl: data?.media?.avatarUrl || '',
+    introVideoUrl: data?.media?.introVideoUrl || '',
+    languages: (data?.languages || []).join(', '),
+    specialties: (data?.specialties || []).join(', '),
+    categories: (data?.categories || []).join(', '),
+    experienceYears:
+      data?.experienceYears != null && !Number.isNaN(data.experienceYears)
+        ? String(data.experienceYears)
+        : '',
+    rateChat: formatCentsInput(data?.rateChatCpm ?? 0),
+    ratePhone: formatCentsInput(data?.ratePhoneCpm ?? 0),
+    rateVideo: formatCentsInput(data?.rateVideoCpm ?? 0),
+    services: {
+      chat: data?.services?.chat !== false,
+      phone: data?.services?.phone !== false,
+      video: Boolean(data?.services?.video)
+    }
+  }), []);
+
+  const loadProfile = useCallback(async () => {
+    try {
+      setProfileLoading(true);
+      setProfileError('');
+      const data = await fetchMasterProfile();
+      setProfile(data);
+      setProfileForm(buildProfileForm(data));
+    } catch (error) {
+      const message = error?.response?.data?.message || 'Impossibile caricare il profilo master.';
+      setProfileError(message);
+      setProfile(null);
+      toast.error(message);
+    } finally {
+      setProfileLoading(false);
+    }
+  }, [buildProfileForm]);
 
   const startSelectOptions = useMemo(() => {
     if (!modalDay) return [];
@@ -164,6 +251,12 @@ export default function MasterDashboard() {
       setLoadingRequests(false);
     }
   };
+
+  useEffect(() => {
+    if (user?.roles?.includes('master')) {
+      loadProfile();
+    }
+  }, [user?.roles, loadProfile]);
 
   useEffect(() => {
     if (user?.roles?.includes('master')) {
@@ -249,6 +342,55 @@ export default function MasterDashboard() {
     });
   };
 
+  const updateProfileField = evt => {
+    const { name, value } = evt.target;
+    setProfileForm(prev => ({ ...prev, [name]: value }));
+  };
+
+  const toggleService = key => {
+    setProfileForm(prev => ({
+      ...prev,
+      services: { ...prev.services, [key]: !prev.services[key] }
+    }));
+  };
+
+  const saveProfile = async () => {
+    try {
+      setProfileSaving(true);
+      const payload = {
+        displayName: profileForm.displayName.trim(),
+        headline: profileForm.headline.trim(),
+        bio: profileForm.bio.trim(),
+        avatarUrl: profileForm.avatarUrl.trim() || null,
+        introVideoUrl: profileForm.introVideoUrl.trim() || null,
+        experienceYears: profileForm.experienceYears ? Number(profileForm.experienceYears) : 0,
+        languages: parseListInput(profileForm.languages),
+        specialties: parseListInput(profileForm.specialties),
+        categories: parseListInput(profileForm.categories),
+        services: profileForm.services,
+        rates: {
+          chat: parseEuroInput(profileForm.rateChat),
+          phone: parseEuroInput(profileForm.ratePhone),
+          video: parseEuroInput(profileForm.rateVideo)
+        }
+      };
+
+      if (Number.isNaN(payload.experienceYears) || payload.experienceYears < 0) {
+        payload.experienceYears = 0;
+      }
+
+      const updated = await updateMasterProfile(payload);
+      setProfile(updated);
+      setProfileForm(buildProfileForm(updated));
+      toast.success('Profilo aggiornato.');
+    } catch (error) {
+      const message = error?.response?.data?.message || 'Impossibile aggiornare il profilo.';
+      toast.error(message);
+    } finally {
+      setProfileSaving(false);
+    }
+  };
+
   const handleRespond = async (bookingId, action) => {
     try {
       const updated = await respondToBooking(bookingId, action);
@@ -271,6 +413,14 @@ export default function MasterDashboard() {
         toast.error('Cliente non disponibile.');
         return;
       }
+      if (profile?.services && profile.services[channel] === false) {
+        toast.error('Servizio disabilitato. Riattivalo dalle impostazioni profilo.');
+        return;
+      }
+      if (channel === 'video') {
+        toast('Coordina la videochiamata direttamente con il cliente.');
+        return;
+      }
       const endpoint = channel === 'phone' ? '/session/phone' : '/session/chat';
       const res = await client.post(endpoint, { master_id: masterId });
       if (channel === 'phone') {
@@ -291,10 +441,11 @@ export default function MasterDashboard() {
     <section className="container master-dashboard">
       <div className="dashboard-header">
         <div>
-          <p className="eyebrow">Pannello master</p>
-          <h1>Gestisci richieste e disponibilità</h1>
+          <p className="eyebrow">Pannello consulente</p>
+          <h1>Gestisci profilo, calendario e richieste</h1>
           <p className="muted">
-            Approva le richieste in arrivo, organizza il calendario del mese e apri rapidamente chat o chiamate con i clienti.
+            Aggiorna biografia e foto, definisci tariffe personalizzate per chat, chiamate o video e pianifica la tua disponibilità
+            settimanale mentre gestisci le prenotazioni in arrivo.
           </p>
         </div>
         <div className="month-controls">
@@ -306,6 +457,196 @@ export default function MasterDashboard() {
             →
           </button>
         </div>
+      </div>
+
+      <div className="profile-settings-card">
+        <div className="profile-settings-head">
+          <h2>Profilo pubblico e servizi</h2>
+          <p className="muted">
+            Gestisci biografia, foto di presentazione, servizi attivi e tariffe al minuto visibili ai clienti su Rivelya.
+          </p>
+        </div>
+        {profileLoading ? (
+          <div className="profile-settings-skeleton" aria-hidden="true" />
+        ) : profileError ? (
+          <div className="alert small">{profileError}</div>
+        ) : (
+          <div className="profile-settings-grid">
+            <div className="profile-settings-column media">
+              <div className="avatar-preview" aria-hidden="true">
+                <img
+                  src={profileForm.avatarUrl || user?.avatarUrl || 'https://placehold.co/160'}
+                  alt="Anteprima avatar"
+                />
+              </div>
+              <label className="input-label">
+                URL foto profilo
+                <input
+                  type="url"
+                  name="avatarUrl"
+                  value={profileForm.avatarUrl}
+                  onChange={updateProfileField}
+                  placeholder="https://"
+                />
+              </label>
+              <label className="input-label">
+                Video introduttivo (YouTube, Vimeo…)
+                <input
+                  type="url"
+                  name="introVideoUrl"
+                  value={profileForm.introVideoUrl}
+                  onChange={updateProfileField}
+                  placeholder="https://"
+                />
+              </label>
+              <div className="service-toggle-group">
+                <p className="micro muted">Servizi attivi</p>
+                <label className={`service-toggle${profileForm.services.chat ? ' active' : ''}`}>
+                  <input
+                    type="checkbox"
+                    checked={profileForm.services.chat}
+                    onChange={() => toggleService('chat')}
+                  />
+                  <span>Chat privata</span>
+                </label>
+                <label className={`service-toggle${profileForm.services.phone ? ' active' : ''}`}>
+                  <input
+                    type="checkbox"
+                    checked={profileForm.services.phone}
+                    onChange={() => toggleService('phone')}
+                  />
+                  <span>Chiamata vocale</span>
+                </label>
+                <label className={`service-toggle${profileForm.services.video ? ' active' : ''}`}>
+                  <input
+                    type="checkbox"
+                    checked={profileForm.services.video}
+                    onChange={() => toggleService('video')}
+                  />
+                  <span>Videochiamata</span>
+                </label>
+              </div>
+            </div>
+            <div className="profile-settings-column details">
+              <div className="field-grid">
+                <label className="input-label">
+                  Nome pubblico
+                  <input
+                    type="text"
+                    name="displayName"
+                    value={profileForm.displayName}
+                    onChange={updateProfileField}
+                    placeholder="Come comparirai ai clienti"
+                  />
+                </label>
+                <label className="input-label">
+                  Headline
+                  <input
+                    type="text"
+                    name="headline"
+                    value={profileForm.headline}
+                    onChange={updateProfileField}
+                    placeholder="Una frase che ti descrive"
+                  />
+                </label>
+              </div>
+              <label className="input-label">
+                Biografia
+                <textarea
+                  name="bio"
+                  rows="4"
+                  value={profileForm.bio}
+                  onChange={updateProfileField}
+                  placeholder="Racconta cosa offri e come lavori"
+                />
+              </label>
+              <div className="field-grid">
+                <label className="input-label">
+                  Lingue (separate da virgola)
+                  <input
+                    type="text"
+                    name="languages"
+                    value={profileForm.languages}
+                    onChange={updateProfileField}
+                    placeholder="it, en"
+                  />
+                </label>
+                <label className="input-label">
+                  Specializzazioni
+                  <input
+                    type="text"
+                    name="specialties"
+                    value={profileForm.specialties}
+                    onChange={updateProfileField}
+                    placeholder="Tarocchi, Mindset..."
+                  />
+                </label>
+              </div>
+              <div className="field-grid">
+                <label className="input-label">
+                  Categorie
+                  <input
+                    type="text"
+                    name="categories"
+                    value={profileForm.categories}
+                    onChange={updateProfileField}
+                    placeholder="cartomancy-divination"
+                  />
+                </label>
+                <label className="input-label">
+                  Anni di esperienza
+                  <input
+                    type="number"
+                    min="0"
+                    name="experienceYears"
+                    value={profileForm.experienceYears}
+                    onChange={updateProfileField}
+                  />
+                </label>
+              </div>
+              <div className="rate-grid">
+                <label className="input-label">
+                  Tariffa chat (€ / min)
+                  <input
+                    type="text"
+                    inputMode="decimal"
+                    name="rateChat"
+                    value={profileForm.rateChat}
+                    onChange={updateProfileField}
+                    placeholder="0.00"
+                  />
+                </label>
+                <label className="input-label">
+                  Tariffa chiamata (€ / min)
+                  <input
+                    type="text"
+                    inputMode="decimal"
+                    name="ratePhone"
+                    value={profileForm.ratePhone}
+                    onChange={updateProfileField}
+                    placeholder="0.00"
+                  />
+                </label>
+                <label className="input-label">
+                  Tariffa video (€ / min)
+                  <input
+                    type="text"
+                    inputMode="decimal"
+                    name="rateVideo"
+                    value={profileForm.rateVideo}
+                    onChange={updateProfileField}
+                    placeholder="0.00"
+                  />
+                </label>
+              </div>
+              <div className="profile-actions-row">
+                <button type="button" className="btn primary" onClick={saveProfile} disabled={profileSaving}>
+                  {profileSaving ? 'Salvataggio…' : 'Salva aggiornamenti'}
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
       </div>
 
       <div className="dashboard-grid">
@@ -371,7 +712,7 @@ export default function MasterDashboard() {
                         hour: '2-digit',
                         minute: '2-digit'
                       })}{' '}
-                      · {request.channel === 'phone' ? 'Chiamata' : 'Chat'}
+                      · {channelLabels[request.channel] || request.channel}
                     </p>
                     <p className="muted">
                       {request.customer?.name || 'Cliente anonimo'} · {formatCurrency(request.amount_cents)} €
@@ -393,16 +734,35 @@ export default function MasterDashboard() {
                         <span className="status-pill">{statusLabels[request.status] || request.status}</span>
                         {request.status === 'confirmed' && (
                           <div className="quick-actions">
-                            <button type="button" className="btn outline" onClick={() => startCommunication(request, 'chat')}>
-                              Apri chat
-                            </button>
-                            <button type="button" className="btn outline" onClick={() => startCommunication(request, 'phone')}>
-                              Avvia chiamata
-                            </button>
-                            {request.customer?.email && (
-                              <a className="btn ghost" href={`mailto:${request.customer.email}`}>
-                                Email
-                              </a>
+                            {request.channel === 'chat' && profile?.services?.chat !== false && (
+                              <button
+                                type="button"
+                                className="btn outline"
+                                onClick={() => startCommunication(request, 'chat')}
+                              >
+                                Apri chat
+                              </button>
+                            )}
+                            {request.channel === 'phone' && profile?.services?.phone !== false && (
+                              <button
+                                type="button"
+                                className="btn outline"
+                                onClick={() => startCommunication(request, 'phone')}
+                              >
+                                Avvia chiamata
+                              </button>
+                            )}
+                            {request.channel === 'video' && (
+                              <span className="micro muted">Coordina videochiamata esterna</span>
+                            )}
+                            {request.customer?.emailAvailable && (
+                              <span
+                                className="contact-email"
+                                aria-label="Email cliente riservata"
+                                title="L'indirizzo email è riservato. Contatta il supporto per comunicazioni straordinarie."
+                              >
+                                Email riservata
+                              </span>
                             )}
                             {request.customer?.phone && (
                               <a className="btn ghost" href={`tel:${request.customer.phone}`}>

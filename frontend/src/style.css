@@ -1326,6 +1326,11 @@ body.nav-open {
 
 .profile-content { display: flex; flex-direction: column; gap: 1.2rem; }
 
+.service-icon-row { display: flex; gap: 0.6rem; align-items: center; flex-wrap: wrap; }
+.service-chip { display: inline-flex; align-items: center; justify-content: center; width: 38px; height: 38px; border-radius: 50%; border: 1px solid rgba(255, 255, 255, 0.1); color: rgba(255, 255, 255, 0.6); background: rgba(8, 12, 24, 0.7); }
+.service-chip svg { width: 18px; height: 18px; }
+.service-chip.active { color: #3dd8b6; border-color: rgba(61, 216, 182, 0.4); background: rgba(61, 216, 182, 0.12); }
+
 .profile-rating { display: flex; gap: 1rem; align-items: baseline; flex-wrap: wrap; }
 .rating-large { font-size: 1.4rem; font-weight: 700; color: #fdd663; }
 
@@ -2105,6 +2110,117 @@ body.nav-open {
   max-width: 540px;
 }
 
+.profile-settings-card {
+  padding: 2rem;
+  border-radius: var(--radius-lg);
+  background: rgba(255, 255, 255, 0.03);
+  border: 1px solid rgba(255, 255, 255, 0.05);
+  box-shadow: var(--shadow);
+  display: grid;
+  gap: 1.4rem;
+}
+
+.profile-settings-head {
+  display: flex;
+  flex-direction: column;
+  gap: 0.4rem;
+}
+
+.profile-settings-skeleton {
+  height: 220px;
+  border-radius: var(--radius-lg);
+  background: linear-gradient(90deg, rgba(255,255,255,0.04), rgba(255,255,255,0.08), rgba(255,255,255,0.04));
+  background-size: 200% 100%;
+  animation: shimmer 1.8s infinite;
+}
+
+.profile-settings-grid {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 2fr);
+  gap: 2rem;
+}
+
+.profile-settings-column {
+  display: grid;
+  gap: 1.2rem;
+}
+
+.profile-settings-column.media {
+  max-width: 320px;
+}
+
+.avatar-preview {
+  width: 100%;
+  aspect-ratio: 1/1;
+  border-radius: var(--radius-lg);
+  overflow: hidden;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  background: rgba(8, 12, 24, 0.6);
+}
+
+.avatar-preview img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.service-toggle-group {
+  display: grid;
+  gap: 0.6rem;
+}
+
+.service-toggle {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  padding: 0.45rem 0.65rem;
+  border-radius: var(--radius-md);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  cursor: pointer;
+  font-weight: 600;
+  transition: border-color 0.2s ease, background 0.2s ease;
+}
+
+.service-toggle input {
+  width: 18px;
+  height: 18px;
+}
+
+.service-toggle.active {
+  border-color: rgba(61, 216, 182, 0.45);
+  background: rgba(61, 216, 182, 0.12);
+}
+
+.field-grid {
+  display: grid;
+  gap: 1rem;
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+}
+
+.rate-grid {
+  display: grid;
+  gap: 1rem;
+  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+}
+
+.profile-actions-row {
+  display: flex;
+  justify-content: flex-end;
+}
+
+.contact-email {
+  display: inline-flex;
+  align-items: center;
+  padding: 0.35rem 0.75rem;
+  border-radius: 999px;
+  border: 1px dashed rgba(255, 255, 255, 0.2);
+  font-size: 0.85rem;
+  color: rgba(255, 255, 255, 0.7);
+  font-style: italic;
+  user-select: none;
+  cursor: not-allowed;
+}
+
 .month-controls {
   display: flex;
   align-items: center;
@@ -2310,6 +2426,9 @@ body.nav-open {
   .month-controls {
     align-self: stretch;
     justify-content: space-between;
+  }
+  .profile-settings-grid {
+    grid-template-columns: 1fr;
   }
 }
 

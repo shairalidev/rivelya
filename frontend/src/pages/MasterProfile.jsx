@@ -11,6 +11,37 @@ import { buildDailySchedule, resolveTimezoneLabel } from '../utils/schedule.js';
 import { createBooking, fetchMasterMonthAvailability } from '../api/booking.js';
 import { getToken } from '../lib/auth.js';
 
+const ChatGlyph = props => (
+  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true" {...props}>
+    <path d="M5 5h14a2 2 0 012 2v8a2 2 0 01-2 2h-5.2a1 1 0 00-.7.3L10 21v-3H7a2 2 0 01-2-2V7a2 2 0 012-2z" />
+    <path d="M8 10h8" />
+    <path d="M8 13h5" />
+  </svg>
+);
+
+const PhoneGlyph = props => (
+  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true" {...props}>
+    <path d="M5.5 3H8a1.5 1.5 0 011.43 1.05l.9 2.8a1.5 1.5 0 01-.52 1.63l-1 1a12.5 12.5 0 005.66 5.66l1-1a1.5 1.5 0 011.63-.52l2.8.9A1.5 1.5 0 0121 15.5V18a1.5 1.5 0 01-1.5 1.5h-.25C11.268 19.5 4.5 12.732 4.5 4.75V4.5A1.5 1.5 0 015.5 3z" />
+  </svg>
+);
+
+const VideoGlyph = props => (
+  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true" {...props}>
+    <rect x="3" y="5" width="14" height="14" rx="2" />
+    <path d="M17 8l4-2v12l-4-2z" />
+  </svg>
+);
+
+const serviceMeta = {
+  chat: { label: 'Chat', Icon: ChatGlyph },
+  phone: { label: 'Chiamata', Icon: PhoneGlyph },
+  video: { label: 'Video', Icon: VideoGlyph }
+};
+
+const serviceOrder = ['chat', 'phone', 'video'];
+
+const channelRateLabels = { chat: 'chat', phone: 'telefonica', video: 'video' };
+
 dayjs.locale('it');
 
 export default function MasterProfile() {
@@ -55,11 +86,6 @@ const timeToMinutes = value => {
 const minutesToTime = value => `${String(Math.floor(value / 60)).padStart(2, '0')}:${String(value % 60).padStart(2, '0')}`;
 
 const formatDateKey = date => `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`;
-
-const channelOptions = [
-  { value: 'chat', label: 'Chat' },
-  { value: 'phone', label: 'Telefono' }
-];
 
   const rangeToStarts = ranges =>
     ranges.flatMap(range => {
@@ -126,6 +152,14 @@ const channelOptions = [
 
   const startSession = async channel => {
     if (!master || !ensureAuth()) return;
+    if (master.services && master.services[channel] === false) {
+      toast.error('Questo canale non è disponibile al momento.');
+      return;
+    }
+    if (channel === 'video') {
+      toast('Ti metteremo in contatto per organizzare la videochiamata.');
+      return;
+    }
     try {
       const endpoint = channel === 'phone' ? '/session/phone' : '/session/chat';
       const res = await client.post(endpoint, { master_id: master._id });
@@ -142,6 +176,39 @@ const channelOptions = [
       toast.error(message);
     }
   };
+
+  const availableChannels = useMemo(
+    () =>
+      master
+        ? serviceOrder.filter(service => {
+            const flag = master.services?.[service];
+            if (service === 'video') return Boolean(flag);
+            return flag !== false;
+          })
+        : ['chat', 'phone'],
+    [master]
+  );
+
+  const channelOptions = useMemo(
+    () =>
+      availableChannels.map(value => ({
+        value,
+        label: serviceMeta[value]?.label || value
+      })),
+    [availableChannels]
+  );
+
+  useEffect(() => {
+    if (availableChannels.length === 0) {
+      setBooking(prev => ({ ...prev, channel: '' }));
+      return;
+    }
+    setBooking(prev =>
+      availableChannels.includes(prev.channel)
+        ? prev
+        : { ...prev, channel: availableChannels[0] }
+    );
+  }, [availableChannels]);
 
   const availableDays = useMemo(
     () =>
@@ -209,7 +276,10 @@ const channelOptions = [
 
   const activeRateCents = useMemo(() => {
     if (!master) return null;
-    const value = booking.channel === 'phone' ? master.rate_phone_cpm : master.rate_chat_cpm;
+    let value;
+    if (booking.channel === 'phone') value = master.rate_phone_cpm;
+    else if (booking.channel === 'video') value = master.rate_video_cpm;
+    else value = master.rate_chat_cpm;
     return typeof value === 'number' ? value : null;
   }, [master, booking.channel]);
 
@@ -284,8 +354,8 @@ const channelOptions = [
 
   const submitBooking = async () => {
     if (!master || !ensureAuth()) return;
-    if (!booking.date || !booking.start || !booking.end) {
-      toast.error('Seleziona data e fascia oraria.');
+    if (!booking.date || !booking.start || !booking.end || !booking.channel) {
+      toast.error('Seleziona data, orario e canale.');
       return;
     }
     try {
@@ -361,6 +431,25 @@ const channelOptions = [
               <span key={lang} className="tag ghost">{lang}</span>
             ))}
           </div>
+          <div className="service-icon-row" role="list" aria-label="Servizi disponibili">
+            {serviceOrder.map(service => {
+              const meta = serviceMeta[service];
+              if (!meta) return null;
+              const flag = master.services?.[service];
+              const enabled = service === 'video' ? Boolean(flag) : flag !== false;
+              const { Icon } = meta;
+              return (
+                <span
+                  key={service}
+                  className={`service-chip${enabled ? ' active' : ''}`}
+                  title={enabled ? meta.label : `${meta.label} non disponibile`}
+                  role="listitem"
+                >
+                  <Icon aria-hidden="true" />
+                </span>
+              );
+            })}
+          </div>
           <div className="profile-stats">
             <div>
               <span className="stat-value">{master.kpis?.lifetime_calls || 0}</span>
@@ -378,18 +467,36 @@ const channelOptions = [
         </div>
       </div>
       <div className="profile-actions">
-        <div className="rate-card">
-          <p>Tariffa telefonica</p>
-          <h3>{(master.rate_phone_cpm / 100).toFixed(2)} € / min</h3>
-          <p className="muted">Prima chiamata gratuita fino a 5 minuti per i nuovi clienti.</p>
-          <button className="btn primary" onClick={() => startSession('phone')}>Avvia chiamata</button>
-        </div>
-        <div className="rate-card">
-          <p>Tariffa chat</p>
-          <h3>{(master.rate_chat_cpm / 100).toFixed(2)} € / min</h3>
-          <p className="muted">Risposte asincrone e follow-up via report dedicato.</p>
-          <button className="btn outline" onClick={() => startSession('chat')}>Apri chat</button>
-        </div>
+        {master.services?.phone !== false && (
+          <div className="rate-card">
+            <p>Tariffa telefonica</p>
+            <h3>{(master.rate_phone_cpm / 100).toFixed(2)} € / min</h3>
+            <p className="muted">Prima chiamata gratuita fino a 5 minuti per i nuovi clienti.</p>
+            <button className="btn primary" onClick={() => startSession('phone')}>
+              Avvia chiamata
+            </button>
+          </div>
+        )}
+        {master.services?.chat !== false && (
+          <div className="rate-card">
+            <p>Tariffa chat</p>
+            <h3>{(master.rate_chat_cpm / 100).toFixed(2)} € / min</h3>
+            <p className="muted">Risposte asincrone e follow-up via report dedicato.</p>
+            <button className="btn outline" onClick={() => startSession('chat')}>
+              Apri chat
+            </button>
+          </div>
+        )}
+        {master.services?.video && (
+          <div className="rate-card">
+            <p>Tariffa video</p>
+            <h3>{(master.rate_video_cpm / 100).toFixed(2)} € / min</h3>
+            <p className="muted">Videochiamata privata su appuntamento.</p>
+            <button className="btn outline" onClick={() => startSession('video')}>
+              Richiedi video
+            </button>
+          </div>
+        )}
       </div>
       <div className="booking-card">
         <div className="booking-head">
@@ -449,7 +556,13 @@ const channelOptions = [
               </div>
               <label className="input-label">
                 Canale preferito
-                <FancySelect name="channel" value={booking.channel} options={channelOptions} onChange={updateBooking} />
+                <FancySelect
+                  name="channel"
+                  value={booking.channel}
+                  options={channelOptions}
+                  onChange={updateBooking}
+                  isDisabled={channelOptions.length === 0}
+                />
               </label>
               <div className="booking-summary">
                 <div>
@@ -458,7 +571,7 @@ const channelOptions = [
                 </div>
                 <div>
                   <span className="summary-label">
-                    Tariffa {booking.channel === 'phone' ? 'telefonica' : 'chat'}
+                    Tariffa {channelRateLabels[booking.channel] || 'selezionata'}
                   </span>
                   <strong>
                     {activeRateCents != null ? `${(activeRateCents / 100).toFixed(2)} € / min` : '—'}
@@ -486,7 +599,7 @@ const channelOptions = [
                 type="button"
                 className="btn primary"
                 onClick={submitBooking}
-                disabled={bookingLoading || !booking.date || !booking.start || !booking.end}
+                disabled={bookingLoading || !booking.date || !booking.start || !booking.end || !booking.channel}
               >
                 {bookingLoading ? 'Prenotazione in corso…' : 'Conferma prenotazione'}
               </button>

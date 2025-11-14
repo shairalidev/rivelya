@@ -79,6 +79,8 @@ router.post('/signup', async (req, res, next) => {
         display_name: user.display_name || '',
         rate_phone_cpm: 0,
         rate_chat_cpm: 0,
+        rate_video_cpm: 0,
+        services: { chat: true, phone: true, video: false },
         working_hours: { timezone: 'Europe/Rome', slots: [] }
       });
     }

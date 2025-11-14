@@ -21,8 +21,14 @@ const masterSchema = new mongoose.Schema({
   specialties: { type: [String], default: [] },
   experience_years: { type: Number, default: 0 },
   languages: { type: [String], default: ['it'] },
-  rate_phone_cpm: { type: Number, required: true, min: 0 }, // cents per minute
-  rate_chat_cpm: { type: Number, required: true, min: 0 },
+  rate_phone_cpm: { type: Number, min: 0, default: 0 }, // cents per minute
+  rate_chat_cpm: { type: Number, min: 0, default: 0 },
+  rate_video_cpm: { type: Number, min: 0, default: 0 },
+  services: {
+    chat: { type: Boolean, default: true },
+    phone: { type: Boolean, default: true },
+    video: { type: Boolean, default: false }
+  },
   availability: { type: String, enum: ['online', 'busy', 'offline'], default: 'offline' },
   media: {
     avatar_url: String,
