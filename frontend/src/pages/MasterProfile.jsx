@@ -19,12 +19,6 @@ const ChatGlyph = props => (
   </svg>
 );
 
-const PhoneGlyph = props => (
-  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true" {...props}>
-    <path d="M5.5 3H8a1.5 1.5 0 011.43 1.05l.9 2.8a1.5 1.5 0 01-.52 1.63l-1 1a12.5 12.5 0 005.66 5.66l1-1a1.5 1.5 0 011.63-.52l2.8.9A1.5 1.5 0 0121 15.5V18a1.5 1.5 0 01-1.5 1.5h-.25C11.268 19.5 4.5 12.732 4.5 4.75V4.5A1.5 1.5 0 015.5 3z" />
-  </svg>
-);
-
 const VideoGlyph = props => (
   <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true" {...props}>
     <rect x="3" y="5" width="14" height="14" rx="2" />
@@ -34,13 +28,12 @@ const VideoGlyph = props => (
 
 const serviceMeta = {
   chat: { label: 'Chat', Icon: ChatGlyph },
-  phone: { label: 'Chiamata', Icon: PhoneGlyph },
   video: { label: 'Video', Icon: VideoGlyph }
 };
 
-const serviceOrder = ['chat', 'phone', 'video'];
+const serviceOrder = ['chat', 'video'];
 
-const channelRateLabels = { chat: 'chat', phone: 'telefonica', video: 'video' };
+const channelRateLabels = { chat: 'chat', video: 'video' };
 
 dayjs.locale('it');
 
@@ -161,15 +154,10 @@ const formatDateKey = date => `${date.getFullYear()}-${String(date.getMonth() + 
       return;
     }
     try {
-      const endpoint = channel === 'phone' ? '/session/phone' : '/session/chat';
-      const res = await client.post(endpoint, { master_id: master._id });
-      if (channel === 'phone') {
-        toast.success('Sessione telefonica creata. Ti richiamiamo a breve.');
-      } else {
-        toast.success('Chat avviata. Ti reindirizziamo alla stanza.');
-        if (res.data.ws_url) {
-          window.open(res.data.ws_url, '_blank', 'noopener');
-        }
+      const res = await client.post('/session/chat', { master_id: master._id });
+      toast.success('Chat avviata. Ti reindirizziamo alla stanza.');
+      if (res.data.ws_url) {
+        window.open(res.data.ws_url, '_blank', 'noopener');
       }
     } catch (error) {
       const message = error?.response?.data?.message || 'Impossibile avviare la sessione in questo momento.';
@@ -185,7 +173,7 @@ const formatDateKey = date => `${date.getFullYear()}-${String(date.getMonth() + 
             if (service === 'video') return Boolean(flag);
             return flag !== false;
           })
-        : ['chat', 'phone'],
+        : ['chat'],
     [master]
   );
 
@@ -277,8 +265,7 @@ const formatDateKey = date => `${date.getFullYear()}-${String(date.getMonth() + 
   const activeRateCents = useMemo(() => {
     if (!master) return null;
     let value;
-    if (booking.channel === 'phone') value = master.rate_phone_cpm;
-    else if (booking.channel === 'video') value = master.rate_video_cpm;
+    if (booking.channel === 'video') value = master.rate_video_cpm;
     else value = master.rate_chat_cpm;
     return typeof value === 'number' ? value : null;
   }, [master, booking.channel]);
@@ -422,7 +409,7 @@ const formatDateKey = date => `${date.getFullYear()}-${String(date.getMonth() + 
             <span className="rating-large">★ {rating}</span>
             <span className="muted">{master.kpis?.review_count || 0} recensioni · {master.experience_years || '5'} anni di esperienza</span>
           </div>
-          <p>{master.bio || 'Questo master è disponibile per consulenze su richiesta con un approccio empatico e orientato ai risultati.'}</p>
+          <p className="profile-bio">{master.bio || 'Questo master è disponibile per consulenze su richiesta con un approccio empatico e orientato ai risultati.'}</p>
           <div className="tag-list">
             {(master.specialties || master.categories || []).slice(0, 4).map(spec => (
               <span key={spec} className="tag">{spec}</span>
@@ -452,12 +439,12 @@ const formatDateKey = date => `${date.getFullYear()}-${String(date.getMonth() + 
           </div>
           <div className="profile-stats">
             <div>
-              <span className="stat-value">{master.kpis?.lifetime_calls || 0}</span>
-              <span className="stat-label">Chiamate</span>
+              <span className="stat-value">{master.kpis?.lifetime_chats || 0}</span>
+              <span className="stat-label">Chat gestite</span>
             </div>
             <div>
-              <span className="stat-value">{master.kpis?.lifetime_chats || 0}</span>
-              <span className="stat-label">Chat</span>
+              <span className="stat-value">{master.kpis?.lifetime_calls || 0}</span>
+              <span className="stat-label">Sessioni live</span>
             </div>
             <div>
               <span className="stat-value">{master.kpis?.review_count || 0}</span>
@@ -467,33 +454,23 @@ const formatDateKey = date => `${date.getFullYear()}-${String(date.getMonth() + 
         </div>
       </div>
       <div className="profile-actions">
-        {master.services?.phone !== false && (
-          <div className="rate-card">
-            <p>Tariffa telefonica</p>
-            <h3>{(master.rate_phone_cpm / 100).toFixed(2)} € / min</h3>
-            <p className="muted">Prima chiamata gratuita fino a 5 minuti per i nuovi clienti.</p>
-            <button className="btn primary" onClick={() => startSession('phone')}>
-              Avvia chiamata
-            </button>
-          </div>
-        )}
         {master.services?.chat !== false && (
           <div className="rate-card">
-            <p>Tariffa chat</p>
+            <p>Consulenza chat</p>
             <h3>{(master.rate_chat_cpm / 100).toFixed(2)} € / min</h3>
-            <p className="muted">Risposte asincrone e follow-up via report dedicato.</p>
+            <p className="muted">Risposte strutturate, recap finale e assistenza scritta continuativa.</p>
             <button className="btn outline" onClick={() => startSession('chat')}>
-              Apri chat
+              Avvia chat immediata
             </button>
           </div>
         )}
         {master.services?.video && (
           <div className="rate-card">
-            <p>Tariffa video</p>
+            <p>Sessione video live</p>
             <h3>{(master.rate_video_cpm / 100).toFixed(2)} € / min</h3>
-            <p className="muted">Videochiamata privata su appuntamento.</p>
+            <p className="muted">Prenota una videochiamata privata coordinata direttamente con il master.</p>
             <button className="btn outline" onClick={() => startSession('video')}>
-              Richiedi video
+              Richiedi videochiamata
             </button>
           </div>
         )}
