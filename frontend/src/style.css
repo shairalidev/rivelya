@@ -1447,16 +1447,6 @@ body.nav-open {
   gap: 1.5rem;
 }
 
-.profile-bio {
-  margin: 0;
-  line-height: 1.7;
-  color: var(--muted);
-  padding: 1rem 1.2rem;
-  border-radius: var(--radius-md);
-  background: rgba(255, 255, 255, 0.03);
-  border: 1px solid rgba(255, 255, 255, 0.06);
-}
-
 .profile-stats .stat-value {
   font-weight: 700;
   font-size: 1.2rem;
@@ -2379,6 +2369,33 @@ body.nav-open {
   width: 100%;
   height: 100%;
   object-fit: cover;
+}
+
+.service-toggle-group {
+  display: grid;
+  gap: 0.6rem;
+}
+
+.service-toggle {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  padding: 0.45rem 0.65rem;
+  border-radius: var(--radius-md);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  cursor: pointer;
+  font-weight: 600;
+  transition: border-color 0.2s ease, background 0.2s ease;
+}
+
+.service-toggle input {
+  width: 18px;
+  height: 18px;
+}
+
+.service-toggle.active {
+  border-color: rgba(61, 216, 182, 0.45);
+  background: rgba(61, 216, 182, 0.12);
 }
 
 .service-mode-grid {

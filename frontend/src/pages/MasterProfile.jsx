@@ -409,7 +409,7 @@ const formatDateKey = date => `${date.getFullYear()}-${String(date.getMonth() + 
             <span className="rating-large">★ {rating}</span>
             <span className="muted">{master.kpis?.review_count || 0} recensioni · {master.experience_years || '5'} anni di esperienza</span>
           </div>
-          <p className="profile-bio">{master.bio || 'Questo master è disponibile per consulenze su richiesta con un approccio empatico e orientato ai risultati.'}</p>
+          <p>{master.bio || 'Questo master è disponibile per consulenze su richiesta con un approccio empatico e orientato ai risultati.'}</p>
           <div className="tag-list">
             {(master.specialties || master.categories || []).slice(0, 4).map(spec => (
               <span key={spec} className="tag">{spec}</span>
@@ -439,12 +439,12 @@ const formatDateKey = date => `${date.getFullYear()}-${String(date.getMonth() + 
           </div>
           <div className="profile-stats">
             <div>
-              <span className="stat-value">{master.kpis?.lifetime_chats || 0}</span>
-              <span className="stat-label">Chat gestite</span>
+              <span className="stat-value">{master.kpis?.lifetime_calls || 0}</span>
+              <span className="stat-label">Chiamate</span>
             </div>
             <div>
-              <span className="stat-value">{master.kpis?.lifetime_calls || 0}</span>
-              <span className="stat-label">Sessioni live</span>
+              <span className="stat-value">{master.kpis?.lifetime_chats || 0}</span>
+              <span className="stat-label">Chat</span>
             </div>
             <div>
               <span className="stat-value">{master.kpis?.review_count || 0}</span>
@@ -456,21 +456,21 @@ const formatDateKey = date => `${date.getFullYear()}-${String(date.getMonth() + 
       <div className="profile-actions">
         {master.services?.chat !== false && (
           <div className="rate-card">
-            <p>Consulenza chat</p>
+            <p>Tariffa chat</p>
             <h3>{(master.rate_chat_cpm / 100).toFixed(2)} € / min</h3>
-            <p className="muted">Risposte strutturate, recap finale e assistenza scritta continuativa.</p>
+            <p className="muted">Risposte asincrone e follow-up via report dedicato.</p>
             <button className="btn outline" onClick={() => startSession('chat')}>
-              Avvia chat immediata
+              Apri chat
             </button>
           </div>
         )}
         {master.services?.video && (
           <div className="rate-card">
-            <p>Sessione video live</p>
+            <p>Tariffa video</p>
             <h3>{(master.rate_video_cpm / 100).toFixed(2)} € / min</h3>
-            <p className="muted">Prenota una videochiamata privata coordinata direttamente con il master.</p>
+            <p className="muted">Videochiamata privata su appuntamento.</p>
             <button className="btn outline" onClick={() => startSession('video')}>
-              Richiedi videochiamata
+              Richiedi video
             </button>
           </div>
         )}

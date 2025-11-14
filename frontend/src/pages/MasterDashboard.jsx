@@ -59,7 +59,7 @@ const initialProfileForm = {
   experienceYears: '',
   rateChat: '',
   rateVideo: '',
-  serviceMode: 'text_only'
+  services: { chat: true, video: false }
 };
 
 const formatDateLabel = (year, month) => {
@@ -146,26 +146,26 @@ export default function MasterDashboard() {
 
   const masterId = user?.masterId;
 
-  const buildProfileForm = useCallback(data => {
-    const serviceMode = data?.services?.video ? 'chat_video' : 'text_only';
-    return {
-      displayName: data?.displayName || '',
-      headline: data?.headline || '',
-      bio: data?.bio || '',
-      avatarUrl: data?.media?.avatarUrl || '',
-      introVideoUrl: data?.media?.introVideoUrl || '',
-      languages: (data?.languages || []).join(', '),
-      specialties: (data?.specialties || []).join(', '),
-      categories: (data?.categories || []).join(', '),
-      experienceYears:
-        data?.experienceYears != null && !Number.isNaN(data.experienceYears)
-          ? String(data.experienceYears)
-          : '',
-      rateChat: formatCentsInput(data?.rateChatCpm ?? 0),
-      rateVideo: formatCentsInput(data?.rateVideoCpm ?? 0),
-      serviceMode
-    };
-  }, []);
+  const buildProfileForm = useCallback(data => ({
+    displayName: data?.displayName || '',
+    headline: data?.headline || '',
+    bio: data?.bio || '',
+    avatarUrl: data?.media?.avatarUrl || '',
+    introVideoUrl: data?.media?.introVideoUrl || '',
+    languages: (data?.languages || []).join(', '),
+    specialties: (data?.specialties || []).join(', '),
+    categories: (data?.categories || []).join(', '),
+    experienceYears:
+      data?.experienceYears != null && !Number.isNaN(data.experienceYears)
+        ? String(data.experienceYears)
+        : '',
+    rateChat: formatCentsInput(data?.rateChatCpm ?? 0),
+    rateVideo: formatCentsInput(data?.rateVideoCpm ?? 0),
+    services: {
+      chat: data?.services?.chat !== false,
+      video: Boolean(data?.services?.video)
+    }
+  }), []);
 
   const loadProfile = useCallback(async () => {
     try {
@@ -361,6 +361,13 @@ export default function MasterDashboard() {
     setProfileForm(prev => ({ ...prev, [name]: value }));
   };
 
+  const toggleService = service => {
+    setProfileForm(prev => ({
+      ...prev,
+      services: { ...prev.services, [service]: !prev.services[service] }
+    }));
+  };
+
   const saveProfile = async () => {
     try {
       setProfileSaving(true);
@@ -374,10 +381,11 @@ export default function MasterDashboard() {
         languages: parseListInput(profileForm.languages),
         specialties: parseListInput(profileForm.specialties),
         categories: parseListInput(profileForm.categories),
-        services:
-          profileForm.serviceMode === 'chat_video'
-            ? { chat: true, phone: false, video: true }
-            : { chat: true, phone: false, video: false },
+        services: {
+          chat: profileForm.services.chat,
+          phone: false,
+          video: profileForm.services.video
+        },
         rates: {
           chat: parseEuroInput(profileForm.rateChat),
           video: parseEuroInput(profileForm.rateVideo)
@@ -467,8 +475,7 @@ export default function MasterDashboard() {
         <div className="profile-settings-head">
           <h2>Profilo pubblico e servizi</h2>
           <p className="muted">
-            Aggiorna biografia, foto di presentazione, modalità di consulenza e tariffe al minuto visibili ai clienti su
-            Rivelya.
+            Gestisci biografia, foto di presentazione, servizi attivi e tariffe al minuto visibili ai clienti su Rivelya.
           </p>
         </div>
         {profileLoading ? (
@@ -477,193 +484,151 @@ export default function MasterDashboard() {
           <div className="alert small">{profileError}</div>
         ) : (
           <div className="profile-settings-grid">
-            <div className="profile-settings-column">
-              <div className="profile-settings-scroll">
-                <div className="profile-section">
-                  <p className="section-title">Identità pubblica</p>
-                  <div className="field-grid">
-                    <label className="input-label">
-                      Nome pubblico
-                      <input
-                        type="text"
-                        name="displayName"
-                        value={profileForm.displayName}
-                        onChange={updateProfileField}
-                        placeholder="Come comparirai ai clienti"
-                      />
-                    </label>
-                    <label className="input-label">
-                      Headline
-                      <input
-                        type="text"
-                        name="headline"
-                        value={profileForm.headline}
-                        onChange={updateProfileField}
-                        placeholder="Una frase che ti descrive"
-                      />
-                    </label>
-                    <label className="input-label">
-                      Email account
-                      <input type="email" value={user?.email || ''} disabled />
-                    </label>
-                    <label className="input-label">
-                      Lingue supportate
-                      <input
-                        type="text"
-                        name="languages"
-                        value={profileForm.languages}
-                        onChange={updateProfileField}
-                        placeholder="it, en"
-                      />
-                    </label>
-                    <label className="input-label">
-                      Specializzazioni
-                      <input
-                        type="text"
-                        name="specialties"
-                        value={profileForm.specialties}
-                        onChange={updateProfileField}
-                        placeholder="Tarocchi, Mindset..."
-                      />
-                    </label>
-                    <label className="input-label">
-                      Categorie
-                      <input
-                        type="text"
-                        name="categories"
-                        value={profileForm.categories}
-                        onChange={updateProfileField}
-                        placeholder="cartomancy-divination"
-                      />
-                    </label>
-                    <label className="input-label">
-                      Anni di esperienza
-                      <input
-                        type="number"
-                        min="0"
-                        name="experienceYears"
-                        value={profileForm.experienceYears}
-                        onChange={updateProfileField}
-                      />
-                    </label>
-                  </div>
-                </div>
-                <div className="profile-section">
-                  <p className="section-title">Biografia</p>
-                  <label className="input-label">
-                    Racconta il tuo metodo
-                    <textarea
-                      name="bio"
-                      value={profileForm.bio}
-                      onChange={updateProfileField}
-                      rows="6"
-                      placeholder="Descrivi il tuo stile, gli strumenti che utilizzi e il tipo di clienti ideali."
-                    />
-                  </label>
-                </div>
+            <div className="profile-settings-column media">
+              <div className="avatar-preview" aria-hidden="true">
+                <img
+                  src={profileForm.avatarUrl || user?.avatarUrl || 'https://placehold.co/160'}
+                  alt="Anteprima avatar"
+                />
+              </div>
+              <label className="input-label">
+                URL foto profilo
+                <input
+                  type="url"
+                  name="avatarUrl"
+                  value={profileForm.avatarUrl}
+                  onChange={updateProfileField}
+                  placeholder="https://"
+                />
+              </label>
+              <label className="input-label">
+                Video introduttivo (YouTube, Vimeo…)
+                <input
+                  type="url"
+                  name="introVideoUrl"
+                  value={profileForm.introVideoUrl}
+                  onChange={updateProfileField}
+                  placeholder="https://"
+                />
+              </label>
+              <div className="service-toggle-group">
+                <p className="micro muted">Servizi attivi</p>
+                <label className={`service-toggle${profileForm.services.chat ? ' active' : ''}`}>
+                  <input type="checkbox" checked={profileForm.services.chat} onChange={() => toggleService('chat')} />
+                  <span>Chat privata</span>
+                </label>
+                <label className={`service-toggle${profileForm.services.video ? ' active' : ''}`}>
+                  <input type="checkbox" checked={profileForm.services.video} onChange={() => toggleService('video')} />
+                  <span>Videochiamata</span>
+                </label>
               </div>
             </div>
-            <div className="profile-settings-column">
-              <div className="profile-settings-scroll">
-                <div className="profile-section media">
-                  <p className="section-title">Immagine e video</p>
-                  <div className="avatar-preview" aria-hidden="true">
-                    <img
-                      src={profileForm.avatarUrl || user?.avatarUrl || 'https://placehold.co/200'}
-                      alt="Anteprima avatar"
-                    />
-                  </div>
-                  <label className="input-label">
-                    URL foto profilo
-                    <input
-                      type="url"
-                      name="avatarUrl"
-                      value={profileForm.avatarUrl}
-                      onChange={updateProfileField}
-                      placeholder="https://"
-                    />
-                  </label>
-                  <label className="input-label">
-                    Video introduttivo (YouTube, Vimeo…)
-                    <input
-                      type="url"
-                      name="introVideoUrl"
-                      value={profileForm.introVideoUrl}
-                      onChange={updateProfileField}
-                      placeholder="https://"
-                    />
-                  </label>
-                </div>
-                <div className="profile-section">
-                  <p className="section-title">Modalità di consulenza</p>
-                  <p className="micro muted">
-                    Scegli il pacchetto di servizi che offrirai ai clienti. Ogni opzione include sempre la chat privata.
-                  </p>
-                  <div className="service-mode-grid">
-                    <label className={`service-mode-card${profileForm.serviceMode === 'text_only' ? ' active' : ''}`}>
-                      <input
-                        type="radio"
-                        name="serviceMode"
-                        value="text_only"
-                        checked={profileForm.serviceMode === 'text_only'}
-                        onChange={updateProfileField}
-                      />
-                      <div>
-                        <p className="service-mode-title">Solo chat testuale</p>
-                        <p className="service-mode-copy">Consulenze asincrone con risposta scritta e follow-up dedicato.</p>
-                      </div>
-                    </label>
-                    <label className={`service-mode-card${profileForm.serviceMode === 'chat_video' ? ' active' : ''}`}>
-                      <input
-                        type="radio"
-                        name="serviceMode"
-                        value="chat_video"
-                        checked={profileForm.serviceMode === 'chat_video'}
-                        onChange={updateProfileField}
-                      />
-                      <div>
-                        <p className="service-mode-title">Chat + video live</p>
-                        <p className="service-mode-copy">Include chat immediata e possibilità di videochiamata su appuntamento.</p>
-                      </div>
-                    </label>
-                  </div>
-                </div>
-                <div className="profile-section">
-                  <p className="section-title">Tariffe al minuto</p>
-                  <div className="rate-grid">
-                    <label className="input-label">
-                      Tariffa chat (€ / min)
-                      <input
-                        type="text"
-                        inputMode="decimal"
-                        name="rateChat"
-                        value={profileForm.rateChat}
-                        onChange={updateProfileField}
-                        placeholder="0.00"
-                      />
-                    </label>
-                    <label className="input-label">
-                      Tariffa video (€ / min)
-                      <input
-                        type="text"
-                        inputMode="decimal"
-                        name="rateVideo"
-                        value={profileForm.rateVideo}
-                        onChange={updateProfileField}
-                        placeholder="0.00"
-                        disabled={profileForm.serviceMode !== 'chat_video'}
-                      />
-                    </label>
-                  </div>
-                  {profileForm.serviceMode !== 'chat_video' && (
-                    <p className="micro muted">Attiva la modalità "Chat + video live" per impostare la tariffa video.</p>
-                  )}
-                </div>
-                <div className="profile-actions-row">
-                  <button type="button" className="btn primary" onClick={saveProfile} disabled={profileSaving}>
-                    {profileSaving ? 'Salvataggio…' : 'Salva aggiornamenti'}
-                  </button>
-                </div>
+            <div className="profile-settings-column details">
+              <div className="field-grid">
+                <label className="input-label">
+                  Nome pubblico
+                  <input
+                    type="text"
+                    name="displayName"
+                    value={profileForm.displayName}
+                    onChange={updateProfileField}
+                    placeholder="Come comparirai ai clienti"
+                  />
+                </label>
+                <label className="input-label">
+                  Headline
+                  <input
+                    type="text"
+                    name="headline"
+                    value={profileForm.headline}
+                    onChange={updateProfileField}
+                    placeholder="Una frase che ti descrive"
+                  />
+                </label>
+              </div>
+              <label className="input-label">
+                Biografia
+                <textarea
+                  name="bio"
+                  rows="4"
+                  value={profileForm.bio}
+                  onChange={updateProfileField}
+                  placeholder="Racconta cosa offri e come lavori"
+                />
+              </label>
+              <div className="field-grid">
+                <label className="input-label">
+                  Lingue (separate da virgola)
+                  <input
+                    type="text"
+                    name="languages"
+                    value={profileForm.languages}
+                    onChange={updateProfileField}
+                    placeholder="it, en"
+                  />
+                </label>
+                <label className="input-label">
+                  Specializzazioni
+                  <input
+                    type="text"
+                    name="specialties"
+                    value={profileForm.specialties}
+                    onChange={updateProfileField}
+                    placeholder="Tarocchi, Mindset..."
+                  />
+                </label>
+              </div>
+              <div className="field-grid">
+                <label className="input-label">
+                  Categorie
+                  <input
+                    type="text"
+                    name="categories"
+                    value={profileForm.categories}
+                    onChange={updateProfileField}
+                    placeholder="cartomancy-divination"
+                  />
+                </label>
+                <label className="input-label">
+                  Anni di esperienza
+                  <input
+                    type="number"
+                    min="0"
+                    name="experienceYears"
+                    value={profileForm.experienceYears}
+                    onChange={updateProfileField}
+                  />
+                </label>
+              </div>
+              <div className="rate-grid">
+                <label className="input-label">
+                  Tariffa chat (€ / min)
+                  <input
+                    type="text"
+                    inputMode="decimal"
+                    name="rateChat"
+                    value={profileForm.rateChat}
+                    onChange={updateProfileField}
+                    placeholder="0.00"
+                  />
+                </label>
+                <label className="input-label">
+                  Tariffa video (€ / min)
+                  <input
+                    type="text"
+                    inputMode="decimal"
+                    name="rateVideo"
+                    value={profileForm.rateVideo}
+                    onChange={updateProfileField}
+                    placeholder="0.00"
+                    disabled={!profileForm.services.video}
+                  />
+                </label>
+              </div>
+              <div className="profile-actions-row">
+                <button type="button" className="btn primary" onClick={saveProfile} disabled={profileSaving}>
+                  {profileSaving ? 'Salvataggio…' : 'Salva aggiornamenti'}
+                </button>
               </div>
             </div>
           </div>
