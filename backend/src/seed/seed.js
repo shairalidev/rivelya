@@ -76,6 +76,8 @@ try {
         languages: ['it'],
         rate_phone_cpm: 249,
         rate_chat_cpm: 199,
+        rate_video_cpm: 329,
+        services: { chat: true, phone: true, video: true },
         availability: 'online',
         working_hours: {
           timezone: 'Europe/Rome',
@@ -103,6 +105,8 @@ try {
         languages: ['it', 'en'],
         rate_phone_cpm: 349,
         rate_chat_cpm: 299,
+        rate_video_cpm: 429,
+        services: { chat: true, phone: true, video: true },
         availability: 'online',
         working_hours: {
           timezone: 'Europe/Rome',
@@ -129,6 +133,8 @@ try {
         languages: ['it', 'en'],
         rate_phone_cpm: 299,
         rate_chat_cpm: 249,
+        rate_video_cpm: 369,
+        services: { chat: true, phone: true, video: false },
         availability: 'busy',
         working_hours: {
           timezone: 'Europe/Rome',
@@ -155,6 +161,8 @@ try {
         languages: ['it', 'en'],
         rate_phone_cpm: 329,
         rate_chat_cpm: 289,
+        rate_video_cpm: 409,
+        services: { chat: true, phone: true, video: true },
         availability: 'online',
         working_hours: {
           timezone: 'Europe/Rome',
@@ -181,6 +189,8 @@ try {
         languages: ['it', 'fr'],
         rate_phone_cpm: 279,
         rate_chat_cpm: 229,
+        rate_video_cpm: 359,
+        services: { chat: true, phone: true, video: false },
         availability: 'offline',
         working_hours: {
           timezone: 'Europe/Rome',
@@ -207,6 +217,8 @@ try {
         languages: ['it'],
         rate_phone_cpm: 309,
         rate_chat_cpm: 259,
+        rate_video_cpm: 389,
+        services: { chat: true, phone: true, video: true },
         availability: 'online',
         working_hours: {
           timezone: 'Europe/Rome',

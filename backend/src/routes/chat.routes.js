@@ -5,6 +5,7 @@ import { ChatThread } from '../models/chat-thread.model.js';
 import { ChatMessage } from '../models/chat-message.model.js';
 import { Master } from '../models/master.model.js';
 import { emitToUser } from '../lib/socket.js';
+import { ChatThreadNote } from '../models/chat-thread-note.model.js';
 
 const router = Router();
 
@@ -17,6 +18,10 @@ const resolveDisplayName = user =>
   || [user?.first_name, user?.last_name].filter(Boolean).join(' ')
   || user?.email
   || 'Utente';
+
+const noteSchema = Joi.object({
+  note: Joi.string().allow('', null).max(4000)
+});
 
 const buildThreadPayload = (thread, { lastMessage = null, unreadCount = 0 } = {}) => {
   const now = Date.now();
@@ -34,18 +39,24 @@ const buildThreadPayload = (thread, { lastMessage = null, unreadCount = 0 } = {}
       channel: thread.booking_id.channel,
       status: thread.booking_id.status
     } : null,
-    master: thread.master_id ? {
-      id: thread.master_id._id,
-      name: thread.master_id.display_name,
-      userId: thread.master_user_id?._id || thread.master_user_id,
-      avatarUrl: thread.master_user_id?.avatar_url || null,
-      phoneRateCpm: typeof thread.master_id.rate_phone_cpm === 'number'
-        ? thread.master_id.rate_phone_cpm
-        : null,
-      chatRateCpm: typeof thread.master_id.rate_chat_cpm === 'number'
-        ? thread.master_id.rate_chat_cpm
-        : null
-    } : null,
+    master: thread.master_id
+      ? {
+          id: thread.master_id._id,
+          name: thread.master_id.display_name,
+          userId: thread.master_user_id?._id || thread.master_user_id,
+          avatarUrl: thread.master_user_id?.avatar_url || null,
+          phoneRateCpm: typeof thread.master_id.rate_phone_cpm === 'number'
+            ? thread.master_id.rate_phone_cpm
+            : null,
+          chatRateCpm: typeof thread.master_id.rate_chat_cpm === 'number'
+            ? thread.master_id.rate_chat_cpm
+            : null,
+          videoRateCpm: typeof thread.master_id.rate_video_cpm === 'number'
+            ? thread.master_id.rate_video_cpm
+            : null,
+          services: thread.master_id.services || { chat: true, phone: true, video: false }
+        }
+      : null,
     customer: thread.customer_id ? {
       id: thread.customer_id._id,
       name: resolveDisplayName(thread.customer_id),
@@ -73,7 +84,7 @@ const buildThreadPayload = (thread, { lastMessage = null, unreadCount = 0 } = {}
 const ensureThreadForUser = async (threadId, user) => {
   const thread = await ChatThread.findById(threadId)
     .populate('booking_id', 'date start_time end_time channel status')
-    .populate('master_id', 'display_name rate_phone_cpm rate_chat_cpm')
+    .populate('master_id', 'display_name rate_phone_cpm rate_chat_cpm rate_video_cpm services')
     .populate('master_user_id', 'display_name first_name last_name email avatar_url')
     .populate('customer_id', 'display_name first_name last_name email avatar_url');
   if (!thread) return null;
@@ -98,7 +109,7 @@ router.get('/threads', requireAuth, async (req, res, next) => {
       .sort({ updatedAt: -1 })
       .limit(100)
       .populate('booking_id', 'date start_time end_time channel status')
-      .populate('master_id', 'display_name rate_phone_cpm rate_chat_cpm')
+      .populate('master_id', 'display_name rate_phone_cpm rate_chat_cpm rate_video_cpm services')
       .populate('master_user_id', 'display_name first_name last_name email avatar_url')
       .populate('customer_id', 'display_name first_name last_name email avatar_url');
 
@@ -160,6 +171,8 @@ router.get('/threads/:threadId', requireAuth, async (req, res, next) => {
 
     const remaining = thread.expires_at ? Math.max(0, Math.floor((thread.expires_at.getTime() - Date.now()) / 1000)) : 0;
 
+    const note = await ChatThreadNote.findOne({ thread_id: thread._id, user_id: req.user._id }).select('note updatedAt');
+
     res.json({
       thread: buildThreadPayload(thread),
       viewerRole: isMaster ? 'master' : isCustomer ? 'client' : 'guest',
@@ -171,9 +184,34 @@ router.get('/threads/:threadId', requireAuth, async (req, res, next) => {
         createdAt: message.createdAt
       })),
       remainingSeconds: remaining,
-      canPost: remaining > 0 && thread.status === 'open'
+      canPost: remaining > 0 && thread.status === 'open',
+      note: note?.note || '',
+      noteUpdatedAt: note?.updatedAt || null
     });
   } catch (error) {
+    next(error);
+  }
+});
+
+router.put('/threads/:threadId/note', requireAuth, async (req, res, next) => {
+  try {
+    const payload = await noteSchema.validateAsync(req.body);
+    const ensured = await ensureThreadForUser(req.params.threadId, req.user);
+    if (!ensured) return res.status(404).json({ message: 'Conversazione non trovata.' });
+
+    const noteContent = typeof payload.note === 'string' ? payload.note : '';
+
+    const note = await ChatThreadNote.findOneAndUpdate(
+      { thread_id: ensured.thread._id, user_id: req.user._id },
+      { $set: { note: noteContent } },
+      { new: true, upsert: true, setDefaultsOnInsert: true }
+    );
+
+    res.json({ note: note.note || '', noteUpdatedAt: note.updatedAt });
+  } catch (error) {
+    if (error.isJoi) {
+      return res.status(400).json({ message: 'Nota non valida.' });
+    }
     next(error);
   }
 });
