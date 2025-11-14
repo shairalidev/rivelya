@@ -4,7 +4,7 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import toast from 'react-hot-toast';
 import dayjs from 'dayjs';
 import 'dayjs/locale/it.js';
-import { fetchThreads, fetchThread, sendMessage } from '../api/chat.js';
+import { fetchThreads, fetchThread, sendMessage, updateThreadNote } from '../api/chat.js';
 import useSocket from '../hooks/useSocket.js';
 import useCountdown from '../hooks/useCountdown.js';
 import { getToken, subscribeAuthChange } from '../lib/auth.js';
@@ -29,12 +29,14 @@ const resolveName = thread => {
 
 const channelLabels = {
   chat: 'Sessione chat',
-  phone: 'Sessione telefonica'
+  phone: 'Sessione telefonica',
+  video: 'Sessione video'
 };
 
 const channelShortLabels = {
   chat: 'Chat',
-  phone: 'Chiamata'
+  phone: 'Chiamata',
+  video: 'Video'
 };
 
 const PhoneIcon = props => (
@@ -51,7 +53,15 @@ const ChatBubbleIcon = props => (
   </svg>
 );
 
+const VideoIcon = props => (
+  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true" {...props}>
+    <rect x="3" y="5" width="14" height="14" rx="2" />
+    <path d="M17 8l4-2v12l-4-2z" />
+  </svg>
+);
+
 const ChannelGlyph = ({ channel, ...props }) => {
+  if (channel === 'video') return <VideoIcon {...props} />;
   if (channel === 'phone') return <PhoneIcon {...props} />;
   return <ChatBubbleIcon {...props} />;
 };
@@ -70,6 +80,9 @@ export default function Chat() {
   const messageEndRef = useRef(null);
   const queryClient = useQueryClient();
   const socket = useSocket();
+  const [noteDraft, setNoteDraft] = useState('');
+  const [noteBaseline, setNoteBaseline] = useState('');
+  const [noteUpdatedAt, setNoteUpdatedAt] = useState(null);
 
   useEffect(() => {
     const sync = () => {
@@ -99,6 +112,22 @@ export default function Chat() {
     queryFn: () => fetchThread(threadId),
     enabled: Boolean(token && threadId)
   });
+
+  useEffect(() => {
+    if (!threadId) {
+      setNoteDraft('');
+      setNoteBaseline('');
+      setNoteUpdatedAt(null);
+    }
+  }, [threadId]);
+
+  useEffect(() => {
+    if (!threadId) return;
+    const noteValue = threadQuery.data?.note ?? '';
+    setNoteDraft(noteValue);
+    setNoteBaseline(noteValue);
+    setNoteUpdatedAt(threadQuery.data?.noteUpdatedAt || null);
+  }, [threadId, threadQuery.data?.note, threadQuery.data?.noteUpdatedAt]);
 
   const sendMutation = useMutation({
     mutationFn: ({ id, body }) => sendMessage(id, body),
@@ -153,11 +182,38 @@ export default function Chat() {
   const activeThread = threadQuery.data?.thread;
   const remainingSeconds = useCountdown(activeThread?.expiresAt);
   const canPost = threadQuery.data?.canPost && (remainingSeconds == null || remainingSeconds > 0);
+  const isNoteDirty = noteDraft !== noteBaseline;
 
   const handleSubmit = event => {
     event.preventDefault();
     if (!threadId || !draft.trim()) return;
     sendMutation.mutate({ id: threadId, body: draft.trim() });
+  };
+
+  const noteMutation = useMutation({
+    mutationFn: note => updateThreadNote(threadId, note),
+    onSuccess: data => {
+      const noteValue = data?.note ?? '';
+      const updatedAt = data?.noteUpdatedAt || null;
+      setNoteDraft(noteValue);
+      setNoteBaseline(noteValue);
+      setNoteUpdatedAt(updatedAt);
+      if (threadId) {
+        queryClient.setQueryData(['chat', 'thread', threadId], previous =>
+          previous ? { ...previous, note: noteValue, noteUpdatedAt: updatedAt } : previous
+        );
+      }
+      toast.success('Note salvate.');
+    },
+    onError: error => {
+      const msg = error?.response?.data?.message || 'Impossibile salvare le note.';
+      toast.error(msg);
+    }
+  });
+
+  const handleNoteSave = () => {
+    if (!threadId) return;
+    noteMutation.mutate(noteDraft);
   };
 
   const viewerRole = threadQuery.data?.viewerRole;
@@ -166,7 +222,13 @@ export default function Chat() {
   const sessionChannel = activeThread?.channel || activeThread?.booking?.channel;
   const channelLabel = sessionChannel ? channelLabels[sessionChannel] || 'Sessione' : null;
   const sessionRateLabel = sessionChannel
-    ? formatRate(sessionChannel === 'phone' ? activeThread?.master?.phoneRateCpm : activeThread?.master?.chatRateCpm)
+    ? formatRate(
+        sessionChannel === 'phone'
+          ? activeThread?.master?.phoneRateCpm
+          : sessionChannel === 'video'
+          ? activeThread?.master?.videoRateCpm
+          : activeThread?.master?.chatRateCpm
+      )
     : null;
   const bookingWindowLabel = activeThread?.booking
     ? `${dayjs(activeThread.booking.date).format('DD MMMM YYYY')} · ${activeThread.booking.start} - ${activeThread.booking.end}`
@@ -267,84 +329,121 @@ export default function Chat() {
           )}
           {threadId && activeThread && (
             <div className="chat-room">
-              <header className="chat-room-header">
-                <div className="chat-room-heading">
-                  <h2>{resolveName(activeThread)}</h2>
-                  <div className="chat-room-meta">
-                    {sessionChannel && (
-                      <div className={`chat-session-pill ${sessionChannel}`}>
-                        <span className="icon-wrapper" aria-hidden="true">
-                          <ChannelGlyph channel={sessionChannel} />
-                        </span>
-                        <div className="chat-session-copy">
-                          <span className="channel-label">{channelLabel}</span>
-                          {sessionRateLabel && <span className="channel-rate">{sessionRateLabel}</span>}
+              <div className="chat-room-main">
+                <header className="chat-room-header">
+                  <div className="chat-room-heading">
+                    <h2>{resolveName(activeThread)}</h2>
+                    <div className="chat-room-meta">
+                      {sessionChannel && (
+                        <div className={`chat-session-pill ${sessionChannel}`}>
+                          <span className="icon-wrapper" aria-hidden="true">
+                            <ChannelGlyph channel={sessionChannel} />
+                          </span>
+                          <div className="chat-session-copy">
+                            <span className="channel-label">{channelLabel}</span>
+                            {sessionRateLabel && <span className="channel-rate">{sessionRateLabel}</span>}
+                          </div>
                         </div>
-                      </div>
-                    )}
-                    {bookingWindowLabel && <span className="chat-session-slot">{bookingWindowLabel}</span>}
-                    {allowedMinutes ? (
-                      <span className="chat-session-slot">Pacchetto: {allowedMinutes} min</span>
-                    ) : null}
-                  </div>
-                </div>
-                <div className="chat-room-timer">
-                  <span>Tempo residuo</span>
-                  <strong className={canPost ? '' : 'expired'}>{formatDuration(remainingSeconds)}</strong>
-                </div>
-              </header>
-              <div className="chat-messages" role="log" aria-live="polite">
-                {messages.map(message => {
-                  const isMaster = message.senderRole === 'master';
-                  const senderName = isMaster ? masterName : customerName;
-                  const senderAvatar = isMaster ? masterAvatar : customerAvatar;
-                  const senderInitial = isMaster ? masterInitial : customerInitial;
-                  const isOwn = viewerMessageRole ? message.senderRole === viewerMessageRole : false;
-                  return (
-                    <div key={message.id} className={`chat-message ${isOwn ? 'outgoing' : 'incoming'}`}>
-                      <div className="chat-message-avatar">
-                        {senderAvatar ? (
-                          <img src={senderAvatar} alt={senderName} />
-                        ) : (
-                          <span>{senderInitial}</span>
-                        )}
-                      </div>
-                      <div className="chat-message-body">
-                        <div className="chat-message-meta">
-                          <span>{isOwn ? 'Tu' : senderName}</span>
-                          <time dateTime={message.createdAt}>{dayjs(message.createdAt).format('HH:mm')}</time>
-                        </div>
-                        <p>{message.body}</p>
-                      </div>
+                      )}
+                      {bookingWindowLabel && <span className="chat-session-slot">{bookingWindowLabel}</span>}
+                      {allowedMinutes ? (
+                        <span className="chat-session-slot">Pacchetto: {allowedMinutes} min</span>
+                      ) : null}
                     </div>
-                  );
-                })}
-                <div ref={messageEndRef} />
+                  </div>
+                  <div className="chat-room-timer">
+                    <span>Tempo residuo</span>
+                    <strong className={canPost ? '' : 'expired'}>{formatDuration(remainingSeconds)}</strong>
+                  </div>
+                </header>
+                <div className="chat-messages" role="log" aria-live="polite">
+                  {messages.map(message => {
+                    const isMaster = message.senderRole === 'master';
+                    const senderName = isMaster ? masterName : customerName;
+                    const senderAvatar = isMaster ? masterAvatar : customerAvatar;
+                    const senderInitial = isMaster ? masterInitial : customerInitial;
+                    const isOwn = viewerMessageRole ? message.senderRole === viewerMessageRole : false;
+                    return (
+                      <div key={message.id} className={`chat-message ${isOwn ? 'outgoing' : 'incoming'}`}>
+                        <div className="chat-message-avatar">
+                          {senderAvatar ? (
+                            <img src={senderAvatar} alt={senderName} />
+                          ) : (
+                            <span>{senderInitial}</span>
+                          )}
+                        </div>
+                        <div className="chat-message-body">
+                          <div className="chat-message-meta">
+                            <span>{isOwn ? 'Tu' : senderName}</span>
+                            <time dateTime={message.createdAt}>{dayjs(message.createdAt).format('HH:mm')}</time>
+                          </div>
+                          <p>{message.body}</p>
+                        </div>
+                      </div>
+                    );
+                  })}
+                  <div ref={messageEndRef} />
+                </div>
+                <form className="chat-composer" onSubmit={handleSubmit}>
+                  <textarea
+                    className="chat-input"
+                    value={draft}
+                    onChange={event => setDraft(event.target.value)}
+                    placeholder={canPost ? 'Scrivi un messaggio…' : 'Tempo esaurito'}
+                    disabled={!canPost || sendMutation.isPending}
+                    rows={3}
+                  />
+                  <div className="chat-composer-actions">
+                    {!canPost && (
+                      <span className="chat-expired-hint">
+                        Il tempo per questa sessione è terminato. Puoi rileggere i messaggi ma non inviarne di nuovi.
+                      </span>
+                    )}
+                    <button
+                      type="submit"
+                      className="btn primary"
+                      disabled={!canPost || sendMutation.isPending || !draft.trim()}
+                    >
+                      Invia
+                    </button>
+                  </div>
+                </form>
               </div>
-              <form className="chat-composer" onSubmit={handleSubmit}>
+              <aside className="chat-notes">
+                <div className="chat-notes-header">
+                  <h3>Note personali</h3>
+                  <p>Visibili solo a te per questa conversazione.</p>
+                </div>
                 <textarea
-                  className="chat-input"
-                  value={draft}
-                  onChange={event => setDraft(event.target.value)}
-                  placeholder={canPost ? 'Scrivi un messaggio…' : 'Tempo esaurito'}
-                  disabled={!canPost || sendMutation.isPending}
-                  rows={3}
+                  className="chat-notes-input"
+                  value={noteDraft}
+                  onChange={event => setNoteDraft(event.target.value)}
+                  placeholder="Annota informazioni importanti per ricordare le conversazioni con questo utente."
+                  rows={8}
+                  disabled={noteMutation.isPending}
                 />
-                <div className="chat-composer-actions">
-                  {!canPost && (
-                    <span className="chat-expired-hint">
-                      Il tempo per questa sessione è terminato. Puoi rileggere i messaggi ma non inviarne di nuovi.
-                    </span>
-                  )}
+                <div className="chat-notes-footer">
+                  <div className="chat-notes-status">
+                    {noteMutation.isPending ? (
+                      <span>Salvataggio…</span>
+                    ) : noteUpdatedAt ? (
+                      <span>
+                        Ultimo salvataggio {dayjs(noteUpdatedAt).format('DD MMM YYYY · HH:mm')}
+                      </span>
+                    ) : (
+                      <span>Le note non sono ancora state salvate.</span>
+                    )}
+                  </div>
                   <button
-                    type="submit"
-                    className="btn primary"
-                    disabled={!canPost || sendMutation.isPending || !draft.trim()}
+                    type="button"
+                    className="btn secondary"
+                    onClick={handleNoteSave}
+                    disabled={!isNoteDirty || noteMutation.isPending}
                   >
-                    Invia
+                    Salva note
                   </button>
                 </div>
-              </form>
+              </aside>
             </div>
           )}
         </section>

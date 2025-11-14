@@ -18,6 +18,7 @@ import availabilityRoutes from './routes/availability.routes.js';
 import bookingRoutes from './routes/booking.routes.js';
 import chatRoutes from './routes/chat.routes.js';
 import notificationRoutes from './routes/notification.routes.js';
+import masterRoutes from './routes/master.routes.js';
 
 import { notFound, errorHandler } from './middleware/error.js';
 
@@ -79,6 +80,7 @@ app.use('/availability', availabilityRoutes);
 app.use('/bookings', bookingRoutes);
 app.use('/chat', chatRoutes);
 app.use('/notifications', notificationRoutes);
+app.use('/master', masterRoutes);
 
 app.use(notFound);
 app.use(errorHandler);

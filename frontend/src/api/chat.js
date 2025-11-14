@@ -14,3 +14,8 @@ export const sendMessage = async (threadId, body) => {
   const { data } = await client.post(`/chat/threads/${threadId}/messages`, { body });
   return data.message;
 };
+
+export const updateThreadNote = async (threadId, note) => {
+  const { data } = await client.put(`/chat/threads/${threadId}/note`, { note });
+  return data;
+};
