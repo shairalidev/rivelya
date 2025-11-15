@@ -20,13 +20,12 @@ const statusLabels = {
   confirmed: 'Confermato',
   rejected: 'Rifiutato'
 };
-
 const channelLabels = {
   chat: 'Chat',
   video: 'Videochiamata'
 };
 
-const formatCurrency = cents => (cents / 100).toFixed(2);
+const formatCurrency = c => (c / 100).toFixed(2);
 
 const formatCentsInput = value => {
   if (typeof value !== 'number') return '';
@@ -44,7 +43,7 @@ const parseEuroInput = value => {
 const parseListInput = value =>
   value
     .split(',')
-    .map(entry => entry.trim())
+    .map(v => v.trim())
     .filter(Boolean);
 
 const initialProfileForm = {
@@ -63,62 +62,59 @@ const initialProfileForm = {
 };
 
 const formatDateLabel = (year, month) => {
-  const date = new Date(year, month - 1, 1);
-  return date.toLocaleDateString('it-IT', { month: 'long', year: 'numeric' });
+  const d = new Date(year, month - 1, 1);
+  return d.toLocaleDateString('it-IT', { month: 'long', year: 'numeric' });
 };
 
-const timeToMinutes = value => {
-  if (!/^\d{2}:\d{2}$/.test(value)) return Number.NaN;
-  const [hours, minutes] = value.split(':').map(Number);
-  return hours * 60 + minutes;
+const timeToMinutes = v => {
+  if (!/^\d{2}:\d{2}$/.test(v)) return Number.NaN;
+  const [h, m] = v.split(':').map(Number);
+  return h * 60 + m;
 };
 
-const minutesToTime = value => `${String(Math.floor(value / 60)).padStart(2, '0')}:${String(value % 60).padStart(2, '0')}`;
+const minutesToTime = val =>
+  `${String(Math.floor(val / 60)).padStart(2, '0')}:${String(val % 60).padStart(2, '0')}`;
 
 const toTimeOptions = range => {
-  const options = [];
+  const arr = [];
   const start = timeToMinutes(range.start);
   const end = timeToMinutes(range.end);
-  if (Number.isNaN(start) || Number.isNaN(end) || end <= start) return options;
-  for (let pointer = start; pointer < end; pointer += 30) {
-    options.push(minutesToTime(pointer));
-  }
-  return options;
+  if (Number.isNaN(start) || Number.isNaN(end) || end <= start) return arr;
+  for (let p = start; p < end; p += 30) arr.push(minutesToTime(p));
+  return arr;
 };
 
-const buildEndOptions = (ranges, startValue) => {
-  if (!/^\d{2}:\d{2}$/.test(startValue)) return [];
-  const startMinutes = timeToMinutes(startValue);
-  const options = [];
-  ranges.forEach(range => {
-    const rangeStart = timeToMinutes(range.start);
-    const rangeEnd = timeToMinutes(range.end);
-    if (Number.isNaN(rangeStart) || Number.isNaN(rangeEnd)) return;
-    if (startMinutes < rangeStart || startMinutes >= rangeEnd) return;
-    for (let pointer = Math.max(startMinutes + 30, rangeStart + 30); pointer <= rangeEnd; pointer += 30) {
-      options.push(minutesToTime(pointer));
+const buildEndOptions = (ranges, startVal) => {
+  if (!/^\d{2}:\d{2}$/.test(startVal)) return [];
+  const startMin = timeToMinutes(startVal);
+  const set = new Set();
+  ranges.forEach(r => {
+    const rs = timeToMinutes(r.start);
+    const re = timeToMinutes(r.end);
+    if (startMin < rs || startMin >= re) return;
+    for (let p = Math.max(startMin + 30, rs + 30); p <= re; p += 30) {
+      set.add(minutesToTime(p));
     }
   });
-  return Array.from(new Set(options)).sort();
+  return [...set].sort();
 };
 
 const buildCalendar = (year, month, days) => {
   const result = [];
-  const firstDay = new Date(year, month - 1, 1).getDay();
-  const paddingStart = (firstDay + 6) % 7; // convert Sunday=0 to 6
+  const first = new Date(year, month - 1, 1).getDay();
+  const padStart = (first + 6) % 7;
   const daysInMonth = new Date(year, month, 0).getDate();
   const grid = [];
 
-  for (let i = 0; i < paddingStart; i += 1) grid.push(null);
-  for (let day = 1; day <= daysInMonth; day += 1) {
-    const key = `${year}-${String(month).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
+  for (let i = 0; i < padStart; i++) grid.push(null);
+  for (let d = 1; d <= daysInMonth; d++) {
+    const key = `${year}-${String(month).padStart(2, '0')}-${String(d).padStart(2, '0')}`;
     grid.push(days.find(item => item.date === key) || { date: key, availableRanges: [] });
   }
-
   while (grid.length % 7 !== 0) grid.push(null);
 
-  for (let index = 0; index < grid.length; index += 7) {
-    result.push(grid.slice(index, index + 7));
+  for (let i = 0; i < grid.length; i += 7) {
+    result.push(grid.slice(i, i + 7));
   }
   return result;
 };
@@ -134,10 +130,13 @@ export default function MasterDashboard() {
   });
   const [monthData, setMonthData] = useState(null);
   const [loadingMonth, setLoadingMonth] = useState(true);
+
   const [requests, setRequests] = useState([]);
   const [loadingRequests, setLoadingRequests] = useState(true);
+
   const [modalDay, setModalDay] = useState(null);
   const [blockForm, setBlockForm] = useState(initialBlockForm);
+
   const [profileLoading, setProfileLoading] = useState(true);
   const [profileSaving, setProfileSaving] = useState(false);
   const [profileError, setProfileError] = useState('');
@@ -174,11 +173,10 @@ export default function MasterDashboard() {
       const data = await fetchMasterProfile();
       setProfile(data);
       setProfileForm(buildProfileForm(data));
-    } catch (error) {
-      const message = error?.response?.data?.message || 'Impossibile caricare il profilo master.';
-      setProfileError(message);
-      setProfile(null);
-      toast.error(message);
+    } catch (err) {
+      const msg = err?.response?.data?.message || 'Errore durante il caricamento profilo.';
+      setProfileError(msg);
+      toast.error(msg);
     } finally {
       setProfileLoading(false);
     }
@@ -186,41 +184,35 @@ export default function MasterDashboard() {
 
   const startSelectOptions = useMemo(() => {
     if (!modalDay) return [];
-    const bucket = new Set();
-    (modalDay.availableRanges || []).forEach(range => {
-      toTimeOptions(range).forEach(value => bucket.add(value));
+    const set = new Set();
+    (modalDay.availableRanges || []).forEach(r => {
+      toTimeOptions(r).forEach(v => set.add(v));
     });
-    return Array.from(bucket)
-      .sort()
-      .map(value => ({ value, label: value }));
+    return [...set].sort().map(v => ({ value: v, label: v }));
   }, [modalDay]);
 
   const endSelectOptions = useMemo(
     () =>
       modalDay
-        ? buildEndOptions(modalDay.availableRanges || [], blockForm.start).map(value => ({ value, label: value }))
+        ? buildEndOptions(modalDay.availableRanges || [], blockForm.start).map(v => ({ value: v, label: v }))
         : [],
     [modalDay, blockForm.start]
   );
 
   useEffect(() => {
-    const sync = () => {
-      setUser(getStoredUser());
-    };
-    const unsubscribe = subscribeAuthChange(sync);
-    return () => {
-      unsubscribe();
-    };
+    const sync = () => setUser(getStoredUser());
+    const unsub = subscribeAuthChange(sync);
+    return () => unsub();
   }, []);
 
   useEffect(() => {
     if (!user) {
-      toast.error('Accedi con un account master per gestire le prenotazioni.');
+      toast.error('Accedi come master.');
       navigate('/login?returnTo=/master/dashboard');
       return;
     }
     if (!user.roles?.includes('master')) {
-      toast.error('Questa sezione è riservata ai master.');
+      toast.error('Accesso negato.');
       navigate('/');
     }
   }, [user, navigate]);
@@ -230,8 +222,8 @@ export default function MasterDashboard() {
       setLoadingMonth(true);
       const data = await fetchAvailabilityMonthForMaster(params);
       setMonthData(data);
-    } catch (error) {
-      toast.error('Impossibile caricare il calendario.');
+    } catch {
+      toast.error('Errore caricamento calendario.');
     } finally {
       setLoadingMonth(false);
     }
@@ -242,45 +234,37 @@ export default function MasterDashboard() {
       if (!silent) setLoadingRequests(true);
       const data = await fetchMasterRequests();
       setRequests(data);
-    } catch (error) {
-      toast.error('Impossibile recuperare le richieste dei clienti.');
+    } catch {
+      toast.error('Impossibile caricare richieste.');
     } finally {
       setLoadingRequests(false);
     }
   }, []);
 
   useEffect(() => {
-    if (user?.roles?.includes('master')) {
-      loadProfile();
-    }
+    if (user?.roles?.includes('master')) loadProfile();
   }, [user?.roles, loadProfile]);
 
   useEffect(() => {
-    if (user?.roles?.includes('master')) {
-      loadMonth(monthCursor);
-    }
+    if (user?.roles?.includes('master')) loadMonth(monthCursor);
   }, [user?.roles, monthCursor.year, monthCursor.month]);
 
   useEffect(() => {
-    if (user?.roles?.includes('master')) {
-      loadRequests();
-    }
+    if (user?.roles?.includes('master')) loadRequests();
   }, [user?.roles, loadRequests]);
 
   const socket = useSocket();
 
   useEffect(() => {
-    if (!socket) return undefined;
-    const handleRealtimeUpdate = () => {
-      loadRequests(true);
-    };
-    socket.on('notification:new', handleRealtimeUpdate);
-    socket.on('booking:updated', handleRealtimeUpdate);
-    socket.on('booking:request', handleRealtimeUpdate);
+    if (!socket) return;
+    const reload = () => loadRequests(true);
+    socket.on('notification:new', reload);
+    socket.on('booking:updated', reload);
+    socket.on('booking:request', reload);
     return () => {
-      socket.off('notification:new', handleRealtimeUpdate);
-      socket.off('booking:updated', handleRealtimeUpdate);
-      socket.off('booking:request', handleRealtimeUpdate);
+      socket.off('notification:new', reload);
+      socket.off('booking:updated', reload);
+      socket.off('booking:request', reload);
     };
   }, [socket, loadRequests]);
 
@@ -291,13 +275,13 @@ export default function MasterDashboard() {
 
   const openDayModal = day => {
     if (!day) return;
-    const firstRange = day.availableRanges?.[0];
-    if (firstRange) {
-      const start = firstRange.start;
-      const endCandidates = buildEndOptions([firstRange], firstRange.start);
+    const first = day.availableRanges?.[0];
+    if (first) {
+      const start = first.start;
+      const endOpts = buildEndOptions([first], first.start);
       setBlockForm({
         start,
-        end: endCandidates[0] || firstRange.end || minutesToTime(timeToMinutes(start) + 30)
+        end: endOpts[0] || first.end || minutesToTime(timeToMinutes(start) + 30)
       });
     } else {
       setBlockForm(initialBlockForm);
@@ -319,58 +303,60 @@ export default function MasterDashboard() {
       const updated = await addAvailabilityBlock(payload);
       setMonthData(updated);
       setModalDay(null);
-      toast.success(fullDay ? 'Giorno bloccato interamente.' : 'Fascia oraria bloccata.');
-    } catch (error) {
-      const message = error?.response?.data?.message || 'Impossibile aggiornare la disponibilità.';
-      toast.error(message);
+      toast.success(fullDay ? 'Giornata bloccata.' : 'Fascia bloccata.');
+    } catch (err) {
+      const msg = err?.response?.data?.message || 'Errore aggiornamento disponibilità.';
+      toast.error(msg);
     }
   };
 
   const handleRemoveBlock = async blockId => {
-    if (!monthData) return;
     try {
-      const updated = await deleteAvailabilityBlock(blockId, { year: monthData.year, month: monthData.month });
+      const updated = await deleteAvailabilityBlock(blockId, {
+        year: monthData.year,
+        month: monthData.month
+      });
       setMonthData(updated);
       if (modalDay) {
-        const refreshed = updated.days.find(day => day.date === modalDay.date);
+        const refreshed = updated.days.find(d => d.date === modalDay.date);
         if (refreshed) setModalDay(refreshed);
       }
       toast.success('Restrizione rimossa.');
-    } catch (error) {
-      const message = error?.response?.data?.message || 'Impossibile rimuovere la restrizione.';
-      toast.error(message);
+    } catch {
+      toast.error('Errore rimozione blocco.');
     }
   };
 
-  const updateBlockForm = evt => {
-    const { name, value } = evt.target;
+  const updateBlockForm = e => {
+    const { name, value } = e.target;
     setBlockForm(prev => ({ ...prev, [name]: value }));
   };
 
-  const changeMonth = direction => {
+  const changeMonth = dir => {
     setMonthData(null);
     setModalDay(null);
     setMonthCursor(prev => {
-      const base = new Date(prev.year, prev.month - 1 + direction, 1);
+      const base = new Date(prev.year, prev.month - 1 + dir, 1);
       return { year: base.getFullYear(), month: base.getMonth() + 1 };
     });
   };
 
-  const updateProfileField = evt => {
-    const { name, value } = evt.target;
+  const updateProfileField = e => {
+    const { name, value } = e.target;
     setProfileForm(prev => ({ ...prev, [name]: value }));
   };
 
-  const toggleService = service => {
+  const toggleService = s => {
     setProfileForm(prev => ({
       ...prev,
-      services: { ...prev.services, [service]: !prev.services[service] }
+      services: { ...prev.services, [s]: !prev.services[s] }
     }));
   };
 
   const saveProfile = async () => {
     try {
       setProfileSaving(true);
+
       const payload = {
         displayName: profileForm.displayName.trim(),
         headline: profileForm.headline.trim(),
@@ -400,9 +386,8 @@ export default function MasterDashboard() {
       setProfile(updated);
       setProfileForm(buildProfileForm(updated));
       toast.success('Profilo aggiornato.');
-    } catch (error) {
-      const message = error?.response?.data?.message || 'Impossibile aggiornare il profilo.';
-      toast.error(message);
+    } catch (err) {
+      toast.error('Errore aggiornamento profilo.');
     } finally {
       setProfileSaving(false);
     }
@@ -411,86 +396,64 @@ export default function MasterDashboard() {
   const handleRespond = async (bookingId, action) => {
     try {
       const updated = await respondToBooking(bookingId, action);
-      setRequests(prev => prev.map(item => (item.id === updated.id ? updated : item)));
+      setRequests(prev => prev.map(r => (r.id === updated.id ? updated : r)));
       toast.success(action === 'accept' ? 'Richiesta accettata.' : 'Richiesta rifiutata.');
       loadMonth(monthCursor);
-    } catch (error) {
-      const message = error?.response?.data?.message || 'Operazione non riuscita.';
-      toast.error(message);
+    } catch {
+      toast.error('Errore nella risposta.');
     }
   };
 
-  const startCommunication = async (request, channel) => {
-    try {
-      if (!masterId) {
-        toast.error('Profilo master non configurato.');
-        return;
-      }
-      if (!request?.customer?.id) {
-        toast.error('Cliente non disponibile.');
-        return;
-      }
-      if (profile?.services && profile.services[channel] === false) {
-        toast.error('Servizio disabilitato. Riattivalo dalle impostazioni profilo.');
-        return;
-      }
-      if (channel === 'video') {
-        toast('Coordina la videochiamata direttamente con il cliente.');
-        return;
-      }
-      const res = await client.post('/session/chat', { master_id: masterId });
-      toast.success('Chat avviata.');
-      if (res.data?.ws_url) {
-        window.open(res.data.ws_url, '_blank', 'noopener');
-      }
-    } catch (error) {
-      const message = error?.response?.data?.message || 'Impossibile avviare la sessione.';
-      toast.error(message);
-    }
+  const startCommunication = () => {
+    navigate('/chat');
   };
 
   return (
     <section className="container master-dashboard">
+
+      {/* HEADER */}
       <div className="dashboard-header">
         <div>
-          <p className="eyebrow">Pannello consulente</p>
-          <h1>Gestisci profilo, calendario e richieste</h1>
+          <p className="eyebrow">Pannello Consulente</p>
+          <h1>Profilo, calendario e richieste</h1>
           <p className="muted">
-            Aggiorna biografia e foto, definisci tariffe personalizzate per chat e video e pianifica la tua disponibilità
-            settimanale mentre gestisci le prenotazioni in arrivo.
+            Aggiorna i tuoi dati e gestisci le richieste in arrivo con un flusso operativo chiaro e strutturato.
           </p>
         </div>
+
         <div className="month-controls">
-          <button type="button" className="btn ghost" onClick={() => changeMonth(-1)} aria-label="Mese precedente">
-            ←
-          </button>
+          <button type="button" className="btn ghost" onClick={() => changeMonth(-1)}>←</button>
           <p>{formatDateLabel(monthCursor.year, monthCursor.month)}</p>
-          <button type="button" className="btn ghost" onClick={() => changeMonth(1)} aria-label="Mese successivo">
-            →
-          </button>
+          <button type="button" className="btn ghost" onClick={() => changeMonth(1)}>→</button>
         </div>
       </div>
 
-      <div className="profile-settings-card">
+      {/* PROFILE BLOCK FULL WIDTH */}
+      <div className="profile-settings-card" style={{ width: '100%' }}>
         <div className="profile-settings-head">
-          <h2>Profilo pubblico e servizi</h2>
-          <p className="muted">
-            Gestisci biografia, foto di presentazione, servizi attivi e tariffe al minuto visibili ai clienti su Rivelya.
-          </p>
+          <h2>Profilo pubblico</h2>
+          <p className="muted">Personalizza le informazioni mostrate ai clienti.</p>
         </div>
+
         {profileLoading ? (
-          <div className="profile-settings-skeleton" aria-hidden="true" />
+          <div className="profile-settings-skeleton" />
         ) : profileError ? (
           <div className="alert small">{profileError}</div>
         ) : (
           <div className="profile-settings-grid">
-            <div className="profile-settings-column media">
-              <div className="avatar-preview" aria-hidden="true">
+            {/* LEFT COLUMN */}
+            <div className="profile-settings-column">
+              <div className="avatar-preview">
                 <img
-                  src={profileForm.avatarUrl || user?.avatarUrl || 'https://placehold.co/160'}
-                  alt="Anteprima avatar"
+                  src={
+                    profileForm.avatarUrl ||
+                    user?.avatarUrl ||
+                    'https://placehold.co/300x300'
+                  }
+                  alt="Avatar"
                 />
               </div>
+
               <label className="input-label">
                 URL foto profilo
                 <input
@@ -501,8 +464,9 @@ export default function MasterDashboard() {
                   placeholder="https://"
                 />
               </label>
+
               <label className="input-label">
-                Video introduttivo (YouTube, Vimeo…)
+                Video introduttivo
                 <input
                   type="url"
                   name="introVideoUrl"
@@ -511,19 +475,33 @@ export default function MasterDashboard() {
                   placeholder="https://"
                 />
               </label>
+
               <div className="service-toggle-group">
                 <p className="micro muted">Servizi attivi</p>
+
                 <label className={`service-toggle${profileForm.services.chat ? ' active' : ''}`}>
-                  <input type="checkbox" checked={profileForm.services.chat} onChange={() => toggleService('chat')} />
-                  <span>Chat privata</span>
+                  <input
+                    type="checkbox"
+                    checked={profileForm.services.chat}
+                    onChange={() => toggleService('chat')}
+                  />
+                  <span>Chat</span>
                 </label>
+
                 <label className={`service-toggle${profileForm.services.video ? ' active' : ''}`}>
-                  <input type="checkbox" checked={profileForm.services.video} onChange={() => toggleService('video')} />
+                  <input
+                    type="checkbox"
+                    checked={profileForm.services.video}
+                    onChange={() => toggleService('video')}
+                  />
                   <span>Videochiamata</span>
                 </label>
               </div>
             </div>
-            <div className="profile-settings-column details">
+
+            {/* RIGHT COLUMN */}
+            <div className="profile-settings-column">
+
               <div className="field-grid">
                 <label className="input-label">
                   Nome pubblico
@@ -532,9 +510,9 @@ export default function MasterDashboard() {
                     name="displayName"
                     value={profileForm.displayName}
                     onChange={updateProfileField}
-                    placeholder="Come comparirai ai clienti"
                   />
                 </label>
+
                 <label className="input-label">
                   Headline
                   <input
@@ -542,31 +520,31 @@ export default function MasterDashboard() {
                     name="headline"
                     value={profileForm.headline}
                     onChange={updateProfileField}
-                    placeholder="Una frase che ti descrive"
                   />
                 </label>
               </div>
+
               <label className="input-label">
                 Biografia
                 <textarea
-                  name="bio"
                   rows="4"
+                  name="bio"
                   value={profileForm.bio}
                   onChange={updateProfileField}
-                  placeholder="Racconta cosa offri e come lavori"
                 />
               </label>
+
               <div className="field-grid">
                 <label className="input-label">
-                  Lingue (separate da virgola)
+                  Lingue
                   <input
                     type="text"
                     name="languages"
                     value={profileForm.languages}
                     onChange={updateProfileField}
-                    placeholder="it, en"
                   />
                 </label>
+
                 <label className="input-label">
                   Specializzazioni
                   <input
@@ -574,10 +552,10 @@ export default function MasterDashboard() {
                     name="specialties"
                     value={profileForm.specialties}
                     onChange={updateProfileField}
-                    placeholder="Tarocchi, Mindset..."
                   />
                 </label>
               </div>
+
               <div className="field-grid">
                 <label className="input-label">
                   Categorie
@@ -586,84 +564,98 @@ export default function MasterDashboard() {
                     name="categories"
                     value={profileForm.categories}
                     onChange={updateProfileField}
-                    placeholder="cartomancy-divination"
                   />
                 </label>
+
                 <label className="input-label">
                   Anni di esperienza
                   <input
                     type="number"
-                    min="0"
                     name="experienceYears"
+                    min="0"
                     value={profileForm.experienceYears}
                     onChange={updateProfileField}
                   />
                 </label>
               </div>
+
               <div className="rate-grid">
                 <label className="input-label">
-                  Tariffa chat (€ / min)
+                  Tariffa chat (€ al minuto)
                   <input
                     type="text"
-                    inputMode="decimal"
                     name="rateChat"
                     value={profileForm.rateChat}
                     onChange={updateProfileField}
                     placeholder="0.00"
                   />
                 </label>
+
                 <label className="input-label">
-                  Tariffa video (€ / min)
+                  Tariffa video (€ al minuto)
                   <input
                     type="text"
-                    inputMode="decimal"
                     name="rateVideo"
                     value={profileForm.rateVideo}
+                    disabled={!profileForm.services.video}
                     onChange={updateProfileField}
                     placeholder="0.00"
-                    disabled={!profileForm.services.video}
                   />
                 </label>
               </div>
+
               <div className="profile-actions-row">
-                <button type="button" className="btn primary" onClick={saveProfile} disabled={profileSaving}>
-                  {profileSaving ? 'Salvataggio…' : 'Salva aggiornamenti'}
+                <button
+                  type="button"
+                  className="btn primary"
+                  disabled={profileSaving}
+                  onClick={saveProfile}
+                >
+                  {profileSaving ? 'Salvataggio' : 'Salva modifiche'}
                 </button>
               </div>
+
             </div>
           </div>
         )}
       </div>
 
+      {/* GRID: CALENDAR + REQUESTS */}
       <div className="dashboard-grid">
+
+        {/* CALENDAR */}
         <div className="calendar-card">
           <div className="calendar-head">
             <h2>Disponibilità mensile</h2>
-            <p className="muted">Per impostazione predefinita tutti i giorni sono prenotabili. Blocca le eccezioni con un click.</p>
+            <p className="muted">Blocca o gestisci le eccezioni con facilità.</p>
           </div>
+
           {loadingMonth ? (
-            <div className="calendar-skeleton" aria-hidden="true" />
+            <div className="calendar-skeleton" />
           ) : !monthData ? (
-            <p className="muted">Calendario non disponibile per questo mese.</p>
+            <p className="muted">Nessun dato disponibile.</p>
           ) : (
             <div className="calendar-grid">
               <div className="calendar-weekdays">
-                {weekdays.map(label => (
-                  <span key={label}>{label}</span>
+                {weekdays.map(w => (
+                  <span key={w}>{w}</span>
                 ))}
               </div>
+
               {calendar.map((week, idx) => (
-                <div key={`week-${idx}`} className="calendar-week">
-                  {week.map((day, index) => {
-                    if (!day) return <button key={`empty-${index}`} type="button" className="calendar-day empty" aria-hidden="true" />;
+                <div className="calendar-week" key={`wk-${idx}`}>
+                  {week.map((day, i) => {
+                    if (!day)
+                      return <button key={`e-${i}`} className="calendar-day empty" />;
+
                     const isBlocked = day.fullDayBlocked;
-                    const hasAvailability = day.availableRanges?.length > 0;
+                    const hasAvail = day.availableRanges?.length > 0;
                     const label = Number(day.date.split('-')[2]);
+
                     return (
                       <button
                         key={day.date}
-                        type="button"
-                        className={`calendar-day${isBlocked ? ' blocked' : ''}${hasAvailability ? ' available' : ''}`}
+                        className={`calendar-day${isBlocked ? ' blocked' : ''}${hasAvail ? ' available' : ''}`}
                         onClick={() => openDayModal(day)}
                       >
                         <span>{label}</span>
@@ -676,76 +668,83 @@ export default function MasterDashboard() {
           )}
         </div>
 
+        {/* REQUESTS CLEANED */}
         <div className="requests-card">
           <div className="requests-head">
             <h2>Richieste clienti</h2>
-            <p className="muted">Gestisci le prenotazioni confermando o rifiutando i nuovi appuntamenti.</p>
+            <p className="muted">Gestisci le prenotazioni in arrivo.</p>
           </div>
+
           {loadingRequests ? (
-            <div className="request-skeleton" aria-hidden="true" />
+            <div className="request-skeleton" />
           ) : requests.length === 0 ? (
-            <p className="muted">Nessuna richiesta registrata per questo periodo.</p>
+            <p className="muted">Nessuna richiesta in questo periodo.</p>
           ) : (
             <ul className="requests-list">
-              {requests.map(request => (
-                <li key={request.id} className={`request-item status-${request.status}`}>
+              {requests.map(req => (
+                <li key={req.id} className={`request-item status-${req.status}`}>
+
+                  {/* LEFT INFO */}
                   <div>
                     <p className="request-date">
-                      {new Date(`${request.date}T${request.start}:00`).toLocaleString('it-IT', {
+                      {new Date(`${req.date}T${req.start}:00`).toLocaleString('it-IT', {
                         day: '2-digit',
                         month: 'short',
                         year: 'numeric',
                         hour: '2-digit',
                         minute: '2-digit'
                       })}{' '}
-                      · {channelLabels[request.channel] || request.channel}
+                      · {channelLabels[req.channel] || req.channel}
                     </p>
+
                     <p className="muted">
-                      {request.customer?.name || 'Cliente anonimo'} · {formatCurrency(request.amount_cents)} €
+                      {req.customer?.name || 'Cliente'} · {formatCurrency(req.amount_cents)} €
                     </p>
-                    {request.notes && <p className="micro muted">Nota cliente: {request.notes}</p>}
+
+                    {req.notes && (
+                      <p className="micro muted">Nota: {req.notes}</p>
+                    )}
                   </div>
+
+                  {/* CLEANED ACTIONS */}
                   <div className="request-actions">
-                    {request.status === 'awaiting_master' ? (
+                    {req.status === 'awaiting_master' ? (
                       <>
-                        <button type="button" className="btn primary" onClick={() => handleRespond(request.id, 'accept')}>
+                        <button
+                          type="button"
+                          className="btn primary"
+                          onClick={() => handleRespond(req.id, 'accept')}
+                        >
                           Accetta
                         </button>
-                        <button type="button" className="btn ghost" onClick={() => handleRespond(request.id, 'reject')}>
+
+                        <button
+                          type="button"
+                          className="btn ghost"
+                          onClick={() => handleRespond(req.id, 'reject')}
+                        >
                           Rifiuta
                         </button>
                       </>
                     ) : (
                       <>
-                        <span className="status-pill">{statusLabels[request.status] || request.status}</span>
-                        {request.status === 'confirmed' && (
-                          <div className="quick-actions">
-                            {request.channel === 'chat' && profile?.services?.chat !== false && (
-                              <button
-                                type="button"
-                                className="btn outline"
-                                onClick={() => startCommunication(request, 'chat')}
-                              >
-                                Apri chat
-                              </button>
-                            )}
-                            {request.channel === 'video' && (
-                              <span className="micro muted">Coordina videochiamata esterna</span>
-                            )}
-                            {request.customer?.emailAvailable && (
-                              <span
-                                className="contact-email"
-                                aria-label="Email cliente riservata"
-                                title="L'indirizzo email è riservato. Contatta il supporto per comunicazioni straordinarie."
-                              >
-                                Email riservata
-                              </span>
-                            )}
-                          </div>
-                        )}
+                        <span className="status-pill">{statusLabels[req.status]}</span>
+
+                        {req.status === 'confirmed' &&
+                          req.channel === 'chat' &&
+                          profile?.services?.chat !== false && (
+                            <button
+                              type="button"
+                              className="btn outline"
+                              onClick={startCommunication}
+                            >
+                              Apri chat
+                            </button>
+                          )}
                       </>
                     )}
                   </div>
+
                 </li>
               ))}
             </ul>
@@ -753,30 +752,42 @@ export default function MasterDashboard() {
         </div>
       </div>
 
+      {/* MODAL */}
       {modalDay && monthData && (
-        <div className="modal-backdrop" role="dialog" aria-modal="true">
+        <div className="modal-backdrop">
           <div className="modal-card">
             <div className="modal-head">
               <h3>
-                Configura {new Date(`${modalDay.date}T00:00:00`).toLocaleDateString('it-IT', { weekday: 'long', day: '2-digit', month: 'long' })}
+                {new Date(`${modalDay.date}T00:00:00`).toLocaleDateString('it-IT', {
+                  weekday: 'long',
+                  day: '2-digit',
+                  month: 'long'
+                })}
               </h3>
-              <button type="button" className="btn ghost" onClick={() => setModalDay(null)} aria-label="Chiudi">×</button>
+              <button type="button" className="btn ghost" onClick={() => setModalDay(null)}>×</button>
             </div>
+
             <div className="modal-body">
               {modalDay.fullDayBlocked ? (
-                <p className="muted">Giornata già bloccata completamente.</p>
+                <p className="muted">Giorno già bloccato completamente.</p>
               ) : (
-                <p className="muted">Per impostazione predefinita il giorno è prenotabile dalle 08:00 alle 22:00.</p>
+                <p className="muted">Il giorno è prenotabile dalle 08.00 alle 22.00.</p>
               )}
 
               {modalDay.blocks?.length > 0 && (
                 <div className="modal-section">
                   <p className="micro">Restrizioni attive</p>
+
                   <ul className="block-list">
-                    {modalDay.blocks.map(block => (
-                      <li key={block.id || block._id}>
-                        {block.fullDay ? 'Intera giornata' : `${block.start} - ${block.end}`}
-                        <button type="button" className="btn ghost" onClick={() => handleRemoveBlock(block.id || block._id)}>
+                    {modalDay.blocks.map(b => (
+                      <li key={b.id || b._id}>
+                        {b.fullDay ? 'Intera giornata' : `${b.start} - ${b.end}`}
+
+                        <button
+                          type="button"
+                          className="btn ghost"
+                          onClick={() => handleRemoveBlock(b.id || b._id)}
+                        >
                           Rimuovi
                         </button>
                       </li>
@@ -787,6 +798,7 @@ export default function MasterDashboard() {
 
               <div className="modal-section">
                 <p className="micro">Blocca fascia oraria</p>
+
                 <div className="time-grid">
                   <label className="input-label">
                     Inizio
@@ -795,9 +807,9 @@ export default function MasterDashboard() {
                       value={blockForm.start}
                       options={startSelectOptions}
                       onChange={updateBlockForm}
-                      placeholder="Seleziona"
                     />
                   </label>
+
                   <label className="input-label">
                     Fine
                     <FancySelect
@@ -805,24 +817,27 @@ export default function MasterDashboard() {
                       value={blockForm.end}
                       options={endSelectOptions}
                       onChange={updateBlockForm}
-                      placeholder="Seleziona"
                       isDisabled={endSelectOptions.length === 0}
                     />
                   </label>
                 </div>
+
                 <div className="modal-actions">
                   <button type="button" className="btn outline" onClick={() => handleAddBlock(false)}>
                     Blocca fascia
                   </button>
+
                   <button type="button" className="btn ghost" onClick={() => handleAddBlock(true)}>
                     Blocca intera giornata
                   </button>
                 </div>
               </div>
+
             </div>
           </div>
         </div>
       )}
+
     </section>
   );
 }
