@@ -479,16 +479,35 @@ export default function MasterDashboard() {
                   />
                 </label>
 
-                <label className="input-label">
-                  Video introduttivo
+                <label className={`service-toggle${profileForm.services.chatVoice ? ' active' : ''}`}>
                   <input
-                    type="url"
-                    name="introVideoUrl"
-                    value={profileForm.introVideoUrl}
-                    onChange={updateProfileField}
-                    placeholder="https://"
+                    type="checkbox"
+                    checked={profileForm.services.chatVoice}
+                    onChange={() => toggleService('chatVoice')}
                   />
+                  <span>Chat + Voce</span>
                 </label>
+              </div>
+
+              <div className={`visibility-toggle${profileForm.acceptingRequests ? ' active' : ''}`}>
+                <div className="visibility-header">
+                  <p className="micro muted">Visibilità profilo</p>
+                  <span className="visibility-status">
+                    {profileForm.acceptingRequests ? 'Visibile nel catalogo' : 'Nascosto dal catalogo'}
+                  </span>
+                </div>
+                <label className="switch">
+                  <input
+                    type="checkbox"
+                    checked={profileForm.acceptingRequests}
+                    onChange={toggleAcceptingRequests}
+                  />
+                  <span className="slider" />
+                </label>
+                <p className="micro muted">
+                  Disattiva per prendere una pausa: i clienti non potranno inviarti nuove richieste finché non riattiverai il
+                  profilo.
+                </p>
               </div>
 
               <div className="profile-section services">
@@ -622,36 +641,37 @@ export default function MasterDashboard() {
                 </label>
               </div>
 
-              <div className="profile-section">
-                <span className="section-title">Tariffe</span>
-                <div className="rate-grid">
+              <div className="rate-grid">
+                <label className="input-label">
+                  Tariffa chat (€ al minuto)
                   <div className="input-with-prefix">
                     <span>€</span>
                     <input
-                      type="number"
-                      step="0.05"
-                      min="0"
+                      type="text"
                       name="rateChat"
                       value={profileForm.rateChat}
                       onChange={updateProfileField}
+                      placeholder="0.00"
                     />
-                    <span className="suffix">/ min chat</span>
+                    <span className="suffix">/min</span>
                   </div>
+                </label>
 
+                <label className="input-label">
+                  Tariffa chat + voce (€ al minuto)
                   <div className={`input-with-prefix${profileForm.services.chatVoice ? '' : ' disabled'}`}>
                     <span>€</span>
                     <input
-                      type="number"
-                      step="0.05"
-                      min="0"
+                      type="text"
                       name="rateChatVoice"
                       value={profileForm.rateChatVoice}
-                      onChange={updateProfileField}
                       disabled={!profileForm.services.chatVoice}
+                      onChange={updateProfileField}
+                      placeholder="0.00"
                     />
-                    <span className="suffix">/ min chat + voce</span>
+                    <span className="suffix">/min</span>
                   </div>
-                </div>
+                </label>
               </div>
 
               <div className="profile-section action-bar">

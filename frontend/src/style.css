@@ -2465,7 +2465,7 @@ body.nav-open {
 .service-toggle-group {
   display: grid;
   gap: 0.6rem;
-  margin-top: 0.6rem;
+  margin-top: 1.2rem;
 }
 
 .service-toggle {
