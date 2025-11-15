@@ -8,6 +8,7 @@ import 'react-day-picker/dist/style.css';
 import client from '../api/client.js';
 import FancySelect from '../components/FancySelect.jsx';
 import { buildDailySchedule, resolveTimezoneLabel } from '../utils/schedule.js';
+import { resolveAvailabilityStatus } from '../utils/availability.js';
 import { createBooking, fetchMasterMonthAvailability } from '../api/booking.js';
 import { getToken } from '../lib/auth.js';
 
@@ -393,13 +394,14 @@ const formatDateKey = date => `${date.getFullYear()}-${String(date.getMonth() + 
   const dailySchedule = buildDailySchedule(master.working_hours);
   const hasSchedule = dailySchedule.some(day => day.slots.length > 0);
   const timezoneLabel = resolveTimezoneLabel(master.working_hours);
+  const { status: availabilityStatus, label: availabilityLabel } = resolveAvailabilityStatus(master.availability);
 
   return (
     <section className="container profile">
       <div className="profile-card">
         <div className="profile-avatar">
           <img src={master.media?.avatar_url || 'https://placehold.co/320'} alt={master.display_name || 'Master Rivelya'} />
-          <span className={`status-badge ${master.availability}`}>{master.availability}</span>
+          <span className={`status-badge ${availabilityStatus}`}>{availabilityLabel}</span>
         </div>
         <div className="profile-content">
           <span className="badge-soft">Master {master.categories?.[0] || 'Rivelya'}</span>
