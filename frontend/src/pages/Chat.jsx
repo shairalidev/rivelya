@@ -29,12 +29,14 @@ const resolveName = thread => {
 
 const channelLabels = {
   chat: 'Sessione chat',
-  chat_voice: 'Sessione chat e voce'
+  voice: 'Sessione voce',
+  chat_voice: 'Sessione chat + voce'
 };
 
 const channelShortLabels = {
   chat: 'Chat',
-  chat_voice: 'Chat e voce'
+  voice: 'Voce',
+  chat_voice: 'Chat + Voce'
 };
 
 const ChatBubbleIcon = props => (
@@ -215,9 +217,11 @@ export default function Chat() {
   const channelLabel = sessionChannel ? channelLabels[sessionChannel] || 'Sessione' : null;
   const sessionRateLabel = sessionChannel
     ? formatRate(
-        sessionChannel === 'chat_voice'
-          ? activeThread?.master?.chatVoiceRateCpm
-          : activeThread?.master?.chatRateCpm
+        sessionChannel === 'chat'
+          ? activeThread?.master?.chatRateCpm
+          : sessionChannel === 'voice'
+          ? activeThread?.master?.voiceRateCpm
+          : activeThread?.master?.chatVoiceRateCpm
       )
     : null;
   const bookingWindowLabel = activeThread?.booking

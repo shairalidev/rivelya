@@ -30,17 +30,19 @@ const VoiceGlyph = props => (
 
 const serviceMeta = {
   chat: { label: 'Solo chat', channel: 'chat', Icon: ChatGlyph },
+  voice: { label: 'Solo voce', channel: 'voice', Icon: VoiceGlyph },
   chatVoice: { label: 'Chat e voce', channel: 'chat_voice', Icon: VoiceGlyph }
 };
 
-const serviceOrder = ['chat', 'chatVoice'];
+const serviceOrder = ['chat', 'voice', 'chatVoice'];
 
-const channelRateLabels = { chat: 'solo chat', chat_voice: 'chat e voce' };
+const channelRateLabels = { chat: 'solo chat', voice: 'solo voce', chat_voice: 'chat + voce' };
 
 const hasService = (services, service) => {
   if (!services) return service === 'chat';
   if (service === 'chat') return services.chat !== false;
-  if (service === 'chatVoice') return Boolean(services.chatVoice ?? services.chat_voice ?? services.phone);
+  if (service === 'voice') return Boolean(services.voice);
+  if (service === 'chatVoice') return Boolean(services.chat_voice);
   return false;
 };
 
@@ -158,30 +160,51 @@ export default function MasterProfile() {
 
   const startSession = async channel => {
     if (!master || !ensureAuth()) return;
-    const serviceKey = channel === 'chat_voice' ? 'chatVoice' : 'chat';
+    let serviceKey;
+    if (channel === 'chat') serviceKey = 'chat';
+    else if (channel === 'voice') serviceKey = 'voice';
+    else if (channel === 'chat_voice') serviceKey = 'chatVoice';
+    
     const serviceAvailable = hasService(master.services, serviceKey);
     if (!serviceAvailable) {
-      toast.error('Questo canale non è disponibile al momento.');
+      toast.error('Questo servizio non è disponibile al momento.');
       return;
     }
-    if (channel === 'chat_voice') {
+    
+    if (channel === 'voice') {
       try {
-        await client.post('/session/chat-voice', { master_id: master._id });
-        toast.success('Ti chiameremo per avviare la sessione vocale.');
+        const res = await client.post('/session/voice', { master_id: master._id });
+        toast.success('Ti chiameremo per avviare la chiamata vocale.');
+        if (res.data.redirect_url) {
+          navigate(res.data.redirect_url);
+        }
       } catch (error) {
-        const message = error?.response?.data?.message || 'Impossibile avviare la sessione in questo momento.';
+        const message = error?.response?.data?.message || 'Impossibile avviare la chiamata.';
         toast.error(message);
       }
       return;
     }
+    
+    if (channel === 'chat_voice') {
+      try {
+        const res = await client.post('/session/chat-voice', { master_id: master._id });
+        toast.success('Ti chiameremo e apriremo la chat per la sessione completa.');
+        if (res.data.redirect_url) {
+          navigate(res.data.redirect_url);
+        }
+      } catch (error) {
+        const message = error?.response?.data?.message || 'Impossibile avviare la sessione.';
+        toast.error(message);
+      }
+      return;
+    }
+    
     try {
       const res = await client.post('/session/chat', { master_id: master._id });
       toast.success('Chat avviata. Ti reindirizziamo alla stanza.');
-      if (res.data.ws_url) {
-        window.open(res.data.ws_url, '_blank', 'noopener');
-      }
+      navigate('/chat');
     } catch (error) {
-      const message = error?.response?.data?.message || 'Impossibile avviare la sessione in questo momento.';
+      const message = error?.response?.data?.message || 'Impossibile avviare la chat.';
       toast.error(message);
     }
   };
@@ -287,8 +310,9 @@ export default function MasterProfile() {
   const activeRateCents = useMemo(() => {
     if (!master) return null;
     let value;
-    if (booking.channel === 'chat_voice') value = master.rate_chat_voice_cpm;
-    else value = master.rate_chat_cpm;
+    if (booking.channel === 'chat') value = master.rate_chat_cpm;
+    else if (booking.channel === 'voice') value = master.rate_voice_cpm;
+    else if (booking.channel === 'chat_voice') value = master.rate_chat_voice_cpm;
     return typeof value === 'number' ? value : null;
   }, [master, booking.channel]);
 
@@ -478,21 +502,31 @@ export default function MasterProfile() {
       <div className="profile-actions">
         {hasService(master.services, 'chat') && (
           <div className="rate-card">
-            <p>Tariffa chat</p>
+            <p>Solo Chat</p>
             <h3>{(master.rate_chat_cpm / 100).toFixed(2)} € / min</h3>
-            <p className="muted">Risposte asincrone e follow-up via report dedicato.</p>
+            <p className="muted">Messaggi di testo in tempo reale con il master.</p>
             <button className="btn outline" onClick={() => startSession('chat')}>
-              Apri chat
+              Avvia Chat
+            </button>
+          </div>
+        )}
+        {hasService(master.services, 'voice') && (
+          <div className="rate-card">
+            <p>Solo Voce</p>
+            <h3>{(master.rate_voice_cpm / 100).toFixed(2)} € / min</h3>
+            <p className="muted">Chiamata vocale diretta con il master.</p>
+            <button className="btn outline" onClick={() => startSession('voice')}>
+              Chiama Ora
             </button>
           </div>
         )}
         {hasService(master.services, 'chatVoice') && (
           <div className="rate-card emphasis">
-            <p>Tariffa chat e voce</p>
+            <p>Chat e Voce</p>
             <h3>{(master.rate_chat_voice_cpm / 100).toFixed(2)} € / min</h3>
-            <p className="muted">Chiamata vocale accompagnata da supporto in chat.</p>
+            <p className="muted">Chiamata vocale con supporto chat e invio foto.</p>
             <button className="btn outline" onClick={() => startSession('chat_voice')}>
-              Richiedi chat e voce
+              Avvia Chat e Voce
             </button>
           </div>
         )}

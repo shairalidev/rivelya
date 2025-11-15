@@ -22,7 +22,7 @@ router.get('/', async (req, res, next) => {
 
     let cursor = Master.find(q).select(
       'media.avatar_url display_name headline bio categories languages specialties experience_years '
-        + 'rate_chat_cpm rate_chat_voice_cpm services availability working_hours kpis is_accepting_requests'
+        + 'rate_chat_cpm rate_voice_cpm rate_chat_voice_cpm services availability working_hours kpis is_accepting_requests'
     );
     if (sort === 'rating') cursor = cursor.sort({ 'kpis.avg_rating': -1 });
     if (sort === 'priceAsc') cursor = cursor.sort({ rate_chat_cpm: 1 });

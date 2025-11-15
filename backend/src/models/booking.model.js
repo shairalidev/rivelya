@@ -3,7 +3,7 @@ import mongoose from 'mongoose';
 const bookingSchema = new mongoose.Schema({
   master_id: { type: mongoose.Schema.Types.ObjectId, ref: 'Master', index: true, required: true },
   customer_id: { type: mongoose.Schema.Types.ObjectId, ref: 'User', index: true, required: true },
-  channel: { type: String, enum: ['chat', 'chat_voice'], required: true },
+  channel: { type: String, enum: ['chat', 'voice', 'chat_voice'], required: true },
   date: { type: String, required: true }, // YYYY-MM-DD
   start_time: { type: String, required: true },
   end_time: { type: String, required: true },

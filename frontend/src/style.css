@@ -3151,6 +3151,149 @@ body.nav-open {
   .account-card--compact { position: static; }
 }
 
+.voice-call {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: calc(100vh - 160px);
+  padding: 2rem 0;
+}
+
+.voice-call-card {
+  width: min(480px, 92vw);
+  padding: 2.5rem;
+  border-radius: var(--radius-lg);
+  background: var(--surface-strong);
+  border: 1px solid rgba(255, 255, 255, 0.06);
+  box-shadow: var(--shadow);
+  display: flex;
+  flex-direction: column;
+  gap: 2rem;
+  text-align: center;
+}
+
+.voice-call-header {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 1.5rem;
+}
+
+.voice-call-avatar {
+  width: 120px;
+  height: 120px;
+  border-radius: 50%;
+  overflow: hidden;
+  border: 3px solid rgba(109, 91, 255, 0.3);
+}
+
+.voice-call-avatar img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.avatar-placeholder {
+  width: 100%;
+  height: 100%;
+  background: linear-gradient(135deg, var(--brand), var(--accent));
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 2.5rem;
+  font-weight: 700;
+  color: #040612;
+}
+
+.voice-call-info h2 {
+  margin: 0;
+  font-size: 1.8rem;
+}
+
+.voice-call-status {
+  color: var(--muted);
+  font-size: 1.1rem;
+}
+
+.voice-call-timer {
+  padding: 1.5rem;
+  border-radius: var(--radius-md);
+  background: rgba(255, 255, 255, 0.04);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+.timer-display {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.timer-label {
+  font-size: 0.9rem;
+  color: var(--muted);
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+}
+
+.timer-value {
+  font-size: 2.5rem;
+  font-weight: 700;
+  color: #86f0ff;
+}
+
+.timer-value.expired {
+  color: #ff8a8a;
+}
+
+.voice-call-controls {
+  display: flex;
+  justify-content: center;
+  gap: 1rem;
+}
+
+.voice-end-btn {
+  background: linear-gradient(135deg, #ff6b6b, #ff5252);
+  color: white;
+  border-radius: 50px;
+  padding: 1rem 2rem;
+  font-weight: 600;
+}
+
+.voice-call-info-panel {
+  padding: 1.5rem;
+  border-radius: var(--radius-md);
+  background: rgba(255, 255, 255, 0.04);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  text-align: left;
+}
+
+.voice-call-info-panel h3 {
+  margin: 0 0 1rem;
+  font-size: 1.1rem;
+}
+
+.info-grid {
+  display: grid;
+  gap: 0.8rem;
+}
+
+.info-grid > div {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 0.5rem 0;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+}
+
+.info-grid > div:last-child {
+  border-bottom: none;
+}
+
+.info-label {
+  font-size: 0.9rem;
+  color: var(--muted);
+}
+
 @media (max-width: 600px) {
   .mobile-nav-panel {
     margin: 0.75rem;

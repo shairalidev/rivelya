@@ -22,6 +22,7 @@ const statusLabels = {
 };
 const channelLabels = {
   chat: 'Chat',
+  voice: 'Voce',
   chat_voice: 'Chat e Voce'
 };
 
@@ -57,8 +58,9 @@ const initialProfileForm = {
   categories: '',
   experienceYears: '',
   rateChat: '',
+  rateVoice: '',
   rateChatVoice: '',
-  services: { chat: true, chatVoice: false },
+  services: { chat: true, voice: false, chatVoice: false },
   acceptingRequests: true
 };
 
@@ -160,10 +162,12 @@ export default function MasterDashboard() {
         ? String(data.experienceYears)
         : '',
     rateChat: formatCentsInput(data?.rateChatCpm ?? 0),
+    rateVoice: formatCentsInput(data?.rateVoiceCpm ?? 0),
     rateChatVoice: formatCentsInput(data?.rateChatVoiceCpm ?? 0),
     services: {
       chat: data?.services?.chat !== false,
-      chatVoice: data?.services?.chatVoice ?? data?.services?.chat_voice ?? false
+      voice: data?.services?.voice ?? false,
+      chatVoice: data?.services?.chatVoice ?? false
     },
     acceptingRequests: data?.isAcceptingRequests !== false
   }), []);
@@ -379,10 +383,12 @@ export default function MasterDashboard() {
         acceptingRequests: profileForm.acceptingRequests,
         services: {
           chat: profileForm.services.chat,
+          voice: profileForm.services.voice,
           chatVoice: profileForm.services.chatVoice
         },
         rates: {
           chat: parseEuroInput(profileForm.rateChat),
+          voice: parseEuroInput(profileForm.rateVoice),
           chatVoice: parseEuroInput(profileForm.rateChatVoice)
         }
       };
@@ -415,6 +421,17 @@ export default function MasterDashboard() {
 
   const startCommunication = () => {
     navigate('/chat');
+  };
+
+  const startVoiceCall = async (bookingId) => {
+    try {
+      const res = await client.post(`/bookings/${bookingId}/start-voice`);
+      if (res.data.redirect_url) {
+        navigate(res.data.redirect_url);
+      }
+    } catch (error) {
+      toast.error('Impossibile avviare la chiamata vocale.');
+    }
   };
 
   return (
@@ -511,7 +528,16 @@ export default function MasterDashboard() {
                       checked={profileForm.services.chat}
                       onChange={() => toggleService('chat')}
                     />
-                    <span>Chat</span>
+                    <span>Solo Chat</span>
+                  </label>
+
+                  <label className={`service-toggle${profileForm.services.voice ? ' active' : ''}`}>
+                    <input
+                      type="checkbox"
+                      checked={profileForm.services.voice}
+                      onChange={() => toggleService('voice')}
+                    />
+                    <span>Solo Voce</span>
                   </label>
 
                   <label className={`service-toggle${profileForm.services.chatVoice ? ' active' : ''}`}>
@@ -635,13 +661,30 @@ export default function MasterDashboard() {
 
               <div className="rate-grid">
                 <label className="input-label">
-                  Tariffa chat (€ al minuto)
-                  <div className="input-with-prefix">
+                  Tariffa solo chat (€ al minuto)
+                  <div className={`input-with-prefix${profileForm.services.chat ? '' : ' disabled'}`}>
                     <span>€</span>
                     <input
                       type="text"
                       name="rateChat"
                       value={profileForm.rateChat}
+                      disabled={!profileForm.services.chat}
+                      onChange={updateProfileField}
+                      placeholder="0.00"
+                    />
+                    <span className="suffix">/min</span>
+                  </div>
+                </label>
+
+                <label className="input-label">
+                  Tariffa solo voce (€ al minuto)
+                  <div className={`input-with-prefix${profileForm.services.voice ? '' : ' disabled'}`}>
+                    <span>€</span>
+                    <input
+                      type="text"
+                      name="rateVoice"
+                      value={profileForm.rateVoice}
+                      disabled={!profileForm.services.voice}
                       onChange={updateProfileField}
                       placeholder="0.00"
                     />
@@ -793,6 +836,15 @@ export default function MasterDashboard() {
                       <>
                         <span className="status-pill">{statusLabels[req.status]}</span>
 
+                        {req.status === 'confirmed' && req.channel === 'voice' && (
+                          <button
+                            type="button"
+                            className="btn outline"
+                            onClick={() => startVoiceCall(req.id)}
+                          >
+                            Avvia chiamata
+                          </button>
+                        )}
                         {req.status === 'confirmed' &&
                           ['chat', 'chat_voice'].includes(req.channel) &&
                           profile?.services?.chat !== false && (

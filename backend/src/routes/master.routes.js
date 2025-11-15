@@ -15,10 +15,12 @@ const serializeMaster = master => ({
   languages: master.languages || [],
   experienceYears: master.experience_years || 0,
   rateChatCpm: master.rate_chat_cpm ?? 0,
-  rateChatVoiceCpm: (master.rate_chat_voice_cpm ?? master.rate_phone_cpm) ?? 0,
+  rateVoiceCpm: master.rate_voice_cpm ?? 0,
+  rateChatVoiceCpm: master.rate_chat_voice_cpm ?? 0,
   services: {
     chat: master.services?.chat !== false,
-    chatVoice: master.services?.chat_voice ?? master.services?.phone ?? false
+    voice: master.services?.voice ?? false,
+    chatVoice: master.services?.chat_voice ?? false
   },
   isAcceptingRequests: master.is_accepting_requests !== false,
   media: {
@@ -40,10 +42,12 @@ const updateSchema = Joi.object({
   acceptingRequests: Joi.boolean(),
   services: Joi.object({
     chat: Joi.boolean(),
+    voice: Joi.boolean(),
     chatVoice: Joi.boolean()
   }).default({}),
   rates: Joi.object({
     chat: Joi.number().integer().min(0),
+    voice: Joi.number().integer().min(0),
     chatVoice: Joi.number().integer().min(0)
   }).default({})
 });
@@ -103,14 +107,13 @@ router.put('/me', requireAuth, requireRole('master'), async (req, res, next) => 
       const base = master.services || {};
       master.services = {
         chat: payload.services.chat !== undefined ? payload.services.chat : base.chat !== false,
-        chat_voice:
-          payload.services.chatVoice !== undefined
-            ? payload.services.chatVoice
-            : base.chat_voice ?? base.phone ?? false
+        voice: payload.services.voice !== undefined ? payload.services.voice : base.voice ?? false,
+        chat_voice: payload.services.chatVoice !== undefined ? payload.services.chatVoice : base.chat_voice ?? false
       };
     }
     if (payload.rates) {
       if (payload.rates.chat != null) master.rate_chat_cpm = payload.rates.chat;
+      if (payload.rates.voice != null) master.rate_voice_cpm = payload.rates.voice;
       if (payload.rates.chatVoice != null) master.rate_chat_voice_cpm = payload.rates.chatVoice;
     }
 

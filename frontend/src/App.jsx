@@ -13,6 +13,7 @@ import Profile from './pages/Profile.jsx';
 import VerifyEmail from './pages/VerifyEmail.jsx';
 import MasterDashboard from './pages/MasterDashboard.jsx';
 import Chat from './pages/Chat.jsx';
+import Voice from './pages/Voice.jsx';
 
 export default function App() {
   return (
@@ -37,6 +38,7 @@ export default function App() {
           <Route path="/master/dashboard" element={<MasterDashboard />} />
           <Route path="/chat" element={<Chat />} />
           <Route path="/chat/:threadId" element={<Chat />} />
+          <Route path="/voice/:sessionId" element={<Voice />} />
           <Route path="/wallet" element={<Wallet />} />
           <Route path="/profile" element={<Profile />} />
           <Route path="/login" element={<Login />} />

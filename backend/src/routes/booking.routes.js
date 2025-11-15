@@ -7,6 +7,7 @@ import { Booking } from '../models/booking.model.js';
 import { ChatThread } from '../models/chat-thread.model.js';
 import { Wallet } from '../models/wallet.model.js';
 import { Transaction } from '../models/transaction.model.js';
+import { Session } from '../models/session.model.js';
 import { checkAvailability } from '../utils/availability.js';
 import { createNotification } from '../utils/notifications.js';
 import { emitToUser } from '../lib/socket.js';
@@ -15,7 +16,7 @@ const router = Router();
 
 const bookingSchema = Joi.object({
   masterId: Joi.string().hex().length(24).required(),
-  channel: Joi.string().valid('chat', 'chat_voice').required(),
+  channel: Joi.string().valid('chat', 'voice', 'chat_voice').required(),
   date: Joi.string().pattern(/^\d{4}-\d{2}-\d{2}$/).required(),
   start: Joi.string().pattern(/^\d{2}:\d{2}$/).required(),
   end: Joi.string().pattern(/^\d{2}:\d{2}$/).required(),
@@ -28,7 +29,7 @@ const respondSchema = Joi.object({
 
 const ensureMaster = async userId =>
   Master.findOne({ user_id: userId }).select(
-    '_id display_name rate_chat_cpm rate_chat_voice_cpm services is_accepting_requests user_id'
+    '_id display_name rate_chat_cpm rate_voice_cpm rate_chat_voice_cpm services is_accepting_requests user_id'
   );
 
 const loadDayContext = async ({ masterId, date }) => {
@@ -94,21 +95,26 @@ router.post('/', requireAuth, async (req, res, next) => {
     }
 
     const services = master.services || {};
-    if (payload.channel === 'chat') {
-      if (services.chat === false) {
-        return res.status(400).json({ message: 'Il master non offre questo canale al momento.' });
-      }
-    } else {
-      const supportsChatVoice = services.chat_voice ?? services.phone ?? false;
-      if (!supportsChatVoice) {
-        return res.status(400).json({ message: 'Il master non offre questo canale al momento.' });
-      }
+    if (payload.channel === 'chat' && services.chat === false) {
+      return res.status(400).json({ message: 'Il master non offre chat al momento.' });
+    }
+    if (payload.channel === 'voice' && services.voice === false) {
+      return res.status(400).json({ message: 'Il master non offre chiamate vocali al momento.' });
+    }
+    if (payload.channel === 'chat_voice' && services.chat_voice === false) {
+      return res.status(400).json({ message: 'Il master non offre chat e voce al momento.' });
     }
 
-    const rate =
-      payload.channel === 'chat_voice'
-        ? (master.rate_chat_voice_cpm ?? master.rate_phone_cpm)
-        : master.rate_chat_cpm;
+    let rate;
+    if (payload.channel === 'chat') {
+      rate = master.rate_chat_cpm;
+    } else if (payload.channel === 'voice') {
+      rate = master.rate_voice_cpm;
+    } else if (payload.channel === 'chat_voice') {
+      rate = master.rate_chat_voice_cpm;
+    } else {
+      return res.status(400).json({ message: 'Canale non valido.' });
+    }
     const amount = durationMinutes * rate;
     if (amount <= 0) {
       return res.status(400).json({ message: 'Impossibile calcolare il costo della sessione.' });
@@ -222,7 +228,7 @@ router.post('/:bookingId/respond', requireAuth, requireRole('master'), async (re
       booking.status = 'confirmed';
       await booking.save();
 
-      if (booking.channel === 'chat') {
+      if (booking.channel === 'chat' || booking.channel === 'chat_voice') {
         const startedAt = new Date();
         const allowedSeconds = Math.max(60, (booking.duration_minutes || 0) * 60);
         const expiresAt = new Date(startedAt.getTime() + allowedSeconds * 1000);
@@ -233,7 +239,7 @@ router.post('/:bookingId/respond', requireAuth, requireRole('master'), async (re
             master_id: master._id,
             master_user_id: master.user_id,
             customer_id: booking.customer_id?._id,
-            channel: 'chat',
+            channel: booking.channel,
             allowed_seconds: allowedSeconds,
             started_at: startedAt,
             expires_at: expiresAt,
@@ -260,7 +266,6 @@ router.post('/:bookingId/respond', requireAuth, requireRole('master'), async (re
       return res.json({ booking: serializeMasterRequest(booking) });
     }
 
-    // reject
     booking.status = 'rejected';
     await booking.save();
 
@@ -295,6 +300,41 @@ router.post('/:bookingId/respond', requireAuth, requireRole('master'), async (re
     if (error.isJoi) {
       return res.status(400).json({ message: 'Richiesta non valida.' });
     }
+    next(error);
+  }
+});
+
+router.post('/:bookingId/start-voice', requireAuth, async (req, res, next) => {
+  try {
+    const booking = await Booking.findById(req.params.bookingId)
+      .populate('master_id', 'user_id services')
+      .populate('customer_id', '_id');
+    
+    if (!booking) return res.status(404).json({ message: 'Prenotazione non trovata.' });
+    if (booking.channel !== 'voice') return res.status(400).json({ message: 'Non è una prenotazione vocale.' });
+    if (booking.status !== 'confirmed') return res.status(400).json({ message: 'Prenotazione non confermata.' });
+    
+    const isCustomer = booking.customer_id._id.toString() === req.user._id.toString();
+    const isMaster = booking.master_id.user_id.toString() === req.user._id.toString();
+    
+    if (!isCustomer && !isMaster) {
+      return res.status(403).json({ message: 'Non autorizzato.' });
+    }
+
+    const sess = await Session.create({
+      user_id: booking.customer_id._id,
+      master_id: booking.master_id._id,
+      channel: 'voice',
+      price_cpm: booking.amount_cents / booking.duration_minutes,
+      status: 'created'
+    });
+
+    res.json({ 
+      session_id: sess._id, 
+      redirect_url: `/voice/${sess._id}`,
+      booking_id: booking._id
+    });
+  } catch (error) {
     next(error);
   }
 });

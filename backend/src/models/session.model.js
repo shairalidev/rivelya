@@ -3,7 +3,7 @@ import mongoose from 'mongoose';
 const sessionSchema = new mongoose.Schema({
   master_id: { type: mongoose.Schema.Types.ObjectId, ref: 'Master', index: true },
   user_id: { type: mongoose.Schema.Types.ObjectId, ref: 'User', index: true },
-  channel: { type: String, enum: ['chat', 'chat_voice'], required: true },
+  channel: { type: String, enum: ['chat', 'voice', 'chat_voice'], required: true },
   start_ts: { type: Date },
   end_ts: { type: Date },
   duration_s: { type: Number, default: 0 },

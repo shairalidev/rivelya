@@ -22,9 +22,11 @@ const masterSchema = new mongoose.Schema({
   experience_years: { type: Number, default: 0 },
   languages: { type: [String], default: ['it'] },
   rate_chat_cpm: { type: Number, min: 0, default: 0 },
+  rate_voice_cpm: { type: Number, min: 0, default: 0 },
   rate_chat_voice_cpm: { type: Number, min: 0, default: 0 },
   services: {
     chat: { type: Boolean, default: true },
+    voice: { type: Boolean, default: false },
     chat_voice: { type: Boolean, default: false }
   },
   is_accepting_requests: { type: Boolean, default: true },
