@@ -198,6 +198,14 @@ export default function Layout() {
               Chat
             </Link>
             <Link
+              to="/voice"
+              role="menuitem"
+              className="dropdown-link"
+              onMouseDown={handleProfileNavMouseDown('/voice')}
+            >
+              Chiamate
+            </Link>
+            <Link
               to="/profile"
               role="menuitem"
               className="dropdown-link"

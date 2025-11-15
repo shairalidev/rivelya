@@ -17,6 +17,7 @@ import profileRoutes from './routes/profile.routes.js';
 import availabilityRoutes from './routes/availability.routes.js';
 import bookingRoutes from './routes/booking.routes.js';
 import chatRoutes from './routes/chat.routes.js';
+import voiceRoutes from './routes/voice.routes.js';
 import notificationRoutes from './routes/notification.routes.js';
 import masterRoutes from './routes/master.routes.js';
 
@@ -79,6 +80,7 @@ app.use('/profile', profileRoutes);
 app.use('/availability', availabilityRoutes);
 app.use('/bookings', bookingRoutes);
 app.use('/chat', chatRoutes);
+app.use('/voice', voiceRoutes);
 app.use('/notifications', notificationRoutes);
 app.use('/master', masterRoutes);
 

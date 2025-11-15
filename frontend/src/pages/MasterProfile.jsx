@@ -174,13 +174,14 @@ export default function MasterProfile() {
     if (channel === 'voice') {
       try {
         const res = await client.post('/session/voice', { master_id: master._id });
-        toast.success('Ti chiameremo per avviare la chiamata vocale.');
-        if (res.data.redirect_url) {
-          navigate(res.data.redirect_url);
-        }
+        toast.success('Sessione vocale avviata.');
+        navigate(`/voice/${res.data.session_id}`);
       } catch (error) {
         const message = error?.response?.data?.message || 'Impossibile avviare la chiamata.';
         toast.error(message);
+        if (message.includes('sessione vocale attiva')) {
+          navigate('/voice');
+        }
       }
       return;
     }
@@ -195,6 +196,9 @@ export default function MasterProfile() {
       } catch (error) {
         const message = error?.response?.data?.message || 'Impossibile avviare la sessione.';
         toast.error(message);
+        if (message.includes('sessione vocale attiva')) {
+          navigate('/voice');
+        }
       }
       return;
     }

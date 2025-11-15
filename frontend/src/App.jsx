@@ -38,6 +38,7 @@ export default function App() {
           <Route path="/master/dashboard" element={<MasterDashboard />} />
           <Route path="/chat" element={<Chat />} />
           <Route path="/chat/:threadId" element={<Chat />} />
+          <Route path="/voice" element={<Voice />} />
           <Route path="/voice/:sessionId" element={<Voice />} />
           <Route path="/wallet" element={<Wallet />} />
           <Route path="/profile" element={<Profile />} />
