@@ -330,24 +330,6 @@ export default function Layout() {
           </div>
         </div>
 
-        {isCatalog && (
-          <div className="container subnav-wrapper">
-            <div className="subnav">
-              <span className="subnav-label">Catalogo</span>
-              <div className="subnav-links">
-                {catalogNav.map(item => (
-                  <Link
-                    key={item.label}
-                    to={item.to}
-                    className={`subnav-chip${isChipActive(item) ? ' active' : ''}`}
-                  >
-                    {item.label}
-                  </Link>
-                ))}
-              </div>
-            </div>
-          </div>
-        )}
       </header>
 
       <main className="main">
