@@ -29,12 +29,12 @@ const resolveName = thread => {
 
 const channelLabels = {
   chat: 'Sessione chat',
-  chat_voice: 'Sessione chat + voce'
+  chat_voice: 'Sessione chat e voce'
 };
 
 const channelShortLabels = {
   chat: 'Chat',
-  chat_voice: 'Chat + voce'
+  chat_voice: 'Chat e voce'
 };
 
 const ChatBubbleIcon = props => (

@@ -2616,8 +2616,9 @@ body.nav-open {
 .rate-grid {
   display: grid;
   gap: 1rem;
-  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+  grid-template-columns: 1fr;   /* <-- force each item on its own line */
 }
+
 
 .profile-section.action-bar {
   display: flex;

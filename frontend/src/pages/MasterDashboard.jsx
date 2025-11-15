@@ -22,7 +22,7 @@ const statusLabels = {
 };
 const channelLabels = {
   chat: 'Chat',
-  chat_voice: 'Chat + Voce'
+  chat_voice: 'Chat e Voce'
 };
 
 const formatCurrency = c => (c / 100).toFixed(2);
@@ -479,15 +479,7 @@ export default function MasterDashboard() {
                   />
                 </label>
 
-                <label className={`service-toggle${profileForm.services.chatVoice ? ' active' : ''}`}>
-                  <input
-                    type="checkbox"
-                    checked={profileForm.services.chatVoice}
-                    onChange={() => toggleService('chatVoice')}
-                  />
-                  <span>Chat + Voce</span>
-                </label>
-              </div>
+                </div>
 
               <div className={`visibility-toggle${profileForm.acceptingRequests ? ' active' : ''}`}>
                 <div className="visibility-header">
@@ -528,7 +520,7 @@ export default function MasterDashboard() {
                       checked={profileForm.services.chatVoice}
                       onChange={() => toggleService('chatVoice')}
                     />
-                    <span>Chat + Voce</span>
+                    <span>Chat e Voce</span>
                   </label>
                 </div>
               </div>
@@ -658,7 +650,7 @@ export default function MasterDashboard() {
                 </label>
 
                 <label className="input-label">
-                  Tariffa chat + voce (€ al minuto)
+                  Tariffa chat e voce (€ al minuto)
                   <div className={`input-with-prefix${profileForm.services.chatVoice ? '' : ' disabled'}`}>
                     <span>€</span>
                     <input

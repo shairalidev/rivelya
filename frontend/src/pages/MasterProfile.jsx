@@ -30,12 +30,12 @@ const VoiceGlyph = props => (
 
 const serviceMeta = {
   chat: { label: 'Solo chat', channel: 'chat', Icon: ChatGlyph },
-  chatVoice: { label: 'Chat + voce', channel: 'chat_voice', Icon: VoiceGlyph }
+  chatVoice: { label: 'Chat e voce', channel: 'chat_voice', Icon: VoiceGlyph }
 };
 
 const serviceOrder = ['chat', 'chatVoice'];
 
-const channelRateLabels = { chat: 'solo chat', chat_voice: 'chat + voce' };
+const channelRateLabels = { chat: 'solo chat', chat_voice: 'chat e voce' };
 
 const hasService = (services, service) => {
   if (!services) return service === 'chat';
@@ -488,11 +488,11 @@ export default function MasterProfile() {
         )}
         {hasService(master.services, 'chatVoice') && (
           <div className="rate-card emphasis">
-            <p>Tariffa chat + voce</p>
+            <p>Tariffa chat e voce</p>
             <h3>{(master.rate_chat_voice_cpm / 100).toFixed(2)} € / min</h3>
             <p className="muted">Chiamata vocale accompagnata da supporto in chat.</p>
             <button className="btn outline" onClick={() => startSession('chat_voice')}>
-              Richiedi chat + voce
+              Richiedi chat e voce
             </button>
           </div>
         )}
