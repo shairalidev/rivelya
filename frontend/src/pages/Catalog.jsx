@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from 'react';
 import { useSearchParams, Link } from 'react-router-dom';
 import client from '../api/client.js';
 import { summarizeWorkingHours, resolveTimezoneLabel } from '../utils/schedule.js';
+import { resolveAvailabilityStatus } from '../utils/availability.js';
 import FancySelect from '../components/FancySelect.jsx';
 
 const categories = [
@@ -134,11 +135,12 @@ export default function Catalog() {
               const rating = typeof ratingValue === 'number' ? ratingValue.toFixed(1) : '—';
               const scheduleSummary = summarizeWorkingHours(master.working_hours);
               const timezoneLabel = resolveTimezoneLabel(master.working_hours);
+              const { status: availabilityStatus, label: availabilityLabel } = resolveAvailabilityStatus(master.availability);
               return (
                 <article key={master._id} className="master-card">
                   <div className="master-media">
                     <img src={master.media?.avatar_url || 'https://placehold.co/240x240'} alt="" />
-                    <span className={`status-badge ${master.availability}`}>{master.availability}</span>
+                    <span className={`status-badge ${availabilityStatus}`}>{availabilityLabel}</span>
                   </div>
                   <div className="master-content">
                     <div className="master-header">
