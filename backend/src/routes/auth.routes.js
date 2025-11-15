@@ -77,10 +77,9 @@ router.post('/signup', async (req, res, next) => {
         status: 'draft',
         availability: 'offline',
         display_name: user.display_name || '',
-        rate_phone_cpm: 0,
         rate_chat_cpm: 0,
-        rate_video_cpm: 0,
-        services: { chat: true, phone: true, video: false },
+        rate_chat_voice_cpm: 0,
+        services: { chat: true, chat_voice: false },
         working_hours: { timezone: 'Europe/Rome', slots: [] }
       });
     }

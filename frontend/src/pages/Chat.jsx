@@ -29,12 +29,12 @@ const resolveName = thread => {
 
 const channelLabels = {
   chat: 'Sessione chat',
-  video: 'Sessione video'
+  chat_voice: 'Sessione chat + voce'
 };
 
 const channelShortLabels = {
   chat: 'Chat',
-  video: 'Video'
+  chat_voice: 'Chat + voce'
 };
 
 const ChatBubbleIcon = props => (
@@ -45,15 +45,16 @@ const ChatBubbleIcon = props => (
   </svg>
 );
 
-const VideoIcon = props => (
+const VoiceIcon = props => (
   <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true" {...props}>
-    <rect x="3" y="5" width="14" height="14" rx="2" />
-    <path d="M17 8l4-2v12l-4-2z" />
+    <path d="M6.5 3h3.2a2 2 0 011.9 1.4l1 3.3a2 2 0 01-.7 2.1l-1.5 1.1a10.5 10.5 0 005.2 5.2l1.1-1.5a2 2 0 012.1-.7l3.3 1a2 2 0 011.4 1.9v3.2a2 2 0 01-2 2A17.8 17.8 0 013 6.5a2 2 0 012-2Z" />
+    <path d="M15 4.5a6.5 6.5 0 016.5 6.5" />
+    <path d="M15 8a3 3 0 013 3" />
   </svg>
 );
 
 const ChannelGlyph = ({ channel, ...props }) => {
-  if (channel === 'video') return <VideoIcon {...props} />;
+  if (channel === 'chat_voice') return <VoiceIcon {...props} />;
   return <ChatBubbleIcon {...props} />;
 };
 
@@ -213,7 +214,11 @@ export default function Chat() {
   const sessionChannel = activeThread?.channel || activeThread?.booking?.channel;
   const channelLabel = sessionChannel ? channelLabels[sessionChannel] || 'Sessione' : null;
   const sessionRateLabel = sessionChannel
-    ? formatRate(sessionChannel === 'video' ? activeThread?.master?.videoRateCpm : activeThread?.master?.chatRateCpm)
+    ? formatRate(
+        sessionChannel === 'chat_voice'
+          ? activeThread?.master?.chatVoiceRateCpm
+          : activeThread?.master?.chatRateCpm
+      )
     : null;
   const bookingWindowLabel = activeThread?.booking
     ? `${dayjs(activeThread.booking.date).format('DD MMMM YYYY')} · ${activeThread.booking.start} - ${activeThread.booking.end}`

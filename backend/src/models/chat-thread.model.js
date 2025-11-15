@@ -5,7 +5,7 @@ const chatThreadSchema = new mongoose.Schema({
   master_id: { type: mongoose.Schema.Types.ObjectId, ref: 'Master', required: true, index: true },
   master_user_id: { type: mongoose.Schema.Types.ObjectId, ref: 'User', required: true, index: true },
   customer_id: { type: mongoose.Schema.Types.ObjectId, ref: 'User', required: true, index: true },
-  channel: { type: String, enum: ['phone', 'chat'], default: 'chat' },
+  channel: { type: String, enum: ['chat', 'chat_voice'], default: 'chat' },
   allowed_seconds: { type: Number, default: 0 },
   started_at: { type: Date },
   expires_at: { type: Date },

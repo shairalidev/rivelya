@@ -22,7 +22,7 @@ const statusLabels = {
 };
 const channelLabels = {
   chat: 'Chat',
-  video: 'Videochiamata'
+  chat_voice: 'Chat + Voce'
 };
 
 const formatCurrency = c => (c / 100).toFixed(2);
@@ -57,8 +57,9 @@ const initialProfileForm = {
   categories: '',
   experienceYears: '',
   rateChat: '',
-  rateVideo: '',
-  services: { chat: true, video: false }
+  rateChatVoice: '',
+  services: { chat: true, chatVoice: false },
+  acceptingRequests: true
 };
 
 const formatDateLabel = (year, month) => {
@@ -159,11 +160,12 @@ export default function MasterDashboard() {
         ? String(data.experienceYears)
         : '',
     rateChat: formatCentsInput(data?.rateChatCpm ?? 0),
-    rateVideo: formatCentsInput(data?.rateVideoCpm ?? 0),
+    rateChatVoice: formatCentsInput(data?.rateChatVoiceCpm ?? 0),
     services: {
       chat: data?.services?.chat !== false,
-      video: Boolean(data?.services?.video)
-    }
+      chatVoice: data?.services?.chatVoice ?? data?.services?.chat_voice ?? false
+    },
+    acceptingRequests: data?.isAcceptingRequests !== false
   }), []);
 
   const loadProfile = useCallback(async () => {
@@ -353,6 +355,13 @@ export default function MasterDashboard() {
     }));
   };
 
+  const toggleAcceptingRequests = () => {
+    setProfileForm(prev => ({
+      ...prev,
+      acceptingRequests: !prev.acceptingRequests
+    }));
+  };
+
   const saveProfile = async () => {
     try {
       setProfileSaving(true);
@@ -367,14 +376,14 @@ export default function MasterDashboard() {
         languages: parseListInput(profileForm.languages),
         specialties: parseListInput(profileForm.specialties),
         categories: parseListInput(profileForm.categories),
+        acceptingRequests: profileForm.acceptingRequests,
         services: {
           chat: profileForm.services.chat,
-          phone: false,
-          video: profileForm.services.video
+          chatVoice: profileForm.services.chatVoice
         },
         rates: {
           chat: parseEuroInput(profileForm.rateChat),
-          video: parseEuroInput(profileForm.rateVideo)
+          chatVoice: parseEuroInput(profileForm.rateChatVoice)
         }
       };
 
@@ -488,14 +497,35 @@ export default function MasterDashboard() {
                   <span>Chat</span>
                 </label>
 
-                <label className={`service-toggle${profileForm.services.video ? ' active' : ''}`}>
+                <label className={`service-toggle${profileForm.services.chatVoice ? ' active' : ''}`}>
                   <input
                     type="checkbox"
-                    checked={profileForm.services.video}
-                    onChange={() => toggleService('video')}
+                    checked={profileForm.services.chatVoice}
+                    onChange={() => toggleService('chatVoice')}
                   />
-                  <span>Videochiamata</span>
+                  <span>Chat + Voce</span>
                 </label>
+              </div>
+
+              <div className={`visibility-toggle${profileForm.acceptingRequests ? ' active' : ''}`}>
+                <div className="visibility-header">
+                  <p className="micro muted">Visibilità profilo</p>
+                  <span className="visibility-status">
+                    {profileForm.acceptingRequests ? 'Visibile nel catalogo' : 'Nascosto dal catalogo'}
+                  </span>
+                </div>
+                <label className="switch">
+                  <input
+                    type="checkbox"
+                    checked={profileForm.acceptingRequests}
+                    onChange={toggleAcceptingRequests}
+                  />
+                  <span className="slider" />
+                </label>
+                <p className="micro muted">
+                  Disattiva per prendere una pausa: i clienti non potranno inviarti nuove richieste finché non riattiverai il
+                  profilo.
+                </p>
               </div>
             </div>
 
@@ -582,25 +612,33 @@ export default function MasterDashboard() {
               <div className="rate-grid">
                 <label className="input-label">
                   Tariffa chat (€ al minuto)
-                  <input
-                    type="text"
-                    name="rateChat"
-                    value={profileForm.rateChat}
-                    onChange={updateProfileField}
-                    placeholder="0.00"
-                  />
+                  <div className="input-with-prefix">
+                    <span>€</span>
+                    <input
+                      type="text"
+                      name="rateChat"
+                      value={profileForm.rateChat}
+                      onChange={updateProfileField}
+                      placeholder="0.00"
+                    />
+                    <span className="suffix">/min</span>
+                  </div>
                 </label>
 
                 <label className="input-label">
-                  Tariffa video (€ al minuto)
-                  <input
-                    type="text"
-                    name="rateVideo"
-                    value={profileForm.rateVideo}
-                    disabled={!profileForm.services.video}
-                    onChange={updateProfileField}
-                    placeholder="0.00"
-                  />
+                  Tariffa chat + voce (€ al minuto)
+                  <div className={`input-with-prefix${profileForm.services.chatVoice ? '' : ' disabled'}`}>
+                    <span>€</span>
+                    <input
+                      type="text"
+                      name="rateChatVoice"
+                      value={profileForm.rateChatVoice}
+                      disabled={!profileForm.services.chatVoice}
+                      onChange={updateProfileField}
+                      placeholder="0.00"
+                    />
+                    <span className="suffix">/min</span>
+                  </div>
                 </label>
               </div>
 
@@ -731,7 +769,7 @@ export default function MasterDashboard() {
                         <span className="status-pill">{statusLabels[req.status]}</span>
 
                         {req.status === 'confirmed' &&
-                          req.channel === 'chat' &&
+                          ['chat', 'chat_voice'].includes(req.channel) &&
                           profile?.services?.chat !== false && (
                             <button
                               type="button"
