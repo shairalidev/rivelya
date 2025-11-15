@@ -15,13 +15,12 @@ const serializeMaster = master => ({
   languages: master.languages || [],
   experienceYears: master.experience_years || 0,
   rateChatCpm: master.rate_chat_cpm ?? 0,
-  ratePhoneCpm: master.rate_phone_cpm ?? 0,
-  rateVideoCpm: master.rate_video_cpm ?? 0,
+  rateChatVoiceCpm: (master.rate_chat_voice_cpm ?? master.rate_phone_cpm) ?? 0,
   services: {
     chat: master.services?.chat !== false,
-    phone: master.services?.phone !== false,
-    video: Boolean(master.services?.video)
+    chatVoice: master.services?.chat_voice ?? master.services?.phone ?? false
   },
+  isAcceptingRequests: master.is_accepting_requests !== false,
   media: {
     avatarUrl: master.media?.avatar_url || '',
     introVideoUrl: master.media?.intro_video_url || ''
@@ -38,15 +37,14 @@ const updateSchema = Joi.object({
   experienceYears: Joi.number().integer().min(0).max(80).allow(null),
   avatarUrl: Joi.string().uri().allow('', null),
   introVideoUrl: Joi.string().uri().allow('', null),
+  acceptingRequests: Joi.boolean(),
   services: Joi.object({
     chat: Joi.boolean(),
-    phone: Joi.boolean(),
-    video: Joi.boolean()
+    chatVoice: Joi.boolean()
   }).default({}),
   rates: Joi.object({
     chat: Joi.number().integer().min(0),
-    phone: Joi.number().integer().min(0),
-    video: Joi.number().integer().min(0)
+    chatVoice: Joi.number().integer().min(0)
   }).default({})
 });
 
@@ -98,17 +96,22 @@ router.put('/me', requireAuth, requireRole('master'), async (req, res, next) => 
         master.media.intro_video_url = payload.introVideoUrl?.trim() || '';
       }
     }
+    if (payload.acceptingRequests !== undefined) {
+      master.is_accepting_requests = payload.acceptingRequests;
+    }
     if (payload.services) {
+      const base = master.services || {};
       master.services = {
-        chat: payload.services.chat !== undefined ? payload.services.chat : master.services?.chat !== false,
-        phone: payload.services.phone !== undefined ? payload.services.phone : master.services?.phone !== false,
-        video: payload.services.video !== undefined ? payload.services.video : Boolean(master.services?.video)
+        chat: payload.services.chat !== undefined ? payload.services.chat : base.chat !== false,
+        chat_voice:
+          payload.services.chatVoice !== undefined
+            ? payload.services.chatVoice
+            : base.chat_voice ?? base.phone ?? false
       };
     }
     if (payload.rates) {
       if (payload.rates.chat != null) master.rate_chat_cpm = payload.rates.chat;
-      if (payload.rates.phone != null) master.rate_phone_cpm = payload.rates.phone;
-      if (payload.rates.video != null) master.rate_video_cpm = payload.rates.video;
+      if (payload.rates.chatVoice != null) master.rate_chat_voice_cpm = payload.rates.chatVoice;
     }
 
     await master.save();

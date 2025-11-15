@@ -74,10 +74,9 @@ try {
         specialties: ['Tarocchi evolutivi', 'Cristalloterapia', 'Meditazione guidata'],
         experience_years: 12,
         languages: ['it'],
-        rate_phone_cpm: 249,
+        rate_chat_voice_cpm: 249,
         rate_chat_cpm: 199,
-        rate_video_cpm: 329,
-        services: { chat: true, phone: true, video: true },
+        services: { chat: true, chat_voice: true },
         availability: 'online',
         working_hours: {
           timezone: 'Europe/Rome',
@@ -103,10 +102,9 @@ try {
         specialties: ['Channeling angelico', 'Lettura akashica', 'Messaggi guida'],
         experience_years: 15,
         languages: ['it', 'en'],
-        rate_phone_cpm: 349,
+        rate_chat_voice_cpm: 349,
         rate_chat_cpm: 299,
-        rate_video_cpm: 429,
-        services: { chat: true, phone: true, video: true },
+        services: { chat: true, chat_voice: true },
         availability: 'online',
         working_hours: {
           timezone: 'Europe/Rome',
@@ -131,10 +129,9 @@ try {
         specialties: ['Executive coaching', 'Gestione dello stress', 'Performance personale'],
         experience_years: 10,
         languages: ['it', 'en'],
-        rate_phone_cpm: 299,
+        rate_chat_voice_cpm: 299,
         rate_chat_cpm: 249,
-        rate_video_cpm: 369,
-        services: { chat: true, phone: true, video: false },
+        services: { chat: true, chat_voice: true },
         availability: 'busy',
         working_hours: {
           timezone: 'Europe/Rome',
@@ -159,10 +156,9 @@ try {
         specialties: ['Ansia e stress', 'Tecniche EMDR', 'Mind-body balance'],
         experience_years: 9,
         languages: ['it', 'en'],
-        rate_phone_cpm: 329,
+        rate_chat_voice_cpm: 329,
         rate_chat_cpm: 289,
-        rate_video_cpm: 409,
-        services: { chat: true, phone: true, video: true },
+        services: { chat: true, chat_voice: true },
         availability: 'online',
         working_hours: {
           timezone: 'Europe/Rome',
@@ -187,10 +183,9 @@ try {
         specialties: ['Pulizia energetica', 'Rituali personalizzati', 'Reiki avanzato'],
         experience_years: 20,
         languages: ['it', 'fr'],
-        rate_phone_cpm: 279,
+        rate_chat_voice_cpm: 279,
         rate_chat_cpm: 229,
-        rate_video_cpm: 359,
-        services: { chat: true, phone: true, video: false },
+        services: { chat: true, chat_voice: true },
         availability: 'offline',
         working_hours: {
           timezone: 'Europe/Rome',
@@ -215,10 +210,9 @@ try {
         specialties: ['Mindset strategico', 'Law of attraction', 'Percorsi relazionali'],
         experience_years: 8,
         languages: ['it'],
-        rate_phone_cpm: 309,
+        rate_chat_voice_cpm: 309,
         rate_chat_cpm: 259,
-        rate_video_cpm: 389,
-        services: { chat: true, phone: true, video: true },
+        services: { chat: true, chat_voice: true },
         availability: 'online',
         working_hours: {
           timezone: 'Europe/Rome',
@@ -278,11 +272,11 @@ try {
     {
       user_id: consumerAccount.user._id,
       master_id: masterAccounts[0].master._id,
-      channel: 'phone',
+      channel: 'chat_voice',
       start_ts: new Date(Date.now() - 1000 * 60 * 60 * 24 * 6),
       end_ts: new Date(Date.now() - 1000 * 60 * 60 * 24 * 6 + 1000 * 60 * 24),
       duration_s: 24 * 60,
-      price_cpm: masterAccounts[0].master.rate_phone_cpm,
+      price_cpm: masterAccounts[0].master.rate_chat_voice_cpm,
       cost_cents: 5976,
       status: 'ended'
     },
@@ -300,11 +294,11 @@ try {
     {
       user_id: consumerAccount.user._id,
       master_id: masterAccounts[2].master._id,
-      channel: 'phone',
+      channel: 'chat_voice',
       start_ts: new Date(Date.now() - 1000 * 60 * 60 * 24),
       end_ts: new Date(Date.now() - 1000 * 60 * 60 * 24 + 1000 * 60 * 18),
       duration_s: 18 * 60,
-      price_cpm: masterAccounts[2].master.rate_phone_cpm,
+      price_cpm: masterAccounts[2].master.rate_chat_voice_cpm,
       cost_cents: 5382,
       status: 'ended'
     }
@@ -319,9 +313,9 @@ try {
   const ledger = [
     { type: 'topup', amount: 20000, meta: { description: 'Ricarica Stripe', reference: 'STR12345' } },
     { type: 'topup', amount: 10000, meta: { description: 'Promo di benvenuto', reference: 'PR-BONUS' } },
-    { type: 'spend', amount: -5976, meta: { master: masterAccounts[0].master.display_name, channel: 'phone', session: sessions[0]._id } },
+    { type: 'spend', amount: -5976, meta: { master: masterAccounts[0].master.display_name, channel: 'chat_voice', session: sessions[0]._id } },
     { type: 'spend', amount: -9568, meta: { master: masterAccounts[1].master.display_name, channel: 'chat', session: sessions[1]._id } },
-    { type: 'spend', amount: -5382, meta: { master: masterAccounts[2].master.display_name, channel: 'phone', session: sessions[2]._id } }
+    { type: 'spend', amount: -5382, meta: { master: masterAccounts[2].master.display_name, channel: 'chat_voice', session: sessions[2]._id } }
   ];
 
   await Transaction.insertMany(ledger.map(entry => ({ ...entry, wallet_id: consumerAccount.wallet._id })));

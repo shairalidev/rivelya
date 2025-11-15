@@ -6,8 +6,7 @@ export const billing = {
   async resolvePriceCpm({ user, master, channel }) {
     // First paid recharge promo and free first call handled here as flags
     let price;
-    if (channel === 'phone') price = master.rate_phone_cpm;
-    else if (channel === 'video') price = master.rate_video_cpm;
+    if (channel === 'chat_voice') price = master.rate_chat_voice_cpm ?? master.rate_phone_cpm;
     else price = master.rate_chat_cpm;
 
     // Example: if user has promo flag 'first_recharge_price_lock_cpm'
