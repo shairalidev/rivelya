@@ -452,49 +452,31 @@ export default function MasterDashboard() {
           <div className="profile-settings-grid">
             {/* LEFT COLUMN */}
             <div className="profile-settings-column">
-              <div className="avatar-preview">
-                <img
-                  src={
-                    profileForm.avatarUrl ||
-                    user?.avatarUrl ||
-                    'https://placehold.co/300x300'
-                  }
-                  alt="Avatar"
-                />
+              <div className="profile-avatar-card profile-section media">
+                <span className="section-title">Foto profilo</span>
+                <div className="avatar-preview">
+                  <img
+                    src={
+                      profileForm.avatarUrl ||
+                      user?.avatarUrl ||
+                      'https://placehold.co/300x300'
+                    }
+                    alt="Avatar"
+                  />
+                </div>
               </div>
 
-              <label className="input-label">
-                URL foto profilo
-                <input
-                  type="url"
-                  name="avatarUrl"
-                  value={profileForm.avatarUrl}
-                  onChange={updateProfileField}
-                  placeholder="https://"
-                />
-              </label>
-
-              <label className="input-label">
-                Video introduttivo
-                <input
-                  type="url"
-                  name="introVideoUrl"
-                  value={profileForm.introVideoUrl}
-                  onChange={updateProfileField}
-                  placeholder="https://"
-                />
-              </label>
-
-              <div className="service-toggle-group">
-                <p className="micro muted">Servizi attivi</p>
-
-                <label className={`service-toggle${profileForm.services.chat ? ' active' : ''}`}>
+              <div className="profile-section media">
+                <span className="section-title">Media &amp; link</span>
+                <label className="input-label">
+                  URL foto profilo
                   <input
-                    type="checkbox"
-                    checked={profileForm.services.chat}
-                    onChange={() => toggleService('chat')}
+                    type="url"
+                    name="avatarUrl"
+                    value={profileForm.avatarUrl}
+                    onChange={updateProfileField}
+                    placeholder="https://"
                   />
-                  <span>Chat</span>
                 </label>
 
                 <label className={`service-toggle${profileForm.services.chatVoice ? ' active' : ''}`}>
@@ -527,73 +509,123 @@ export default function MasterDashboard() {
                   profilo.
                 </p>
               </div>
+
+              <div className="profile-section services">
+                <span className="section-title">Servizi attivi</span>
+                <div className="service-toggle-group">
+                  <label className={`service-toggle${profileForm.services.chat ? ' active' : ''}`}>
+                    <input
+                      type="checkbox"
+                      checked={profileForm.services.chat}
+                      onChange={() => toggleService('chat')}
+                    />
+                    <span>Chat</span>
+                  </label>
+
+                  <label className={`service-toggle${profileForm.services.chatVoice ? ' active' : ''}`}>
+                    <input
+                      type="checkbox"
+                      checked={profileForm.services.chatVoice}
+                      onChange={() => toggleService('chatVoice')}
+                    />
+                    <span>Chat + Voce</span>
+                  </label>
+                </div>
+              </div>
+
+              <div className="profile-section">
+                <div className={`visibility-toggle${profileForm.acceptingRequests ? ' active' : ''}`}>
+                  <div className="visibility-header">
+                    <p className="micro muted">Visibilità profilo</p>
+                    <span className="visibility-status">
+                      {profileForm.acceptingRequests ? 'Visibile nel catalogo' : 'Nascosto dal catalogo'}
+                    </span>
+                  </div>
+                  <label className="switch">
+                    <input
+                      type="checkbox"
+                      checked={profileForm.acceptingRequests}
+                      onChange={toggleAcceptingRequests}
+                    />
+                    <span className="slider" />
+                  </label>
+                  <p className="micro muted">
+                    Disattiva per prendere una pausa: i clienti non potranno inviarti nuove richieste finché non riattiverai il
+                    profilo.
+                  </p>
+                </div>
+              </div>
             </div>
 
             {/* RIGHT COLUMN */}
             <div className="profile-settings-column">
+              <div className="profile-section">
+                <span className="section-title">Informazioni principali</span>
+                <div className="field-grid">
+                  <label className="input-label">
+                    Nome pubblico
+                    <input
+                      type="text"
+                      name="displayName"
+                      value={profileForm.displayName}
+                      onChange={updateProfileField}
+                    />
+                  </label>
 
-              <div className="field-grid">
-                <label className="input-label">
-                  Nome pubblico
-                  <input
-                    type="text"
-                    name="displayName"
-                    value={profileForm.displayName}
-                    onChange={updateProfileField}
-                  />
-                </label>
+                  <label className="input-label">
+                    Headline
+                    <input
+                      type="text"
+                      name="headline"
+                      value={profileForm.headline}
+                      onChange={updateProfileField}
+                    />
+                  </label>
+                </div>
 
                 <label className="input-label">
-                  Headline
-                  <input
-                    type="text"
-                    name="headline"
-                    value={profileForm.headline}
+                  Biografia
+                  <textarea
+                    rows="4"
+                    name="bio"
+                    value={profileForm.bio}
                     onChange={updateProfileField}
                   />
                 </label>
               </div>
 
-              <label className="input-label">
-                Biografia
-                <textarea
-                  rows="4"
-                  name="bio"
-                  value={profileForm.bio}
-                  onChange={updateProfileField}
-                />
-              </label>
-
-              <div className="field-grid">
+              <div className="profile-section">
+                <span className="section-title">Competenze</span>
                 <label className="input-label">
-                  Lingue
+                  Lingue (separa con virgola)
                   <input
                     type="text"
                     name="languages"
                     value={profileForm.languages}
                     onChange={updateProfileField}
+                    placeholder="Italiano, Inglese"
                   />
                 </label>
 
                 <label className="input-label">
-                  Specializzazioni
+                  Specializzazioni (separa con virgola)
                   <input
                     type="text"
                     name="specialties"
                     value={profileForm.specialties}
                     onChange={updateProfileField}
+                    placeholder="Meditazione, Coaching"
                   />
                 </label>
-              </div>
 
-              <div className="field-grid">
                 <label className="input-label">
-                  Categorie
+                  Categorie (separa con virgola)
                   <input
                     type="text"
                     name="categories"
                     value={profileForm.categories}
                     onChange={updateProfileField}
+                    placeholder="Mindfulness, Crescita personale"
                   />
                 </label>
 
@@ -601,8 +633,8 @@ export default function MasterDashboard() {
                   Anni di esperienza
                   <input
                     type="number"
-                    name="experienceYears"
                     min="0"
+                    name="experienceYears"
                     value={profileForm.experienceYears}
                     onChange={updateProfileField}
                   />
@@ -642,17 +674,18 @@ export default function MasterDashboard() {
                 </label>
               </div>
 
-              <div className="profile-actions-row">
-                <button
-                  type="button"
-                  className="btn primary"
-                  disabled={profileSaving}
-                  onClick={saveProfile}
-                >
-                  {profileSaving ? 'Salvataggio' : 'Salva modifiche'}
-                </button>
+              <div className="profile-section action-bar">
+                <div className="profile-actions-row">
+                  <button
+                    type="button"
+                    className="btn primary"
+                    onClick={saveProfile}
+                    disabled={profileSaving}
+                  >
+                    {profileSaving ? 'Salvataggio' : 'Salva modifiche'}
+                  </button>
+                </div>
               </div>
-
             </div>
           </div>
         )}
