@@ -137,16 +137,7 @@ export default function Home() {
         </div>
       </section>
 
-      <section className="container cta">
-        <div className="cta-copy">
-          <h2>Pronto a offrire consulenze premium ai tuoi utenti?</h2>
-          <p className="muted">Crea un account e prova gratuitamente 5 minuti con i master certificati Rivelya.</p>
-        </div>
-        <div className="cta-actions">
-          <Link to="/register" className="btn primary">Crea account</Link>
-          <Link to="/catalog" className="btn ghost">Consulta il catalogo</Link>
-        </div>
-      </section>
+      
     </div>
   );
 }
