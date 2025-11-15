@@ -29,6 +29,12 @@ const buildThreadPayload = (thread, { lastMessage = null, unreadCount = 0 } = {}
   const remaining = expiresAt ? Math.max(0, Math.floor((expiresAt - now) / 1000)) : 0;
   const status = remaining === 0 ? 'expired' : thread.status;
 
+  const services = thread.master_id?.services || {};
+  const normalizedServices = {
+    chat: services.chat !== false,
+    chatVoice: services.chat_voice ?? services.phone ?? false
+  };
+
   return {
     id: thread._id,
     booking: thread.booking_id ? {
@@ -45,16 +51,15 @@ const buildThreadPayload = (thread, { lastMessage = null, unreadCount = 0 } = {}
           name: thread.master_id.display_name,
           userId: thread.master_user_id?._id || thread.master_user_id,
           avatarUrl: thread.master_user_id?.avatar_url || null,
-          phoneRateCpm: typeof thread.master_id.rate_phone_cpm === 'number'
-            ? thread.master_id.rate_phone_cpm
-            : null,
+          chatVoiceRateCpm: typeof thread.master_id.rate_chat_voice_cpm === 'number'
+            ? thread.master_id.rate_chat_voice_cpm
+            : typeof thread.master_id.rate_phone_cpm === 'number'
+              ? thread.master_id.rate_phone_cpm
+              : null,
           chatRateCpm: typeof thread.master_id.rate_chat_cpm === 'number'
             ? thread.master_id.rate_chat_cpm
             : null,
-          videoRateCpm: typeof thread.master_id.rate_video_cpm === 'number'
-            ? thread.master_id.rate_video_cpm
-            : null,
-          services: thread.master_id.services || { chat: true, phone: true, video: false }
+          services: normalizedServices
         }
       : null,
     customer: thread.customer_id ? {
@@ -84,7 +89,7 @@ const buildThreadPayload = (thread, { lastMessage = null, unreadCount = 0 } = {}
 const ensureThreadForUser = async (threadId, user) => {
   const thread = await ChatThread.findById(threadId)
     .populate('booking_id', 'date start_time end_time channel status')
-    .populate('master_id', 'display_name rate_phone_cpm rate_chat_cpm rate_video_cpm services')
+    .populate('master_id', 'display_name rate_chat_cpm rate_chat_voice_cpm services')
     .populate('master_user_id', 'display_name first_name last_name email avatar_url')
     .populate('customer_id', 'display_name first_name last_name email avatar_url');
   if (!thread) return null;
@@ -109,7 +114,7 @@ router.get('/threads', requireAuth, async (req, res, next) => {
       .sort({ updatedAt: -1 })
       .limit(100)
       .populate('booking_id', 'date start_time end_time channel status')
-      .populate('master_id', 'display_name rate_phone_cpm rate_chat_cpm rate_video_cpm services')
+      .populate('master_id', 'display_name rate_chat_cpm rate_chat_voice_cpm services')
       .populate('master_user_id', 'display_name first_name last_name email avatar_url')
       .populate('customer_id', 'display_name first_name last_name email avatar_url');
 

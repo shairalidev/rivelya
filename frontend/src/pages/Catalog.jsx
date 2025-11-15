@@ -158,8 +158,8 @@ export default function Catalog() {
                     </div>
                     <div className="master-footer">
                       <div>
-                        <p className="price">Telefono {(master.rate_phone_cpm / 100).toFixed(2)} €/min</p>
-                        <p className="muted">Chat {(master.rate_chat_cpm / 100).toFixed(2)} €/min</p>
+                        <p className="price">Chat + voce {(master.rate_chat_voice_cpm / 100).toFixed(2)} €/min</p>
+                        <p className="muted">Solo chat {(master.rate_chat_cpm / 100).toFixed(2)} €/min</p>
                       </div>
                       <Link to={`/masters/${master._id}`} className="btn ghost">Dettagli</Link>
                     </div>

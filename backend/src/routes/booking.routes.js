@@ -15,7 +15,7 @@ const router = Router();
 
 const bookingSchema = Joi.object({
   masterId: Joi.string().hex().length(24).required(),
-  channel: Joi.string().valid('phone', 'chat', 'video').required(),
+  channel: Joi.string().valid('chat', 'chat_voice').required(),
   date: Joi.string().pattern(/^\d{4}-\d{2}-\d{2}$/).required(),
   start: Joi.string().pattern(/^\d{2}:\d{2}$/).required(),
   end: Joi.string().pattern(/^\d{2}:\d{2}$/).required(),
@@ -28,7 +28,7 @@ const respondSchema = Joi.object({
 
 const ensureMaster = async userId =>
   Master.findOne({ user_id: userId }).select(
-    '_id display_name rate_phone_cpm rate_chat_cpm rate_video_cpm services user_id'
+    '_id display_name rate_chat_cpm rate_chat_voice_cpm services is_accepting_requests user_id'
   );
 
 const loadDayContext = async ({ masterId, date }) => {
@@ -71,6 +71,9 @@ router.post('/', requireAuth, async (req, res, next) => {
     const payload = await bookingSchema.validateAsync(req.body);
     const master = await Master.findById(payload.masterId);
     if (!master) return res.status(404).json({ message: 'Master non trovato.' });
+    if (master.is_accepting_requests === false) {
+      return res.status(400).json({ message: 'Il master al momento non accetta nuove richieste.' });
+    }
 
     const user = req.user;
     if (!user.wallet_id) {
@@ -91,19 +94,21 @@ router.post('/', requireAuth, async (req, res, next) => {
     }
 
     const services = master.services || {};
-    if (payload.channel === 'video') {
-      if (!services.video) {
+    if (payload.channel === 'chat') {
+      if (services.chat === false) {
         return res.status(400).json({ message: 'Il master non offre questo canale al momento.' });
       }
-    } else if (services[payload.channel] === false) {
-      return res.status(400).json({ message: 'Il master non offre questo canale al momento.' });
+    } else {
+      const supportsChatVoice = services.chat_voice ?? services.phone ?? false;
+      if (!supportsChatVoice) {
+        return res.status(400).json({ message: 'Il master non offre questo canale al momento.' });
+      }
     }
 
-    const rate = (() => {
-      if (payload.channel === 'phone') return master.rate_phone_cpm;
-      if (payload.channel === 'video') return master.rate_video_cpm;
-      return master.rate_chat_cpm;
-    })();
+    const rate =
+      payload.channel === 'chat_voice'
+        ? (master.rate_chat_voice_cpm ?? master.rate_phone_cpm)
+        : master.rate_chat_cpm;
     const amount = durationMinutes * rate;
     if (amount <= 0) {
       return res.status(400).json({ message: 'Impossibile calcolare il costo della sessione.' });

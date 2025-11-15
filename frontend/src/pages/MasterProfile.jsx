@@ -20,21 +20,29 @@ const ChatGlyph = props => (
   </svg>
 );
 
-const VideoGlyph = props => (
+const VoiceGlyph = props => (
   <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true" {...props}>
-    <rect x="3" y="5" width="14" height="14" rx="2" />
-    <path d="M17 8l4-2v12l-4-2z" />
+    <path d="M6.5 3h3.2a2 2 0 011.9 1.4l1 3.3a2 2 0 01-.7 2.1l-1.5 1.1a10.5 10.5 0 005.2 5.2l1.1-1.5a2 2 0 012.1-.7l3.3 1a2 2 0 011.4 1.9v3.2a2 2 0 01-2 2A17.8 17.8 0 013 6.5a2 2 0 012-2Z" />
+    <path d="M15 4.5a6.5 6.5 0 016.5 6.5" />
+    <path d="M15 8a3 3 0 013 3" />
   </svg>
 );
 
 const serviceMeta = {
-  chat: { label: 'Chat', Icon: ChatGlyph },
-  video: { label: 'Video', Icon: VideoGlyph }
+  chat: { label: 'Solo chat', channel: 'chat', Icon: ChatGlyph },
+  chatVoice: { label: 'Chat + voce', channel: 'chat_voice', Icon: VoiceGlyph }
 };
 
-const serviceOrder = ['chat', 'video'];
+const serviceOrder = ['chat', 'chatVoice'];
 
-const channelRateLabels = { chat: 'chat', video: 'video' };
+const channelRateLabels = { chat: 'solo chat', chat_voice: 'chat + voce' };
+
+const hasService = (services, service) => {
+  if (!services) return service === 'chat';
+  if (service === 'chat') return services.chat !== false;
+  if (service === 'chatVoice') return Boolean(services.chatVoice ?? services.chat_voice ?? services.phone);
+  return false;
+};
 
 dayjs.locale('it');
 
@@ -71,27 +79,31 @@ export default function MasterProfile() {
     return true;
   };
 
-const timeToMinutes = value => {
+  const timeToMinutes = value => {
     if (!/^\d{2}:\d{2}$/.test(value)) return Number.NaN;
     const [hours, minutes] = value.split(':').map(Number);
     return hours * 60 + minutes;
   };
 
-const minutesToTime = value => `${String(Math.floor(value / 60)).padStart(2, '0')}:${String(value % 60).padStart(2, '0')}`;
+  const minutesToTime = value => `${String(Math.floor(value / 60)).padStart(2, '0')}:${String(value % 60).padStart(2, '0')}`;
 
-const formatDateKey = date => `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`;
+  const formatDateKey = date => `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`;
 
   const rangeToStarts = ranges =>
-    ranges.flatMap(range => {
-      const start = timeToMinutes(range.start);
-      const end = timeToMinutes(range.end);
-      if (Number.isNaN(start) || Number.isNaN(end) || end <= start) return [];
-      const options = [];
-      for (let pointer = start; pointer < end; pointer += 30) {
-        options.push(minutesToTime(pointer));
-      }
-      return options;
-    }).filter(Boolean).filter((value, index, self) => self.indexOf(value) === index).sort();
+    ranges
+      .flatMap(range => {
+        const start = timeToMinutes(range.start);
+        const end = timeToMinutes(range.end);
+        if (Number.isNaN(start) || Number.isNaN(end) || end <= start) return [];
+        const options = [];
+        for (let pointer = start; pointer < end; pointer += 30) {
+          options.push(minutesToTime(pointer));
+        }
+        return options;
+      })
+      .filter(Boolean)
+      .filter((value, index, self) => self.indexOf(value) === index)
+      .sort();
 
   const buildEndOptions = (ranges, startValue) => {
     if (!/^\d{2}:\d{2}$/.test(startValue)) return [];
@@ -146,12 +158,20 @@ const formatDateKey = date => `${date.getFullYear()}-${String(date.getMonth() + 
 
   const startSession = async channel => {
     if (!master || !ensureAuth()) return;
-    if (master.services && master.services[channel] === false) {
+    const serviceKey = channel === 'chat_voice' ? 'chatVoice' : 'chat';
+    const serviceAvailable = hasService(master.services, serviceKey);
+    if (!serviceAvailable) {
       toast.error('Questo canale non è disponibile al momento.');
       return;
     }
-    if (channel === 'video') {
-      toast('Ti metteremo in contatto per organizzare la videochiamata.');
+    if (channel === 'chat_voice') {
+      try {
+        await client.post('/session/chat-voice', { master_id: master._id });
+        toast.success('Ti chiameremo per avviare la sessione vocale.');
+      } catch (error) {
+        const message = error?.response?.data?.message || 'Impossibile avviare la sessione in questo momento.';
+        toast.error(message);
+      }
       return;
     }
     try {
@@ -166,25 +186,26 @@ const formatDateKey = date => `${date.getFullYear()}-${String(date.getMonth() + 
     }
   };
 
-  const availableChannels = useMemo(
+  const availableServices = useMemo(
     () =>
       master
-        ? serviceOrder.filter(service => {
-            const flag = master.services?.[service];
-            if (service === 'video') return Boolean(flag);
-            return flag !== false;
-          })
+        ? serviceOrder.filter(service => hasService(master.services, service))
         : ['chat'],
-    [master]
+    [master?.services]
   );
 
   const channelOptions = useMemo(
     () =>
-      availableChannels.map(value => ({
-        value,
-        label: serviceMeta[value]?.label || value
+      availableServices.map(service => ({
+        value: serviceMeta[service]?.channel || service,
+        label: serviceMeta[service]?.label || service
       })),
-    [availableChannels]
+    [availableServices]
+  );
+
+  const availableChannels = useMemo(
+    () => (channelOptions.length > 0 ? channelOptions.map(option => option.value) : ['chat']),
+    [channelOptions]
   );
 
   useEffect(() => {
@@ -266,7 +287,7 @@ const formatDateKey = date => `${date.getFullYear()}-${String(date.getMonth() + 
   const activeRateCents = useMemo(() => {
     if (!master) return null;
     let value;
-    if (booking.channel === 'video') value = master.rate_video_cpm;
+    if (booking.channel === 'chat_voice') value = master.rate_chat_voice_cpm;
     else value = master.rate_chat_cpm;
     return typeof value === 'number' ? value : null;
   }, [master, booking.channel]);
@@ -424,8 +445,7 @@ const formatDateKey = date => `${date.getFullYear()}-${String(date.getMonth() + 
             {serviceOrder.map(service => {
               const meta = serviceMeta[service];
               if (!meta) return null;
-              const flag = master.services?.[service];
-              const enabled = service === 'video' ? Boolean(flag) : flag !== false;
+              const enabled = hasService(master.services, service);
               const { Icon } = meta;
               return (
                 <span
@@ -456,7 +476,7 @@ const formatDateKey = date => `${date.getFullYear()}-${String(date.getMonth() + 
         </div>
       </div>
       <div className="profile-actions">
-        {master.services?.chat !== false && (
+        {hasService(master.services, 'chat') && (
           <div className="rate-card">
             <p>Tariffa chat</p>
             <h3>{(master.rate_chat_cpm / 100).toFixed(2)} € / min</h3>
@@ -466,13 +486,13 @@ const formatDateKey = date => `${date.getFullYear()}-${String(date.getMonth() + 
             </button>
           </div>
         )}
-        {master.services?.video && (
-          <div className="rate-card">
-            <p>Tariffa video</p>
-            <h3>{(master.rate_video_cpm / 100).toFixed(2)} € / min</h3>
-            <p className="muted">Videochiamata privata su appuntamento.</p>
-            <button className="btn outline" onClick={() => startSession('video')}>
-              Richiedi video
+        {hasService(master.services, 'chatVoice') && (
+          <div className="rate-card emphasis">
+            <p>Tariffa chat + voce</p>
+            <h3>{(master.rate_chat_voice_cpm / 100).toFixed(2)} € / min</h3>
+            <p className="muted">Chiamata vocale accompagnata da supporto in chat.</p>
+            <button className="btn outline" onClick={() => startSession('chat_voice')}>
+              Richiedi chat + voce
             </button>
           </div>
         )}
