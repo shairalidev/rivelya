@@ -321,16 +321,6 @@ router.post('/:bookingId/start-voice', requireAuth, async (req, res, next) => {
       return res.status(403).json({ message: 'Non autorizzato.' });
     }
 
-    // Check if customer already has an active voice session
-    const existingUserSession = await Session.findOne({
-      user_id: booking.customer_id._id,
-      channel: { $in: ['voice', 'chat_voice'] },
-      status: { $in: ['created', 'active'] }
-    });
-    if (existingUserSession) {
-      return res.status(400).json({ message: 'Il cliente ha già una sessione vocale attiva.' });
-    }
-
     // Check if master already has an active voice session
     const existingMasterSession = await Session.findOne({
       master_id: booking.master_id._id,

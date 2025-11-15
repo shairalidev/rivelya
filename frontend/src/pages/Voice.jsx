@@ -156,11 +156,16 @@ export default function Voice() {
   const shouldShowEmpty = !sessionId && sessions.length === 0 && !sessionsQuery.isLoading;
 
   useEffect(() => {
-    if (isSessionEnded) {
+    if (!activeSession) return;
+
+    if (activeSession.status === 'active') {
+      setIsConnected(true);
+    } else {
       setIsConnected(false);
       stopAudioStream();
     }
-  }, [isSessionEnded]);
+  }, [activeSession?.status]);
+
 
   useEffect(() => {
     if (!sessionId) return;

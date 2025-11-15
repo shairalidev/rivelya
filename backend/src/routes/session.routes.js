@@ -15,16 +15,6 @@ router.post('/voice', requireAuth, async (req, res, next) => {
     if (!master || master.status !== 'active') return res.status(400).json({ message: 'Master unavailable' });
     if (!master.services?.voice) return res.status(400).json({ message: 'Voice service not available' });
 
-    // Check if user already has an active voice session
-    const existingUserSession = await Session.findOne({
-      user_id: req.user._id,
-      channel: { $in: ['voice', 'chat_voice'] },
-      status: { $in: ['created', 'active'] }
-    });
-    if (existingUserSession) {
-      return res.status(400).json({ message: 'Hai già una sessione vocale attiva. Completa quella prima di iniziarne una nuova.' });
-    }
-
     // Check if master already has an active voice session
     const existingMasterSession = await Session.findOne({
       master_id: master._id,
@@ -58,16 +48,6 @@ router.post('/chat-voice', requireAuth, async (req, res, next) => {
     const master = await Master.findById(master_id);
     if (!master || master.status !== 'active') return res.status(400).json({ message: 'Master unavailable' });
     if (!master.services?.chat_voice) return res.status(400).json({ message: 'Chat+Voice service not available' });
-
-    // Check if user already has an active voice session
-    const existingUserSession = await Session.findOne({
-      user_id: req.user._id,
-      channel: { $in: ['voice', 'chat_voice'] },
-      status: { $in: ['created', 'active'] }
-    });
-    if (existingUserSession) {
-      return res.status(400).json({ message: 'Hai già una sessione vocale attiva. Completa quella prima di iniziarne una nuova.' });
-    }
 
     // Check if master already has an active voice session
     const existingMasterSession = await Session.findOne({
