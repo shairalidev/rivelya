@@ -31,9 +31,32 @@ const connectSocket = () => {
   }
 
   const baseURL = client.defaults.baseURL;
-  console.info('[voice] Initializing socket.io connection', { baseURL });
-  socketRef = io(baseURL, {
+  const resolveSocketConfig = () => {
+    if (typeof window === 'undefined') {
+      return { url: baseURL, path: '/socket.io' };
+    }
+
+    try {
+      const parsed = new URL(baseURL, window.location.origin);
+      const origin = `${parsed.protocol}//${parsed.host}`;
+      const pathname = parsed.pathname.replace(/\/$/, '');
+      const path = `${pathname || ''}/socket.io` || '/socket.io';
+      return { url: origin, path: path.startsWith('/') ? path : `/${path}` };
+    } catch (error) {
+      console.warn('[voice] Failed to parse socket baseURL, falling back to defaults', { baseURL, error: error.message });
+      if (baseURL === '/api' || baseURL.endsWith('/api')) {
+        return { url: window.location.origin, path: '/api/socket.io' };
+      }
+      return { url: baseURL, path: '/socket.io' };
+    }
+  };
+
+  const { url, path } = resolveSocketConfig();
+
+  console.info('[voice] Initializing socket.io connection', { baseURL, url, path });
+  socketRef = io(url, {
     auth: { token },
+    path,
     transports: ['websocket', 'polling'],
     autoConnect: true,
     timeout: 20000,

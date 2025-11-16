@@ -12,6 +12,9 @@ import ConfirmModal from '../components/ConfirmModal.jsx';
 import useAudioLevel from '../hooks/useAudioLevel.js';
 import useSimulatedVoiceActivity from '../hooks/useSimulatedVoiceActivity.js';
 
+const toastInfo = (message, options) => toast(message, { icon: 'ℹ️', ...options });
+const toastWarning = (message, options) => toast(message, { icon: '⚠️', ...options });
+
 const formatDuration = seconds => {
   if (seconds == null) return '--:--';
   const safe = Math.max(0, seconds);
@@ -310,7 +313,7 @@ export default function Voice() {
       if (payload.sessionId === sessionId) {
         setIsConnected(false);
         stopAudioStream();
-        toast.info('Chiamata terminata dal partner');
+        toastInfo('Chiamata terminata dal partner');
         queryClient.invalidateQueries({ queryKey: ['voice', 'session', sessionId] });
       }
       queryClient.invalidateQueries({ queryKey: ['voice', 'sessions'] });
@@ -320,7 +323,7 @@ export default function Voice() {
       if (payload.sessionId === sessionId) {
         setIsConnected(false);
         stopAudioStream();
-        toast.warning('⏰ Sessione scaduta automaticamente');
+        toastWarning('⏰ Sessione scaduta automaticamente');
         queryClient.invalidateQueries({ queryKey: ['voice', 'session', sessionId] });
       }
       queryClient.invalidateQueries({ queryKey: ['voice', 'sessions'] });
@@ -330,9 +333,9 @@ export default function Voice() {
       if (payload.sessionId === sessionId && payload.userId !== viewerId) {
         const participantName = payload.userId === activeSession?.master?.id ? masterName : customerName;
         if (payload.isMuted) {
-          toast.info(`🔇 ${participantName} ha disattivato il microfono`);
+          toastInfo(`🔇 ${participantName} ha disattivato il microfono`);
         } else {
-          toast.info(`🎤 ${participantName} ha attivato il microfono`);
+          toastInfo(`🎤 ${participantName} ha attivato il microfono`);
         }
       }
     };
@@ -409,7 +412,7 @@ export default function Voice() {
     });
     
     if (newMutedState) {
-      toast.info('🔇 Microfono disattivato');
+      toastInfo('🔇 Microfono disattivato');
     } else {
       toast.success('🎤 Microfono attivato');
     }
