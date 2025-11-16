@@ -37,7 +37,8 @@ const connectSocket = () => {
     reconnection: true,
     reconnectionDelay: 1000,
     reconnectionAttempts: 5,
-    forceNew: false
+    forceNew: false,
+    path: '/api/socket.io/'
   });
 
   socketRef.on('connect', () => {
