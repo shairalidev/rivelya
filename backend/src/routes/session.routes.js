@@ -3,7 +3,7 @@ import { requireAuth } from '../middleware/auth.js';
 import { Session } from '../models/session.model.js';
 import { Master } from '../models/master.model.js';
 import { billing } from '../services/billing.service.js';
-import { telephony } from '../services/telephony.service.js';
+import { notifyVoiceSessionCreated } from '../utils/voice-events.js';
 
 const router = Router();
 
@@ -35,9 +35,13 @@ router.post('/voice', requireAuth, async (req, res, next) => {
       status: 'created'
     });
 
-    const bridge = await telephony.initiateCallback({ session: sess, master, user: req.user });
+    await notifyVoiceSessionCreated({
+      session: sess,
+      customerUser: req.user,
+      masterUserId: master.user_id
+    });
 
-    res.json({ session_id: sess._id, call: bridge, redirect_url: `/voice/${sess._id}` });
+    res.json({ session_id: sess._id, redirect_url: `/voice/${sess._id}` });
   } catch (e) { next(e); }
 });
 
@@ -69,9 +73,13 @@ router.post('/chat-voice', requireAuth, async (req, res, next) => {
       status: 'created'
     });
 
-    const bridge = await telephony.initiateCallback({ session: sess, master, user: req.user });
+    await notifyVoiceSessionCreated({
+      session: sess,
+      customerUser: req.user,
+      masterUserId: master.user_id
+    });
 
-    res.json({ session_id: sess._id, call: bridge, redirect_url: `/chat` });
+    res.json({ session_id: sess._id, redirect_url: `/chat` });
   } catch (e) { next(e); }
 });
 

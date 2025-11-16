@@ -11,6 +11,7 @@ import { Session } from '../models/session.model.js';
 import { checkAvailability } from '../utils/availability.js';
 import { createNotification } from '../utils/notifications.js';
 import { emitToUser } from '../lib/socket.js';
+import { notifyVoiceSessionCreated } from '../utils/voice-events.js';
 
 const router = Router();
 
@@ -307,8 +308,8 @@ router.post('/:bookingId/respond', requireAuth, requireRole('master'), async (re
 router.post('/:bookingId/start-voice', requireAuth, async (req, res, next) => {
   try {
     const booking = await Booking.findById(req.params.bookingId)
-      .populate('master_id', 'user_id services')
-      .populate('customer_id', '_id');
+      .populate('master_id', 'user_id services display_name')
+      .populate('customer_id', '_id display_name first_name last_name');
     
     if (!booking) return res.status(404).json({ message: 'Prenotazione non trovata.' });
     if (booking.channel !== 'voice') return res.status(400).json({ message: 'Non è una prenotazione vocale.' });
@@ -345,8 +346,14 @@ router.post('/:bookingId/start-voice', requireAuth, async (req, res, next) => {
       booking_id: booking._id
     });
 
-    res.json({ 
-      session_id: sess._id, 
+    await notifyVoiceSessionCreated({
+      session: sess,
+      customerUser: booking.customer_id,
+      masterUserId: booking.master_id.user_id
+    });
+
+    res.json({
+      session_id: sess._id,
       redirect_url: `/voice/${sess._id}`,
       booking_id: booking._id
     });
