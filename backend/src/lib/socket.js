@@ -103,6 +103,21 @@ export const initSocket = server => {
       }
     });
 
+    // Handle chat call events
+    socket.on('chat:call:join', (data) => {
+      if (data.callId) {
+        socket.join(`call:${data.callId}`);
+        console.info('[chat] User joined call room', { userId, callId: data.callId });
+      }
+    });
+
+    socket.on('chat:call:leave', (data) => {
+      if (data.callId) {
+        socket.leave(`call:${data.callId}`);
+        console.info('[chat] User left call room', { userId, callId: data.callId });
+      }
+    });
+
     socket.on('disconnect', () => {
       // Clean up any session rooms when user disconnects
       console.info('[voice] Socket disconnected', { userId, socketId: socket.id });
