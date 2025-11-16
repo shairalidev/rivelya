@@ -27,10 +27,37 @@ const connectSocket = () => {
     }
   }
 
-  socketRef = io(client.defaults.baseURL, {
+  const baseURL = client.defaults.baseURL;
+  console.info('[voice] Initializing socket.io connection', { baseURL });
+  socketRef = io(baseURL, {
     auth: { token },
     transports: ['websocket'],
     autoConnect: true
+  });
+
+  socketRef.on('connect', () => {
+    console.info('[voice] Socket connected', { id: socketRef.id });
+  });
+
+  socketRef.on('disconnect', (reason) => {
+    console.warn('[voice] Socket disconnected', { reason });
+  });
+
+  socketRef.io.on('reconnect_attempt', (attempt) => {
+    console.info('[voice] Socket attempting reconnect', { attempt });
+  });
+
+  socketRef.on('connect_error', (error) => {
+    console.error('[voice] Socket connection error', {
+      message: error.message,
+      description: error.description,
+      type: error.type,
+      transportError: error?.transportError?.message
+    });
+  });
+
+  socketRef.on('error', (error) => {
+    console.error('[voice] Socket error', { message: error.message, type: error.type });
   });
 
   return socketRef;
