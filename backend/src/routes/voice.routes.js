@@ -2,6 +2,7 @@ import { Router } from 'express';
 import { requireAuth } from '../middleware/auth.js';
 import { Session } from '../models/session.model.js';
 import { Master } from '../models/master.model.js';
+import { notifyVoiceSessionEnded, notifyVoiceSessionStarted } from '../utils/voice-events.js';
 
 const router = Router();
 
@@ -185,11 +186,6 @@ router.post('/session/:id/start', requireAuth, async (req, res, next) => {
       return res.status(400).json({ message: 'Sessione già avviata o terminata' });
     }
 
-    const now = new Date();
-    if (!session.end_ts) {
-      session.end_ts = new Date(now.getTime() + 60 * 60 * 1000);
-    }
-
     // Initialize Twilio call
     const { telephony } = await import('../services/telephony.service.js');
     const callResult = await telephony.initiateCallback({
@@ -198,18 +194,30 @@ router.post('/session/:id/start', requireAuth, async (req, res, next) => {
       user: session.user_id
     });
 
+    const now = new Date();
+    if (!session.start_ts) {
+      session.start_ts = now;
+    }
+    if (!session.end_ts) {
+      session.end_ts = new Date(session.start_ts.getTime() + 60 * 60 * 1000);
+    }
+    session.status = 'active';
+    await session.save();
+
     // Emit to both participants
     const { emitToUser, emitToSession } = await import('../services/socket.service.js');
-    emitToSession(session._id, 'voice:session:started', { 
-      sessionId: session._id, 
+    emitToSession(session._id, 'voice:session:started', {
+      sessionId: session._id,
       startedBy: req.user._id,
       callResult
     });
     emitToUser(session.user_id._id, 'voice:session:started', { sessionId: session._id, startedBy: req.user._id });
     emitToUser(session.master_id.user_id, 'voice:session:started', { sessionId: session._id, startedBy: req.user._id });
 
-    res.json({ 
-      message: 'Chiamata avviata', 
+    await notifyVoiceSessionStarted({ session, startedBy: req.user._id });
+
+    res.json({
+      message: 'Chiamata avviata',
       status: 'active',
       startTime: now,
       expiresAt: session.end_ts,
@@ -259,16 +267,18 @@ router.post('/session/:id/end', requireAuth, async (req, res, next) => {
 
     // Emit to both participants
     const { emitToUser, emitToSession } = await import('../services/socket.service.js');
-    emitToSession(session._id, 'voice:session:ended', { 
-      sessionId: session._id, 
+    emitToSession(session._id, 'voice:session:ended', {
+      sessionId: session._id,
       endedBy: req.user._id,
       endResult
     });
     emitToUser(session.user_id._id, 'voice:session:ended', { sessionId: session._id, endedBy: req.user._id });
     emitToUser(session.master_id.user_id, 'voice:session:ended', { sessionId: session._id, endedBy: req.user._id });
 
-    res.json({ 
-      message: 'Chiamata terminata', 
+    await notifyVoiceSessionEnded({ session, endedBy: req.user._id });
+
+    res.json({
+      message: 'Chiamata terminata',
       status: session.status,
       duration: session.duration_s,
       cost: session.cost_cents,
