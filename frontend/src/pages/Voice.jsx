@@ -194,11 +194,19 @@ export default function Voice() {
 
     if (activeSession.status === 'active') {
       setIsConnected(true);
+      // Join the voice session room
+      if (socket && sessionId) {
+        socket.emit('voice:session:join', { sessionId });
+      }
     } else {
       setIsConnected(false);
       stopAudioStream();
+      // Leave the voice session room
+      if (socket && sessionId) {
+        socket.emit('voice:session:leave', { sessionId });
+      }
     }
-  }, [activeSession?.status]);
+  }, [activeSession?.status, socket, sessionId]);
 
 
   useEffect(() => {
@@ -247,19 +255,32 @@ export default function Voice() {
       }
       queryClient.invalidateQueries({ queryKey: ['voice', 'sessions'] });
     };
+
+    const handleParticipantMuted = payload => {
+      if (payload.sessionId === sessionId && payload.userId !== token?.sub) {
+        const participantName = payload.userId === activeSession?.master?.id ? masterName : customerName;
+        if (payload.isMuted) {
+          toast.info(`🔇 ${participantName} ha disattivato il microfono`);
+        } else {
+          toast.info(`🎤 ${participantName} ha attivato il microfono`);
+        }
+      }
+    };
     
     socket.on('voice:session:updated', handleSessionUpdate);
     socket.on('voice:session:started', handleSessionStarted);
     socket.on('voice:session:ended', handleSessionEnded);
     socket.on('voice:session:expired', handleSessionExpired);
+    socket.on('voice:participant:muted', handleParticipantMuted);
     
     return () => {
       socket.off('voice:session:updated', handleSessionUpdate);
       socket.off('voice:session:started', handleSessionStarted);
       socket.off('voice:session:ended', handleSessionEnded);
       socket.off('voice:session:expired', handleSessionExpired);
+      socket.off('voice:participant:muted', handleParticipantMuted);
     };
-  }, [socket, queryClient, sessionId]);
+  }, [socket, queryClient, sessionId, activeSession, token]);
 
   const noteMutation = useMutation({
     mutationFn: note => updateSessionNote(sessionId, note),
@@ -346,6 +367,13 @@ export default function Voice() {
       stopAudioStream();
     }
   };
+
+  // Auto-request mic permission when session becomes active
+  useEffect(() => {
+    if (isSessionActive && !audioStream && micPermission !== 'denied') {
+      requestMicPermission();
+    }
+  }, [isSessionActive, audioStream, micPermission]);
 
   const endCall = async () => {
     try {
@@ -603,17 +631,6 @@ export default function Voice() {
                   </div>
 
                   <div className="voice-controls">
-                    {isSessionActive && audioStream && (
-                      <button
-                        type="button"
-                        className={`voice-control-btn ${isMuted ? 'muted' : ''}`}
-                        onClick={toggleMute}
-                        title={isMuted ? 'Attiva microfono' : 'Disattiva microfono'}
-                      >
-                        {isMuted ? <MicOffIcon /> : <MicIcon />}
-                      </button>
-                    )}
-                    
                     {!isConnected && canCall && (
                       <button
                         type="button"
@@ -625,14 +642,24 @@ export default function Voice() {
                       </button>
                     )}
                     
-                    {isConnected && (
-                      <button
-                        type="button"
-                        className="voice-control-btn end-call"
-                        onClick={() => setShowEndModal(true)}
-                      >
-                        Termina chiamata
-                      </button>
+                    {isConnected && isSessionActive && (
+                      <>
+                        <button
+                          type="button"
+                          className={`voice-control-btn ${isMuted ? 'muted' : ''}`}
+                          onClick={toggleMute}
+                          title={isMuted ? 'Attiva microfono' : 'Disattiva microfono'}
+                        >
+                          {isMuted ? <MicOffIcon /> : <MicIcon />}
+                        </button>
+                        <button
+                          type="button"
+                          className="voice-control-btn end-call"
+                          onClick={() => setShowEndModal(true)}
+                        >
+                          Termina chiamata
+                        </button>
+                      </>
                     )}
                   </div>
 

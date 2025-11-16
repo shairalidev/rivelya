@@ -12,6 +12,9 @@ const sessionSchema = new mongoose.Schema({
   cost_cents: { type: Number, default: 0 },
   status: { type: String, enum: ['created', 'active', 'ended', 'failed'], default: 'created' },
   cdr: { type: Object, default: {} },
+  twilio_conference_sid: { type: String },
+  twilio_customer_call_sid: { type: String },
+  twilio_master_call_sid: { type: String },
   notes: {
     type: Map,
     of: {
