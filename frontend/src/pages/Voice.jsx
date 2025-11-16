@@ -78,6 +78,20 @@ const PhoneIcon = props => (
 
 const meterOffsets = [0, 0.12, 0.24, 0.36];
 
+const decodeTokenSub = tokenString => {
+  if (!tokenString || typeof atob !== 'function') return null;
+  try {
+    const [, payload] = tokenString.split('.');
+    if (!payload) return null;
+    const normalized = payload.replace(/-/g, '+').replace(/_/g, '/');
+    const decoded = JSON.parse(atob(normalized));
+    return decoded?.sub || null;
+  } catch (error) {
+    console.warn('Unable to decode auth token payload.', error);
+    return null;
+  }
+};
+
 const VoiceParticipant = ({ name, role, avatar, fallbackInitial, level }) => {
   const speaking = level > 0.08;
 
@@ -170,6 +184,7 @@ export default function Voice() {
   }, [sessionId]);
 
   const sessions = useMemo(() => sessionsQuery.data || [], [sessionsQuery.data]);
+  const viewerId = useMemo(() => decodeTokenSub(token), [token]);
   
   const { activeSessions, completedSessions } = useMemo(() => {
     const active = sessions.filter(s => s.status === 'active' || s.status === 'created');
@@ -226,6 +241,16 @@ export default function Voice() {
         queryClient.invalidateQueries({ queryKey: ['voice', 'session', sessionId] });
       }
     };
+
+    const handleSessionCreated = payload => {
+      queryClient.invalidateQueries({ queryKey: ['voice', 'sessions'] });
+      if (payload?.sessionId && payload.sessionId === sessionId) {
+        queryClient.invalidateQueries({ queryKey: ['voice', 'session', sessionId] });
+      }
+      if (payload?.createdBy && payload.createdBy !== viewerId) {
+        toast.success('📞 Nuova sessione vocale disponibile');
+      }
+    };
     
     const handleSessionStarted = payload => {
       if (payload.sessionId === sessionId) {
@@ -257,7 +282,7 @@ export default function Voice() {
     };
 
     const handleParticipantMuted = payload => {
-      if (payload.sessionId === sessionId && payload.userId !== token?.sub) {
+      if (payload.sessionId === sessionId && payload.userId !== viewerId) {
         const participantName = payload.userId === activeSession?.master?.id ? masterName : customerName;
         if (payload.isMuted) {
           toast.info(`🔇 ${participantName} ha disattivato il microfono`);
@@ -272,15 +297,17 @@ export default function Voice() {
     socket.on('voice:session:ended', handleSessionEnded);
     socket.on('voice:session:expired', handleSessionExpired);
     socket.on('voice:participant:muted', handleParticipantMuted);
-    
+    socket.on('voice:session:created', handleSessionCreated);
+
     return () => {
       socket.off('voice:session:updated', handleSessionUpdate);
       socket.off('voice:session:started', handleSessionStarted);
       socket.off('voice:session:ended', handleSessionEnded);
       socket.off('voice:session:expired', handleSessionExpired);
       socket.off('voice:participant:muted', handleParticipantMuted);
+      socket.off('voice:session:created', handleSessionCreated);
     };
-  }, [socket, queryClient, sessionId, activeSession, token]);
+  }, [socket, queryClient, sessionId, activeSession, viewerId]);
 
   const noteMutation = useMutation({
     mutationFn: note => updateSessionNote(sessionId, note),
