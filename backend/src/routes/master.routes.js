@@ -2,6 +2,7 @@ import { Router } from 'express';
 import Joi from 'joi';
 import { requireAuth, requireRole } from '../middleware/auth.js';
 import { Master } from '../models/master.model.js';
+import { timeToMinutes } from '../utils/availability.js';
 
 const router = Router();
 
@@ -26,6 +27,15 @@ const serializeMaster = master => ({
   media: {
     avatarUrl: master.media?.avatar_url || '',
     introVideoUrl: master.media?.intro_video_url || ''
+  },
+  workingHours: {
+    timezone: master.working_hours?.timezone || 'Europe/Rome',
+    slots: (master.working_hours?.slots || []).map(slot => ({
+      day: slot.day,
+      start: slot.start,
+      end: slot.end
+    })),
+    notes: master.working_hours?.notes || ''
   }
 });
 
@@ -49,7 +59,22 @@ const updateSchema = Joi.object({
     chat: Joi.number().integer().min(0),
     voice: Joi.number().integer().min(0),
     chatVoice: Joi.number().integer().min(0)
-  }).default({})
+  }).default({}),
+  workingHours: Joi.object({
+    timezone: Joi.string().max(80).allow('', null),
+    notes: Joi.string().max(600).allow('', null),
+    slots: Joi.array()
+      .items(
+        Joi.object({
+          day: Joi.string()
+            .valid('monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday', 'sunday')
+            .required(),
+          start: Joi.string().pattern(/^\d{2}:\d{2}$/).required(),
+          end: Joi.string().pattern(/^\d{2}:\d{2}$/).required()
+        })
+      )
+      .max(100)
+  })
 });
 
 const ensureMasterAccount = async userId => Master.findOne({ user_id: userId });
@@ -115,6 +140,32 @@ router.put('/me', requireAuth, requireRole('master'), async (req, res, next) => 
       if (payload.rates.chat != null) master.rate_chat_cpm = payload.rates.chat;
       if (payload.rates.voice != null) master.rate_voice_cpm = payload.rates.voice;
       if (payload.rates.chatVoice != null) master.rate_chat_voice_cpm = payload.rates.chatVoice;
+    }
+    if (payload.workingHours) {
+      master.working_hours = master.working_hours || {};
+      if (payload.workingHours.timezone !== undefined) {
+        master.working_hours.timezone = payload.workingHours.timezone?.trim() || 'Europe/Rome';
+      }
+      if (payload.workingHours.notes !== undefined) {
+        master.working_hours.notes = payload.workingHours.notes?.trim() || '';
+      }
+      if (payload.workingHours.slots !== undefined) {
+        const sanitizedSlots = [];
+        let invalidSlot = false;
+        payload.workingHours.slots.forEach(slot => {
+          const startMinutes = timeToMinutes(slot.start);
+          const endMinutes = timeToMinutes(slot.end);
+          if (Number.isNaN(startMinutes) || Number.isNaN(endMinutes) || endMinutes <= startMinutes) {
+            invalidSlot = true;
+            return;
+          }
+          sanitizedSlots.push({ day: slot.day, start: slot.start, end: slot.end });
+        });
+        if (invalidSlot) {
+          return res.status(400).json({ message: 'Fasce orarie non valide.' });
+        }
+        master.working_hours.slots = sanitizedSlots;
+      }
     }
 
     await master.save();

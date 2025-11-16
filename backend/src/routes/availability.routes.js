@@ -23,11 +23,11 @@ const blockSchema = Joi.object({
 });
 
 const ensureMasterAccount = async userId => {
-  const master = await Master.findOne({ user_id: userId }).select('_id display_name');
+  const master = await Master.findOne({ user_id: userId }).select('_id display_name working_hours');
   return master;
 };
 
-const loadMonth = async ({ masterId, year, month }) => {
+const loadMonth = async ({ masterId, year, month, workingHours }) => {
   const availability = await MasterAvailability.findOne({ master_id: masterId, year, month });
   const startDate = `${year}-${String(month).padStart(2, '0')}-01`;
   const lastDay = new Date(year, month, 0).getDate();
@@ -42,7 +42,8 @@ const loadMonth = async ({ masterId, year, month }) => {
     year,
     month,
     blocks: availability?.blocks || [],
-    bookings
+    bookings,
+    workingHours
   });
 
   const serializeBooking = booking => ({
@@ -89,7 +90,7 @@ router.get('/month', requireAuth, requireRole('master'), async (req, res, next) 
     const master = await ensureMasterAccount(req.user._id);
     if (!master) return res.status(404).json({ message: 'Profilo master non trovato.' });
 
-    const payload = await loadMonth({ masterId: master._id, ...params });
+    const payload = await loadMonth({ masterId: master._id, workingHours: master.working_hours, ...params });
     res.json({
       year: params.year,
       month: params.month,
@@ -134,7 +135,7 @@ router.post('/block', requireAuth, requireRole('master'), async (req, res, next)
     });
     await record.save();
 
-    const monthData = await loadMonth({ masterId: master._id, year, month });
+    const monthData = await loadMonth({ masterId: master._id, year, month, workingHours: master.working_hours });
     res.status(201).json({
       year,
       month,
@@ -163,7 +164,12 @@ router.delete('/block/:blockId', requireAuth, requireRole('master'), async (req,
       { $pull: { blocks: { _id: req.params.blockId } } }
     );
 
-    const monthData = await loadMonth({ masterId: master._id, year: params.year, month: params.month });
+    const monthData = await loadMonth({
+      masterId: master._id,
+      year: params.year,
+      month: params.month,
+      workingHours: master.working_hours
+    });
     res.json({
       year: params.year,
       month: params.month,

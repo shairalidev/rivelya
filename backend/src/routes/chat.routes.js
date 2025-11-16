@@ -6,6 +6,7 @@ import { ChatMessage } from '../models/chat-message.model.js';
 import { Master } from '../models/master.model.js';
 import { emitToUser } from '../lib/socket.js';
 import { ChatThreadNote } from '../models/chat-thread-note.model.js';
+import { ChatCall } from '../models/chat-call.model.js';
 
 const router = Router();
 
@@ -271,6 +272,243 @@ router.post('/threads/:threadId/messages', requireAuth, async (req, res, next) =
     if (error.isJoi) {
       return res.status(400).json({ message: 'Messaggio non valido.' });
     }
+    next(error);
+  }
+});
+
+// Voice call routes
+router.post('/threads/:threadId/call/start', requireAuth, async (req, res, next) => {
+  try {
+    const ensured = await ensureThreadForUser(req.params.threadId, req.user);
+    if (!ensured) return res.status(404).json({ message: 'Conversazione non trovata.' });
+    const { thread, isMaster, isCustomer } = ensured;
+
+    if (!isMaster && !isCustomer) {
+      return res.status(403).json({ message: 'Accesso non consentito.' });
+    }
+
+    const now = new Date();
+    if (thread.expires_at && thread.expires_at <= now) {
+      return res.status(403).json({ message: 'Il tempo a disposizione per la chat è terminato.' });
+    }
+
+    // Check if there's already an active call
+    const existingCall = await ChatCall.findOne({
+      thread_id: thread._id,
+      status: { $in: ['calling', 'accepted'] }
+    });
+
+    if (existingCall) {
+      return res.status(409).json({ message: 'C\'è già una chiamata attiva per questa conversazione.' });
+    }
+
+    const calleeId = isMaster ? thread.customer_id : thread.master_user_id;
+    
+    const call = await ChatCall.create({
+      thread_id: thread._id,
+      caller_id: req.user._id,
+      callee_id: calleeId,
+      status: 'calling'
+    });
+
+    // Emit call event to both users
+    const callData = {
+      callId: call._id,
+      threadId: thread._id,
+      callerId: req.user._id,
+      calleeId: calleeId,
+      callerName: isMaster ? thread.master_id?.display_name : resolveDisplayName(thread.customer_id),
+      status: 'calling'
+    };
+
+    emitToUser(calleeId, 'chat:call:incoming', callData);
+    emitToUser(req.user._id, 'chat:call:outgoing', callData);
+
+    // Auto-timeout after 30 seconds
+    setTimeout(async () => {
+      try {
+        const timeoutCall = await ChatCall.findById(call._id);
+        if (timeoutCall && timeoutCall.status === 'calling') {
+          timeoutCall.status = 'timeout';
+          await timeoutCall.save();
+          
+          emitToUser(calleeId, 'chat:call:timeout', { callId: call._id, threadId: thread._id });
+          emitToUser(req.user._id, 'chat:call:timeout', { callId: call._id, threadId: thread._id });
+        }
+      } catch (error) {
+        console.error('Call timeout error:', error);
+      }
+    }, 30000);
+
+    res.json({ call: callData });
+  } catch (error) {
+    next(error);
+  }
+});
+
+router.post('/threads/:threadId/call/:callId/accept', requireAuth, async (req, res, next) => {
+  try {
+    const ensured = await ensureThreadForUser(req.params.threadId, req.user);
+    if (!ensured) return res.status(404).json({ message: 'Conversazione non trovata.' });
+
+    const call = await ChatCall.findById(req.params.callId);
+    if (!call || call.thread_id.toString() !== req.params.threadId) {
+      return res.status(404).json({ message: 'Chiamata non trovata.' });
+    }
+
+    if (call.callee_id.toString() !== req.user._id.toString()) {
+      return res.status(403).json({ message: 'Non puoi accettare questa chiamata.' });
+    }
+
+    if (call.status !== 'calling') {
+      return res.status(409).json({ message: 'La chiamata non è più disponibile.' });
+    }
+
+    call.status = 'accepted';
+    call.started_at = new Date();
+    await call.save();
+
+    const callData = {
+      callId: call._id,
+      threadId: call.thread_id,
+      status: 'accepted'
+    };
+
+    emitToUser(call.caller_id, 'chat:call:accepted', callData);
+    emitToUser(call.callee_id, 'chat:call:accepted', callData);
+
+    res.json({ call: callData });
+  } catch (error) {
+    next(error);
+  }
+});
+
+router.post('/threads/:threadId/call/:callId/reject', requireAuth, async (req, res, next) => {
+  try {
+    const ensured = await ensureThreadForUser(req.params.threadId, req.user);
+    if (!ensured) return res.status(404).json({ message: 'Conversazione non trovata.' });
+
+    const call = await ChatCall.findById(req.params.callId);
+    if (!call || call.thread_id.toString() !== req.params.threadId) {
+      return res.status(404).json({ message: 'Chiamata non trovata.' });
+    }
+
+    if (call.callee_id.toString() !== req.user._id.toString()) {
+      return res.status(403).json({ message: 'Non puoi rifiutare questa chiamata.' });
+    }
+
+    if (call.status !== 'calling') {
+      return res.status(409).json({ message: 'La chiamata non è più disponibile.' });
+    }
+
+    call.status = 'rejected';
+    await call.save();
+
+    const callData = {
+      callId: call._id,
+      threadId: call.thread_id,
+      status: 'rejected'
+    };
+
+    emitToUser(call.caller_id, 'chat:call:rejected', callData);
+    emitToUser(call.callee_id, 'chat:call:rejected', callData);
+
+    res.json({ call: callData });
+  } catch (error) {
+    next(error);
+  }
+});
+
+router.post('/threads/:threadId/call/:callId/end', requireAuth, async (req, res, next) => {
+  try {
+    const ensured = await ensureThreadForUser(req.params.threadId, req.user);
+    if (!ensured) return res.status(404).json({ message: 'Conversazione non trovata.' });
+
+    const call = await ChatCall.findById(req.params.callId);
+    if (!call || call.thread_id.toString() !== req.params.threadId) {
+      return res.status(404).json({ message: 'Chiamata non trovata.' });
+    }
+
+    const isParticipant = call.caller_id.toString() === req.user._id.toString() || 
+                        call.callee_id.toString() === req.user._id.toString();
+    
+    if (!isParticipant) {
+      return res.status(403).json({ message: 'Non puoi terminare questa chiamata.' });
+    }
+
+    if (call.status === 'ended') {
+      return res.status(409).json({ message: 'La chiamata è già terminata.' });
+    }
+
+    const endTime = new Date();
+    call.status = 'ended';
+    call.ended_at = endTime;
+    
+    if (call.started_at) {
+      call.duration_s = Math.floor((endTime - call.started_at) / 1000);
+    }
+    
+    await call.save();
+
+    const callData = {
+      callId: call._id,
+      threadId: call.thread_id,
+      status: 'ended',
+      duration: call.duration_s
+    };
+
+    emitToUser(call.caller_id, 'chat:call:ended', callData);
+    emitToUser(call.callee_id, 'chat:call:ended', callData);
+
+    res.json({ call: callData });
+  } catch (error) {
+    next(error);
+  }
+});
+
+// WebRTC signaling
+router.post('/threads/:threadId/call/:callId/signal', requireAuth, async (req, res, next) => {
+  try {
+    const { type, data } = req.body;
+    
+    if (!['offer', 'answer', 'ice-candidate'].includes(type)) {
+      return res.status(400).json({ message: 'Tipo di segnale non valido.' });
+    }
+
+    const ensured = await ensureThreadForUser(req.params.threadId, req.user);
+    if (!ensured) return res.status(404).json({ message: 'Conversazione non trovata.' });
+
+    const call = await ChatCall.findById(req.params.callId);
+    if (!call || call.thread_id.toString() !== req.params.threadId) {
+      return res.status(404).json({ message: 'Chiamata non trovata.' });
+    }
+
+    const isParticipant = call.caller_id.toString() === req.user._id.toString() || 
+                        call.callee_id.toString() === req.user._id.toString();
+    
+    if (!isParticipant) {
+      return res.status(403).json({ message: 'Non autorizzato per questa chiamata.' });
+    }
+
+    if (call.status !== 'accepted') {
+      return res.status(409).json({ message: 'La chiamata non è attiva.' });
+    }
+
+    // Send signal to the other participant
+    const targetUserId = call.caller_id.toString() === req.user._id.toString() 
+      ? call.callee_id 
+      : call.caller_id;
+
+    emitToUser(targetUserId, 'chat:call:signal', {
+      callId: call._id,
+      threadId: call.thread_id,
+      type,
+      data,
+      from: req.user._id
+    });
+
+    res.json({ success: true });
+  } catch (error) {
     next(error);
   }
 });

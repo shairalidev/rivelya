@@ -8,6 +8,8 @@ import { fetchThreads, fetchThread, sendMessage, updateThreadNote } from '../api
 import useSocket from '../hooks/useSocket.js';
 import useCountdown from '../hooks/useCountdown.js';
 import { getToken, subscribeAuthChange } from '../lib/auth.js';
+import CallPopup from '../components/CallPopup.jsx';
+import client from '../api/client.js';
 
 const formatDuration = seconds => {
   if (seconds == null) return '--:--';
@@ -55,6 +57,12 @@ const VoiceIcon = props => (
   </svg>
 );
 
+const PhoneIcon = props => (
+  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" {...props}>
+    <path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6 19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72 12.84 12.84 0 0 0 .7 2.81 2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45 12.84 12.84 0 0 0 2.81.7A2 2 0 0 1 22 16.92z"/>
+  </svg>
+);
+
 const ChannelGlyph = ({ channel, ...props }) => {
   if (channel === 'chat_voice') return <VoiceIcon {...props} />;
   return <ChatBubbleIcon {...props} />;
@@ -77,6 +85,8 @@ export default function Chat() {
   const [noteDraft, setNoteDraft] = useState('');
   const [noteBaseline, setNoteBaseline] = useState('');
   const [noteUpdatedAt, setNoteUpdatedAt] = useState(null);
+  const [activeCall, setActiveCall] = useState(null);
+  const [signalHandler, setSignalHandler] = useState(null);
 
   useEffect(() => {
     const sync = () => {
@@ -155,11 +165,68 @@ export default function Chat() {
         queryClient.invalidateQueries({ queryKey: ['chat', 'thread', threadId] });
       }
     };
+
+    const handleCallIncoming = payload => {
+      if (payload.threadId === threadId) {
+        setActiveCall({ ...payload, isIncoming: true });
+      }
+    };
+
+    const handleCallOutgoing = payload => {
+      if (payload.threadId === threadId) {
+        setActiveCall({ ...payload, isIncoming: false });
+      }
+    };
+
+    const handleCallAccepted = payload => {
+      if (payload.threadId === threadId) {
+        setActiveCall(prev => prev ? { ...prev, status: 'accepted' } : null);
+      }
+    };
+
+    const handleCallRejected = payload => {
+      if (payload.threadId === threadId) {
+        setActiveCall(null);
+      }
+    };
+
+    const handleCallEnded = payload => {
+      if (payload.threadId === threadId) {
+        setActiveCall(null);
+      }
+    };
+
+    const handleCallTimeout = payload => {
+      if (payload.threadId === threadId) {
+        setActiveCall(null);
+      }
+    };
+
+    const handleCallSignal = payload => {
+      if (payload.threadId === threadId && signalHandler) {
+        signalHandler(payload);
+      }
+    };
     socket.on('chat:message', handleMessage);
     socket.on('chat:thread:updated', handleThreadUpdate);
+    socket.on('chat:call:incoming', handleCallIncoming);
+    socket.on('chat:call:outgoing', handleCallOutgoing);
+    socket.on('chat:call:accepted', handleCallAccepted);
+    socket.on('chat:call:rejected', handleCallRejected);
+    socket.on('chat:call:ended', handleCallEnded);
+    socket.on('chat:call:timeout', handleCallTimeout);
+    socket.on('chat:call:signal', handleCallSignal);
+    
     return () => {
       socket.off('chat:message', handleMessage);
       socket.off('chat:thread:updated', handleThreadUpdate);
+      socket.off('chat:call:incoming', handleCallIncoming);
+      socket.off('chat:call:outgoing', handleCallOutgoing);
+      socket.off('chat:call:accepted', handleCallAccepted);
+      socket.off('chat:call:rejected', handleCallRejected);
+      socket.off('chat:call:ended', handleCallEnded);
+      socket.off('chat:call:timeout', handleCallTimeout);
+      socket.off('chat:call:signal', handleCallSignal);
     };
   }, [socket, queryClient, threadId]);
 
@@ -208,6 +275,57 @@ export default function Chat() {
   const handleNoteSave = () => {
     if (!threadId) return;
     noteMutation.mutate(noteDraft);
+  };
+
+  const startCall = async () => {
+    if (!threadId || !canPost) return;
+    
+    try {
+      const response = await client.post(`/chat/threads/${threadId}/call/start`);
+      // Call state will be updated via socket events
+    } catch (error) {
+      const msg = error?.response?.data?.message || 'Impossibile avviare la chiamata.';
+      toast.error(msg);
+    }
+  };
+
+  const acceptCall = async () => {
+    if (!activeCall || !threadId) return;
+    
+    try {
+      await client.post(`/chat/threads/${threadId}/call/${activeCall.callId}/accept`);
+      // Call state will be updated via socket events
+    } catch (error) {
+      const msg = error?.response?.data?.message || 'Impossibile accettare la chiamata.';
+      toast.error(msg);
+      setActiveCall(null);
+    }
+  };
+
+  const rejectCall = async () => {
+    if (!activeCall || !threadId) return;
+    
+    try {
+      await client.post(`/chat/threads/${threadId}/call/${activeCall.callId}/reject`);
+      setActiveCall(null);
+    } catch (error) {
+      const msg = error?.response?.data?.message || 'Impossibile rifiutare la chiamata.';
+      toast.error(msg);
+      setActiveCall(null);
+    }
+  };
+
+  const endCall = async () => {
+    if (!activeCall || !threadId) return;
+    
+    try {
+      await client.post(`/chat/threads/${threadId}/call/${activeCall.callId}/end`);
+      setActiveCall(null);
+    } catch (error) {
+      const msg = error?.response?.data?.message || 'Impossibile terminare la chiamata.';
+      toast.error(msg);
+      setActiveCall(null);
+    }
   };
 
   const viewerRole = threadQuery.data?.viewerRole;
@@ -323,125 +441,173 @@ export default function Chat() {
           )}
           {threadId && activeThread && (
             <div className="chat-room">
-              <div className="chat-room-main">
-                <header className="chat-room-header">
-                  <div className="chat-room-heading">
-                    <h2>{resolveName(activeThread)}</h2>
-                    <div className="chat-room-meta">
-                      {sessionChannel && (
-                        <div className={`chat-session-pill ${sessionChannel}`}>
-                          <span className="icon-wrapper" aria-hidden="true">
-                            <ChannelGlyph channel={sessionChannel} />
-                          </span>
-                          <div className="chat-session-copy">
-                            <span className="channel-label">{channelLabel}</span>
-                            {sessionRateLabel && <span className="channel-rate">{sessionRateLabel}</span>}
-                          </div>
+              <header className="chat-room-header">
+                <div className="chat-room-heading">
+                  <h2>{resolveName(activeThread)}</h2>
+                  <div className="chat-room-meta">
+                    {sessionChannel && (
+                      <div className={`chat-session-pill ${sessionChannel}`}>
+                        <span className="icon-wrapper" aria-hidden="true">
+                          <ChannelGlyph channel={sessionChannel} />
+                        </span>
+                        <div className="chat-session-copy">
+                          <span className="channel-label">{channelLabel}</span>
+                          {sessionRateLabel && <span className="channel-rate">{sessionRateLabel}</span>}
                         </div>
-                      )}
-                      {bookingWindowLabel && <span className="chat-session-slot">{bookingWindowLabel}</span>}
-                      {allowedMinutes ? (
-                        <span className="chat-session-slot">Pacchetto: {allowedMinutes} min</span>
-                      ) : null}
-                    </div>
+                      </div>
+                    )}
+                    {bookingWindowLabel && <span className="chat-session-slot">{bookingWindowLabel}</span>}
+                    {allowedMinutes ? (
+                      <span className="chat-session-slot">Pacchetto: {allowedMinutes} min</span>
+                    ) : null}
                   </div>
+                </div>
+                <div className="chat-room-actions">
+                  {canPost && sessionChannel === 'chat_voice' && (
+                    <button
+                      type="button"
+                      className="call-start-btn"
+                      onClick={startCall}
+                      disabled={Boolean(activeCall)}
+                      title="Avvia chiamata vocale"
+                    >
+                      <PhoneIcon />
+                    </button>
+                  )}
                   <div className="chat-room-timer">
                     <span>Tempo residuo</span>
                     <strong className={canPost ? '' : 'expired'}>{formatDuration(remainingSeconds)}</strong>
                   </div>
-                </header>
-                <div className="chat-messages" role="log" aria-live="polite">
-                  {messages.map(message => {
-                    const isMaster = message.senderRole === 'master';
-                    const senderName = isMaster ? masterName : customerName;
-                    const senderAvatar = isMaster ? masterAvatar : customerAvatar;
-                    const senderInitial = isMaster ? masterInitial : customerInitial;
-                    const isOwn = viewerMessageRole ? message.senderRole === viewerMessageRole : false;
-                    return (
-                      <div key={message.id} className={`chat-message ${isOwn ? 'outgoing' : 'incoming'}`}>
-                        <div className="chat-message-avatar">
-                          {senderAvatar ? (
-                            <img src={senderAvatar} alt={senderName} />
-                          ) : (
-                            <span>{senderInitial}</span>
-                          )}
-                        </div>
-                        <div className="chat-message-body">
-                          <div className="chat-message-meta">
-                            <span>{isOwn ? 'Tu' : senderName}</span>
-                            <time dateTime={message.createdAt}>{dayjs(message.createdAt).format('HH:mm')}</time>
-                          </div>
-                          <p>{message.body}</p>
-                        </div>
+                </div>
+              </header>
+              <div className="chat-messages" role="log" aria-live="polite">
+                {messages.map(message => {
+                  const isMaster = message.senderRole === 'master';
+                  const senderName = isMaster ? masterName : customerName;
+                  const senderAvatar = isMaster ? masterAvatar : customerAvatar;
+                  const senderInitial = isMaster ? masterInitial : customerInitial;
+                  const isOwn = viewerMessageRole ? message.senderRole === viewerMessageRole : false;
+                  return (
+                    <div key={message.id} className={`chat-message ${isOwn ? 'outgoing' : 'incoming'}`}>
+                      <div className="chat-message-avatar">
+                        {senderAvatar ? (
+                          <img src={senderAvatar} alt={senderName} />
+                        ) : (
+                          <span>{senderInitial}</span>
+                        )}
                       </div>
-                    );
-                  })}
-                  <div ref={messageEndRef} />
-                </div>
-                <form className="chat-composer" onSubmit={handleSubmit}>
-                  <textarea
-                    className="chat-input"
-                    value={draft}
-                    onChange={event => setDraft(event.target.value)}
-                    placeholder={canPost ? 'Scrivi un messaggio…' : 'Tempo esaurito'}
-                    disabled={!canPost || sendMutation.isPending}
-                    rows={3}
-                  />
-                  <div className="chat-composer-actions">
-                    {!canPost && (
-                      <span className="chat-expired-hint">
-                        Il tempo per questa sessione è terminato. Puoi rileggere i messaggi ma non inviarne di nuovi.
-                      </span>
-                    )}
-                    <button
-                      type="submit"
-                      className="btn primary"
-                      disabled={!canPost || sendMutation.isPending || !draft.trim()}
-                    >
-                      Invia
-                    </button>
-                  </div>
-                </form>
+                      <div className="chat-message-body">
+                        <div className="chat-message-meta">
+                          <span>{isOwn ? 'Tu' : senderName}</span>
+                          <time dateTime={message.createdAt}>{dayjs(message.createdAt).format('HH:mm')}</time>
+                        </div>
+                        <p>{message.body}</p>
+                      </div>
+                    </div>
+                  );
+                })}
+                <div ref={messageEndRef} />
               </div>
-              <aside className="chat-notes">
-                <div className="chat-notes-header">
-                  <h3>Note personali</h3>
-                  <p>Visibili solo a te per questa conversazione.</p>
-                </div>
+              <form className="chat-composer" onSubmit={handleSubmit}>
                 <textarea
-                  className="chat-notes-input"
-                  value={noteDraft}
-                  onChange={event => setNoteDraft(event.target.value)}
-                  placeholder="Annota informazioni importanti per ricordare le conversazioni con questo utente."
-                  rows={8}
-                  disabled={noteMutation.isPending}
+                  className="chat-input"
+                  value={draft}
+                  onChange={event => setDraft(event.target.value)}
+                  placeholder={canPost ? 'Scrivi un messaggio…' : 'Tempo esaurito'}
+                  disabled={!canPost || sendMutation.isPending}
+                  rows={3}
                 />
-                <div className="chat-notes-footer">
-                  <div className="chat-notes-status">
-                    {noteMutation.isPending ? (
-                      <span>Salvataggio…</span>
-                    ) : noteUpdatedAt ? (
-                      <span>
-                        Ultimo salvataggio {dayjs(noteUpdatedAt).format('DD MMM YYYY · HH:mm')}
-                      </span>
-                    ) : (
-                      <span>Le note non sono ancora state salvate.</span>
-                    )}
-                  </div>
+                <div className="chat-composer-actions">
+                  {!canPost && (
+                    <span className="chat-expired-hint">
+                      Il tempo per questa sessione è terminato. Puoi rileggere i messaggi ma non inviarne di nuovi.
+                    </span>
+                  )}
                   <button
-                    type="button"
-                    className="btn secondary"
-                    onClick={handleNoteSave}
-                    disabled={!isNoteDirty || noteMutation.isPending}
+                    type="submit"
+                    className="btn primary"
+                    disabled={!canPost || sendMutation.isPending || !draft.trim()}
                   >
-                    Salva note
+                    Invia
                   </button>
                 </div>
-              </aside>
+              </form>
             </div>
           )}
         </section>
+        <aside className="chat-sidebar-panel">
+          <div className="chat-notes">
+            <div className="chat-notes-header">
+              <h3>Note personali</h3>
+              <p>Visibili solo a te per questa conversazione.</p>
+            </div>
+            <div className="chat-notes-content">
+              <textarea
+                className="chat-notes-input"
+                value={noteDraft}
+                onChange={event => setNoteDraft(event.target.value)}
+                placeholder="Annota informazioni importanti per ricordare le conversazioni con questo utente."
+                disabled={noteMutation.isPending}
+              />
+            </div>
+            <div className="chat-notes-footer">
+              <div className="chat-notes-status">
+                {noteMutation.isPending ? (
+                  <span>Salvataggio…</span>
+                ) : noteUpdatedAt ? (
+                  <span>
+                    Salvato {dayjs(noteUpdatedAt).format('DD MMM · HH:mm')}
+                  </span>
+                ) : (
+                  <span>Non salvate</span>
+                )}
+              </div>
+              <button
+                type="button"
+                className="btn secondary small"
+                onClick={handleNoteSave}
+                disabled={!isNoteDirty || noteMutation.isPending}
+              >
+                Salva
+              </button>
+            </div>
+          </div>
+          <div className="chat-call-area">
+            {activeCall && activeCall.status === 'accepted' ? (
+              <>
+                <div className="chat-call-status">
+                  🔴 Chiamata in corso
+                </div>
+                <div className="chat-call-controls">
+                  <button className="chat-call-btn mute" title="Mute">
+                    <MicIcon />
+                  </button>
+                  <button className="chat-call-btn end" onClick={endCall} title="Termina">
+                    <PhoneOffIcon />
+                  </button>
+                </div>
+              </>
+            ) : (
+              <div className="chat-call-status">
+                {activeCall ? 'Chiamata in corso...' : 'Nessuna chiamata attiva'}
+              </div>
+            )}
+          </div>
+        </aside>
       </div>
+      
+      {activeCall && (
+        <CallPopup
+          call={activeCall}
+          threadId={threadId}
+          isIncoming={activeCall.isIncoming}
+          onAccept={acceptCall}
+          onReject={rejectCall}
+          onEnd={endCall}
+          onSignal={setSignalHandler}
+          partnerName={activeCall.isIncoming ? activeCall.callerName : resolveName(activeThread)}
+        />
+      )}
     </section>
   );
 }
