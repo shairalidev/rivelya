@@ -46,13 +46,27 @@ export const initSocket = server => {
   ioInstance.use(async (socket, next) => {
     try {
       const token = socket.handshake.auth?.token;
-      if (!token) return next(new Error('Unauthorized'));
+      const origin = socket.handshake.headers?.origin || socket.handshake.headers?.host || 'unknown';
+      console.info('[voice] Incoming socket handshake', {
+        origin,
+        hasToken: Boolean(token)
+      });
+
+      if (!token) {
+        console.warn('[voice] Rejecting socket handshake - missing token');
+        return next(new Error('Unauthorized'));
+      }
       const decoded = jwt.verify(token, process.env.JWT_SECRET);
       const user = await User.findById(decoded.sub).select('_id roles');
-      if (!user) return next(new Error('Unauthorized'));
+      if (!user) {
+        console.warn('[voice] Rejecting socket handshake - user not found', { userId: decoded.sub });
+        return next(new Error('Unauthorized'));
+      }
       socket.data.user = user;
+      console.info('[voice] Socket authenticated', { userId: user._id.toString() });
       return next();
     } catch (error) {
+      console.warn('[voice] Socket authentication error', { message: error.message });
       return next(new Error('Unauthorized'));
     }
   });
@@ -60,20 +74,23 @@ export const initSocket = server => {
   ioInstance.on('connection', socket => {
     const userId = socket.data.user._id.toString();
     socket.join(`user:${userId}`);
-    
+    console.info('[voice] Socket connected and joined personal room', { userId, socketId: socket.id });
+
     // Handle voice session events
     socket.on('voice:session:join', (data) => {
       if (data.sessionId) {
         socket.join(`session:${data.sessionId}`);
+        console.info('[voice] User joined voice session room', { userId, sessionId: data.sessionId });
       }
     });
-    
+
     socket.on('voice:session:leave', (data) => {
       if (data.sessionId) {
         socket.leave(`session:${data.sessionId}`);
+        console.info('[voice] User left voice session room', { userId, sessionId: data.sessionId });
       }
     });
-    
+
     socket.on('voice:mute:toggle', (data) => {
       if (data.sessionId) {
         // Broadcast mute status to other participants in the session
@@ -82,11 +99,13 @@ export const initSocket = server => {
           isMuted: data.isMuted,
           sessionId: data.sessionId
         });
+        console.info('[voice] User toggled mute status', { userId, sessionId: data.sessionId, isMuted: data.isMuted });
       }
     });
-    
+
     socket.on('disconnect', () => {
       // Clean up any session rooms when user disconnects
+      console.info('[voice] Socket disconnected', { userId, socketId: socket.id });
     });
   });
 
