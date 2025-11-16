@@ -5,6 +5,40 @@ import { emitToSession } from './socket.service.js';
 
 const client = twilio(process.env.TWILIO_ACCOUNT_SID, process.env.TWILIO_AUTH_TOKEN);
 
+const sanitizePhone = value => {
+  if (!value) return null;
+  const trimmed = value.trim();
+  if (!trimmed) return null;
+  const numericOnly = trimmed.replace(/\D/g, '');
+  if (!numericOnly) return null;
+  if (trimmed.startsWith('+')) {
+    return `+${numericOnly}`;
+  }
+  if (numericOnly.startsWith('00')) {
+    return `+${numericOnly.slice(2)}`;
+  }
+  if (numericOnly.startsWith('0')) {
+    return `+39${numericOnly.slice(1)}`;
+  }
+  return `+${numericOnly}`;
+};
+
+const resolvePhone = participant => {
+  if (!participant) return null;
+  if (typeof participant === 'string') return participant;
+  if (participant.phone) return participant.phone;
+  if (participant.user?.phone) return participant.user.phone;
+  if (participant.user_id?.phone) return participant.user_id.phone;
+  if (participant.contact?.phone) return participant.contact.phone;
+  return null;
+};
+
+const maskPhone = phone => {
+  if (!phone) return null;
+  if (phone.length <= 4) return '****';
+  return `${phone.slice(0, 4)}****${phone.slice(-2)}`;
+};
+
 export const telephony = {
   async initiateCallback({ session, master, user }) {
     try {
@@ -19,6 +53,13 @@ export const telephony = {
         return { status: 'simulated' };
       }
 
+      const customerPhone = sanitizePhone(resolvePhone(user));
+      const masterPhone = sanitizePhone(resolvePhone(master));
+
+      if (!customerPhone || !masterPhone) {
+        throw new Error('Missing phone number for one or both participants');
+      }
+
       // Create a conference room for the session
       const conference = await client.conferences.create({
         friendlyName: `rivelya-session-${session._id}`,
@@ -29,14 +70,14 @@ export const telephony = {
 
       // Call the customer first
       const customerCall = await client.calls.create({
-        to: user.phone || '+1234567890',
+        to: customerPhone,
         from: process.env.TWILIO_PHONE_NUMBER,
         twiml: `<Response><Dial><Conference statusCallbackEvent="join leave" statusCallback="${process.env.API_BASE_URL}/webhooks/twilio/participant-status">${conference.friendlyName}</Conference></Dial></Response>`
       });
 
       // Call the master
       const masterCall = await client.calls.create({
-        to: master.phone || '+1234567891',
+        to: masterPhone,
         from: process.env.TWILIO_PHONE_NUMBER,
         twiml: `<Response><Dial><Conference statusCallbackEvent="join leave" statusCallback="${process.env.API_BASE_URL}/webhooks/twilio/participant-status">${conference.friendlyName}</Conference></Dial></Response>`
       });

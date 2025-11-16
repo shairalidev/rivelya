@@ -179,7 +179,11 @@ router.post('/session/:id/start', requireAuth, async (req, res, next) => {
   try {
     console.info('[voice] POST /voice/session/:id/start', { sessionId: req.params.id, userId: req.user._id.toString() });
     const session = await Session.findById(req.params.id)
-      .populate('master_id', 'user_id display_name phone')
+      .populate({
+        path: 'master_id',
+        select: 'display_name user_id',
+        populate: { path: 'user_id', select: 'display_name phone' }
+      })
       .populate('user_id', 'display_name phone');
 
     if (!session) {
