@@ -60,6 +60,34 @@ export const initSocket = server => {
   ioInstance.on('connection', socket => {
     const userId = socket.data.user._id.toString();
     socket.join(`user:${userId}`);
+    
+    // Handle voice session events
+    socket.on('voice:session:join', (data) => {
+      if (data.sessionId) {
+        socket.join(`session:${data.sessionId}`);
+      }
+    });
+    
+    socket.on('voice:session:leave', (data) => {
+      if (data.sessionId) {
+        socket.leave(`session:${data.sessionId}`);
+      }
+    });
+    
+    socket.on('voice:mute:toggle', (data) => {
+      if (data.sessionId) {
+        // Broadcast mute status to other participants in the session
+        socket.to(`session:${data.sessionId}`).emit('voice:participant:muted', {
+          userId,
+          isMuted: data.isMuted,
+          sessionId: data.sessionId
+        });
+      }
+    });
+    
+    socket.on('disconnect', () => {
+      // Clean up any session rooms when user disconnects
+    });
   });
 
   return ioInstance;

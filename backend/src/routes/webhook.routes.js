@@ -5,7 +5,9 @@ import { telephony } from '../services/telephony.service.js';
 const router = Router();
 
 router.post('/stripe', expressRaw, payments.handleStripeWebhook);
-router.post('/twilio/call-status', expressRaw, telephony.handleCallStatus);
+router.post('/twilio/call-status', telephony.handleCallStatus);
+router.post('/twilio/conference-status', telephony.handleConferenceStatus);
+router.post('/twilio/participant-status', telephony.handleParticipantStatus);
 
 function expressRaw(req, res, next) {
   let data = [];

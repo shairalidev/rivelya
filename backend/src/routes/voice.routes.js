@@ -166,8 +166,8 @@ router.put('/session/:id/note', requireAuth, async (req, res, next) => {
 router.post('/session/:id/start', requireAuth, async (req, res, next) => {
   try {
     const session = await Session.findById(req.params.id)
-      .populate('master_id', 'user_id display_name')
-      .populate('user_id', 'display_name');
+      .populate('master_id', 'user_id display_name phone')
+      .populate('user_id', 'display_name phone');
 
     if (!session) {
       return res.status(404).json({ message: 'Sessione non trovata' });
@@ -186,26 +186,34 @@ router.post('/session/:id/start', requireAuth, async (req, res, next) => {
     }
 
     const now = new Date();
-    session.status = 'active';
-    session.start_ts = now;
-    // Keep existing end_ts from booking or set default 60 minutes
     if (!session.end_ts) {
       session.end_ts = new Date(now.getTime() + 60 * 60 * 1000);
     }
-    await session.save();
+
+    // Initialize Twilio call
+    const { telephony } = await import('../services/telephony.service.js');
+    const callResult = await telephony.initiateCallback({
+      session,
+      master: session.master_id,
+      user: session.user_id
+    });
 
     // Emit to both participants
     const { emitToUser, emitToSession } = await import('../services/socket.service.js');
-    const sessionRoom = `session:${session._id}`;
-    emitToSession(session._id, 'voice:session:started', { sessionId: session._id, startedBy: req.user._id });
+    emitToSession(session._id, 'voice:session:started', { 
+      sessionId: session._id, 
+      startedBy: req.user._id,
+      callResult
+    });
     emitToUser(session.user_id._id, 'voice:session:started', { sessionId: session._id, startedBy: req.user._id });
     emitToUser(session.master_id.user_id, 'voice:session:started', { sessionId: session._id, startedBy: req.user._id });
 
     res.json({ 
       message: 'Chiamata avviata', 
-      status: session.status,
-      startTime: session.start_ts,
-      expiresAt: session.end_ts
+      status: 'active',
+      startTime: now,
+      expiresAt: session.end_ts,
+      callResult
     });
   } catch (error) {
     next(error);
@@ -235,12 +243,15 @@ router.post('/session/:id/end', requireAuth, async (req, res, next) => {
       return res.status(400).json({ message: 'Sessione già terminata' });
     }
 
+    // End Twilio call
+    const { telephony } = await import('../services/telephony.service.js');
+    const endResult = await telephony.endCall(session._id);
+
     const now = new Date();
     session.status = 'ended';
     session.end_ts = now;
     if (session.start_ts) {
       session.duration_s = Math.floor((now - session.start_ts) / 1000);
-      // Calculate cost based on actual duration
       const durationMinutes = Math.ceil(session.duration_s / 60);
       session.cost_cents = durationMinutes * session.price_cpm;
     }
@@ -248,7 +259,11 @@ router.post('/session/:id/end', requireAuth, async (req, res, next) => {
 
     // Emit to both participants
     const { emitToUser, emitToSession } = await import('../services/socket.service.js');
-    emitToSession(session._id, 'voice:session:ended', { sessionId: session._id, endedBy: req.user._id });
+    emitToSession(session._id, 'voice:session:ended', { 
+      sessionId: session._id, 
+      endedBy: req.user._id,
+      endResult
+    });
     emitToUser(session.user_id._id, 'voice:session:ended', { sessionId: session._id, endedBy: req.user._id });
     emitToUser(session.master_id.user_id, 'voice:session:ended', { sessionId: session._id, endedBy: req.user._id });
 
@@ -256,7 +271,8 @@ router.post('/session/:id/end', requireAuth, async (req, res, next) => {
       message: 'Chiamata terminata', 
       status: session.status,
       duration: session.duration_s,
-      cost: session.cost_cents
+      cost: session.cost_cents,
+      endResult
     });
   } catch (error) {
     next(error);
