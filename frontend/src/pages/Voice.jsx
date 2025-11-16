@@ -9,6 +9,8 @@ import useCountdown from '../hooks/useCountdown.js';
 import { getToken, subscribeAuthChange } from '../lib/auth.js';
 import client from '../api/client.js';
 import ConfirmModal from '../components/ConfirmModal.jsx';
+import useAudioLevel from '../hooks/useAudioLevel.js';
+import useSimulatedVoiceActivity from '../hooks/useSimulatedVoiceActivity.js';
 
 const formatDuration = seconds => {
   if (seconds == null) return '--:--';
@@ -73,6 +75,34 @@ const PhoneIcon = props => (
     <path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6 19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72 12.84 12.84 0 0 0 .7 2.81 2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45 12.84 12.84 0 0 0 2.81.7A2 2 0 0 1 22 16.92z"/>
   </svg>
 );
+
+const meterOffsets = [0, 0.12, 0.24, 0.36];
+
+const VoiceParticipant = ({ name, role, avatar, fallbackInitial, level }) => {
+  const speaking = level > 0.08;
+
+  return (
+    <div className="voice-participant">
+      <div className={`voice-avatar visualized${speaking ? ' speaking' : ''}`}>
+        <span className="voice-visualizer-ring" style={{ '--voice-level': level }} aria-hidden="true" />
+        <span className="voice-visualizer-pulse" style={{ '--voice-level': level }} aria-hidden="true" />
+        {avatar ? (
+          <img src={avatar} alt={name} />
+        ) : (
+          <span>{fallbackInitial}</span>
+        )}
+      </div>
+      <span className="voice-participant-name">{name}</span>
+      <span className="voice-participant-role">{role}</span>
+      <div className="voice-participant-meter" aria-hidden="true">
+        {meterOffsets.map((offset, index) => {
+          const value = Math.max(0, Math.min(1, level - offset));
+          return <span key={index} style={{ '--voice-level': value }} />;
+        })}
+      </div>
+    </div>
+  );
+};
 
 export default function Voice() {
   dayjs.locale('it');
@@ -154,6 +184,10 @@ export default function Voice() {
   const isSessionActive = activeSession?.status === 'active';
   const isSessionEnded = activeSession?.status === 'ended';
   const shouldShowEmpty = !sessionId && sessions.length === 0 && !sessionsQuery.isLoading;
+  const localAudioLevel = useAudioLevel(audioStream, {
+    disabled: !audioStream || isMuted || !isConnected || !isSessionActive
+  });
+  const remoteAudioLevel = useSimulatedVoiceActivity(isConnected && !isSessionEnded);
 
   useEffect(() => {
     if (!activeSession) return;
@@ -336,6 +370,9 @@ export default function Voice() {
   const customerName = activeSession?.customer?.name || 'Cliente Rivelya';
   const customerAvatar = activeSession?.customer?.avatarUrl || '';
   const customerInitial = customerName.charAt(0).toUpperCase();
+  const resolvedViewerRole = viewerRole || 'customer';
+  const masterAudioLevel = resolvedViewerRole === 'master' ? localAudioLevel : remoteAudioLevel;
+  const customerAudioLevel = resolvedViewerRole === 'customer' ? localAudioLevel : remoteAudioLevel;
 
   return (
     <section className="container voice-page">
@@ -549,29 +586,20 @@ export default function Voice() {
                 
                 <div className="voice-call-area">
                   <div className="voice-participants">
-                    <div className="voice-participant">
-                      <div className="voice-avatar">
-                        {masterAvatar ? (
-                          <img src={masterAvatar} alt={masterName} />
-                        ) : (
-                          <span>{masterInitial}</span>
-                        )}
-                      </div>
-                      <span className="voice-participant-name">{masterName}</span>
-                      <span className="voice-participant-role">Master</span>
-                    </div>
-                    
-                    <div className="voice-participant">
-                      <div className="voice-avatar">
-                        {customerAvatar ? (
-                          <img src={customerAvatar} alt={customerName} />
-                        ) : (
-                          <span>{customerInitial}</span>
-                        )}
-                      </div>
-                      <span className="voice-participant-name">{customerName}</span>
-                      <span className="voice-participant-role">Cliente</span>
-                    </div>
+                    <VoiceParticipant
+                      name={masterName}
+                      role="Master"
+                      avatar={masterAvatar}
+                      fallbackInitial={masterInitial}
+                      level={masterAudioLevel}
+                    />
+                    <VoiceParticipant
+                      name={customerName}
+                      role="Cliente"
+                      avatar={customerAvatar}
+                      fallbackInitial={customerInitial}
+                      level={customerAudioLevel}
+                    />
                   </div>
 
                   <div className="voice-controls">
