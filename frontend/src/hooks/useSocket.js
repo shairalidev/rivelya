@@ -31,8 +31,13 @@ const connectSocket = () => {
   console.info('[voice] Initializing socket.io connection', { baseURL });
   socketRef = io(baseURL, {
     auth: { token },
-    transports: ['websocket'],
-    autoConnect: true
+    transports: ['websocket', 'polling'],
+    autoConnect: true,
+    timeout: 20000,
+    reconnection: true,
+    reconnectionDelay: 1000,
+    reconnectionAttempts: 5,
+    forceNew: false
   });
 
   socketRef.on('connect', () => {
@@ -54,6 +59,12 @@ const connectSocket = () => {
       type: error.type,
       transportError: error?.transportError?.message
     });
+    
+    // Try to reconnect with polling if websocket fails
+    if (error.type === 'TransportError' && socketRef.io.opts.transports[0] === 'websocket') {
+      console.info('[voice] Switching to polling transport due to websocket error');
+      socketRef.io.opts.transports = ['polling', 'websocket'];
+    }
   });
 
   socketRef.on('error', (error) => {

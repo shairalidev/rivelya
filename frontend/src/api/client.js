@@ -3,7 +3,12 @@ import { getToken } from '../lib/auth.js';
 
 const inferDefaultBaseUrl = () => {
   if (import.meta.env.VITE_API_URL) {
-    return import.meta.env.VITE_API_URL.replace(/\/$/, '');
+    const apiUrl = import.meta.env.VITE_API_URL.replace(/\/$/, '');
+    // For production, ensure we use the full origin for WebSocket connections
+    if (apiUrl === '/api' && typeof window !== 'undefined') {
+      return window.location.origin + '/api';
+    }
+    return apiUrl;
   }
 
   if (typeof window !== 'undefined') {

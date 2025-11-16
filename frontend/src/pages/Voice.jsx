@@ -126,6 +126,7 @@ export default function Voice() {
   const [token, setTokenState] = useState(() => getToken());
   const queryClient = useQueryClient();
   const socket = useSocket();
+  const [socketError, setSocketError] = useState(null);
   const [noteDraft, setNoteDraft] = useState('');
   const [noteBaseline, setNoteBaseline] = useState('');
   const [noteUpdatedAt, setNoteUpdatedAt] = useState(null);
@@ -211,14 +212,24 @@ export default function Voice() {
       setIsConnected(true);
       // Join the voice session room
       if (socket && sessionId) {
-        socket.emit('voice:session:join', { sessionId });
+        try {
+          socket.emit('voice:session:join', { sessionId });
+          setSocketError(null);
+        } catch (error) {
+          console.error('Failed to join voice session:', error);
+          setSocketError('Connessione WebSocket non disponibile');
+        }
       }
     } else {
       setIsConnected(false);
       stopAudioStream();
       // Leave the voice session room
       if (socket && sessionId) {
-        socket.emit('voice:session:leave', { sessionId });
+        try {
+          socket.emit('voice:session:leave', { sessionId });
+        } catch (error) {
+          console.error('Failed to leave voice session:', error);
+        }
       }
     }
   }, [activeSession?.status, socket, sessionId]);
@@ -231,6 +242,40 @@ export default function Voice() {
     setNoteBaseline(noteValue);
     setNoteUpdatedAt(sessionQuery.data?.noteUpdatedAt || null);
   }, [sessionId, sessionQuery.data?.session?.note, sessionQuery.data?.noteUpdatedAt]);
+
+  // Monitor socket connection status
+  useEffect(() => {
+    if (socket) {
+      const handleConnect = () => {
+        console.info('[voice] Socket connected successfully');
+        setSocketError(null);
+      };
+      
+      const handleDisconnect = (reason) => {
+        console.warn('[voice] Socket disconnected:', reason);
+        if (reason === 'io server disconnect') {
+          setSocketError('Connessione interrotta dal server');
+        } else if (reason === 'transport close') {
+          setSocketError('Connessione persa');
+        }
+      };
+      
+      const handleConnectError = (error) => {
+        console.error('[voice] Socket connection error:', error);
+        setSocketError('Impossibile connettersi al server');
+      };
+      
+      socket.on('connect', handleConnect);
+      socket.on('disconnect', handleDisconnect);
+      socket.on('connect_error', handleConnectError);
+      
+      return () => {
+        socket.off('connect', handleConnect);
+        socket.off('disconnect', handleDisconnect);
+        socket.off('connect_error', handleConnectError);
+      };
+    }
+  }, [socket]);
 
   useEffect(() => {
     if (!socket) return undefined;
@@ -370,7 +415,12 @@ export default function Voice() {
     }
     
     if (socket && sessionId) {
-      socket.emit('voice:mute:toggle', { sessionId, isMuted: newMutedState });
+      try {
+        socket.emit('voice:mute:toggle', { sessionId, isMuted: newMutedState });
+      } catch (error) {
+        console.error('Failed to emit mute toggle:', error);
+        toast.error('Errore di connessione durante il cambio stato microfono');
+      }
     }
   };
 
@@ -691,6 +741,11 @@ export default function Voice() {
                   </div>
 
                   <div className="voice-status">
+                    {socketError && (
+                      <span className="voice-error-hint">
+                        ⚠️ {socketError}
+                      </span>
+                    )}
                     {!canCall && activeSession.status !== 'ended' && (
                       <span className="voice-expired-hint">
                         Il tempo per questa sessione è terminato.
