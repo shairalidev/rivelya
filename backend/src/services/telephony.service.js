@@ -94,9 +94,7 @@ export const telephony = {
         sessionId: session?._id?.toString(),
         conferenceSid: conference.sid,
         customerCallSid: customerCall.sid,
-        masterCallSid: masterCall.sid,
-        customerPhone: maskPhone(customerPhone),
-        masterPhone: maskPhone(masterPhone)
+        masterCallSid: masterCall.sid
       });
 
       return {
