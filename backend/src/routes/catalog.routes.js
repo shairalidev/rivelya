@@ -44,7 +44,7 @@ router.get('/:id', async (req, res, next) => {
 
 router.get('/:id/availability', async (req, res, next) => {
   try {
-    const master = await Master.findById(req.params.id).select('_id is_accepting_requests');
+    const master = await Master.findById(req.params.id).select('_id is_accepting_requests working_hours');
     if (!master || master.is_accepting_requests === false) {
       return res.status(404).json({ message: 'Master not found' });
     }
@@ -74,7 +74,8 @@ router.get('/:id/availability', async (req, res, next) => {
       year: params.year,
       month: params.month,
       blocks: availability?.blocks || [],
-      bookings
+      bookings,
+      workingHours: master.working_hours
     });
 
     res.json({

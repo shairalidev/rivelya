@@ -441,7 +441,7 @@ export default function MasterProfile() {
   const ratingValue = master.kpis?.avg_rating;
   const rating = typeof ratingValue === 'number' ? ratingValue.toFixed(1) : '—';
   const dailySchedule = buildDailySchedule(master.working_hours);
-  const hasSchedule = dailySchedule.some(day => day.slots.length > 0);
+  const hasCustomSchedule = (master.working_hours?.slots || []).length > 0;
   const timezoneLabel = resolveTimezoneLabel(master.working_hours);
   const { status: availabilityStatus, label: availabilityLabel } = resolveAvailabilityStatus(master.availability);
 
@@ -649,7 +649,7 @@ export default function MasterProfile() {
           <h2>Disponibilità settimanale</h2>
           <span className="micro muted">{timezoneLabel}</span>
         </div>
-        {hasSchedule ? (
+        {hasCustomSchedule ? (
           <ul className="schedule-grid">
             {dailySchedule.map(day => (
               <li key={day.day}>
@@ -667,7 +667,9 @@ export default function MasterProfile() {
             ))}
           </ul>
         ) : (
-          <p className="muted">Gli orari di questo master sono disponibili su richiesta. Scrivici per fissare un appuntamento.</p>
+          <p className="muted">
+            Questo master consente prenotazioni h24 salvo restrizioni inserite nel calendario mensile.
+          </p>
         )}
         {master.working_hours?.notes && (
           <p className="micro muted">Note: {master.working_hours.notes}</p>

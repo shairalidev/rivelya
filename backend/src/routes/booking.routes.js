@@ -30,7 +30,7 @@ const respondSchema = Joi.object({
 
 const ensureMaster = async userId =>
   Master.findOne({ user_id: userId }).select(
-    '_id display_name rate_chat_cpm rate_voice_cpm rate_chat_voice_cpm services is_accepting_requests user_id'
+    '_id display_name rate_chat_cpm rate_voice_cpm rate_chat_voice_cpm services is_accepting_requests user_id working_hours'
   );
 
 const loadDayContext = async ({ masterId, date }) => {
@@ -83,7 +83,14 @@ router.post('/', requireAuth, async (req, res, next) => {
     }
 
     const { blocks, bookings } = await loadDayContext({ masterId: master._id, date: payload.date });
-    const slotIsFree = checkAvailability({ blocks, bookings, start: payload.start, end: payload.end });
+    const slotIsFree = checkAvailability({
+      blocks,
+      bookings,
+      start: payload.start,
+      end: payload.end,
+      date: payload.date,
+      workingHours: master.working_hours
+    });
     if (!slotIsFree) {
       return res.status(409).json({ message: 'La fascia oraria selezionata non è disponibile.' });
     }

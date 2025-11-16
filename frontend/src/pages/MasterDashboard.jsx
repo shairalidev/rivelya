@@ -13,6 +13,7 @@ import FancySelect from '../components/FancySelect.jsx';
 import { getUser as getStoredUser, subscribeAuthChange } from '../lib/auth.js';
 import { fetchMasterProfile, updateMasterProfile } from '../api/master.js';
 import useSocket from '../hooks/useSocket.js';
+import { DAY_ORDER, DAY_LABELS } from '../utils/schedule.js';
 
 const weekdays = ['Lun', 'Mar', 'Mer', 'Gio', 'Ven', 'Sab', 'Dom'];
 const statusLabels = {
@@ -124,6 +125,26 @@ const buildCalendar = (year, month, days) => {
 
 const initialBlockForm = { start: '09:00', end: '12:00' };
 
+let slotIdCounter = 0;
+const createSlotId = () => {
+  slotIdCounter += 1;
+  return `slot-${slotIdCounter}`;
+};
+
+const mapWorkingHoursToForm = workingHours => {
+  const source = workingHours && typeof workingHours === 'object' ? workingHours : {};
+  const slots = Array.isArray(source.slots) ? source.slots : [];
+  return {
+    timezone: source.timezone || 'Europe/Rome',
+    slots: slots.map(slot => ({
+      key: createSlotId(),
+      day: slot.day,
+      start: slot.start,
+      end: slot.end
+    }))
+  };
+};
+
 export default function MasterDashboard() {
   const navigate = useNavigate();
   const [user, setUser] = useState(() => getStoredUser());
@@ -145,6 +166,8 @@ export default function MasterDashboard() {
   const [profileError, setProfileError] = useState('');
   const [profile, setProfile] = useState(null);
   const [profileForm, setProfileForm] = useState(initialProfileForm);
+  const [workingHoursForm, setWorkingHoursForm] = useState(() => mapWorkingHoursToForm());
+  const [workingHoursSaving, setWorkingHoursSaving] = useState(false);
 
   const masterId = user?.masterId;
 
@@ -172,6 +195,8 @@ export default function MasterDashboard() {
     acceptingRequests: data?.isAcceptingRequests !== false
   }), []);
 
+  const buildWorkingHoursForm = useCallback(data => mapWorkingHoursToForm(data?.workingHours), []);
+
   const loadProfile = useCallback(async () => {
     try {
       setProfileLoading(true);
@@ -179,6 +204,7 @@ export default function MasterDashboard() {
       const data = await fetchMasterProfile();
       setProfile(data);
       setProfileForm(buildProfileForm(data));
+      setWorkingHoursForm(buildWorkingHoursForm(data));
     } catch (err) {
       const msg = err?.response?.data?.message || 'Errore durante il caricamento profilo.';
       setProfileError(msg);
@@ -186,7 +212,7 @@ export default function MasterDashboard() {
     } finally {
       setProfileLoading(false);
     }
-  }, [buildProfileForm]);
+  }, [buildProfileForm, buildWorkingHoursForm]);
 
   const startSelectOptions = useMemo(() => {
     if (!modalDay) return [];
@@ -204,6 +230,69 @@ export default function MasterDashboard() {
         : [],
     [modalDay, blockForm.start]
   );
+
+  const weeklyStartOptions = useMemo(() => {
+    const values = [];
+    for (let minutes = 0; minutes < 24 * 60; minutes += 30) {
+      values.push(minutesToTime(minutes));
+    }
+    return values;
+  }, []);
+
+  const weeklyEndOptions = useMemo(() => {
+    const values = [];
+    for (let minutes = 30; minutes <= 24 * 60; minutes += 30) {
+      values.push(minutesToTime(minutes));
+    }
+    return values;
+  }, []);
+
+  const workingSlotsByDay = useMemo(() => {
+    const grouped = DAY_ORDER.reduce((acc, day) => {
+      acc[day] = [];
+      return acc;
+    }, {});
+    workingHoursForm.slots.forEach(slot => {
+      if (!slot.day || !grouped[slot.day]) return;
+      grouped[slot.day].push(slot);
+    });
+    DAY_ORDER.forEach(day => {
+      grouped[day].sort((a, b) => a.start.localeCompare(b.start));
+    });
+    return grouped;
+  }, [workingHoursForm.slots]);
+
+  const hasCustomWeeklySlots = workingHoursForm.slots.length > 0;
+
+  const addWorkingSlot = day => {
+    setWorkingHoursForm(prev => ({
+      ...prev,
+      slots: [...prev.slots, { key: createSlotId(), day, start: '09:00', end: '18:00' }]
+    }));
+  };
+
+  const removeWorkingSlot = slotKey => {
+    setWorkingHoursForm(prev => ({
+      ...prev,
+      slots: prev.slots.filter(slot => slot.key !== slotKey)
+    }));
+  };
+
+  const updateWorkingSlot = (slotKey, field, value) => {
+    setWorkingHoursForm(prev => ({
+      ...prev,
+      slots: prev.slots.map(slot => (slot.key === slotKey ? { ...slot, [field]: value } : slot))
+    }));
+  };
+
+  const handleWorkingHoursFieldChange = event => {
+    const { name, value } = event.target;
+    setWorkingHoursForm(prev => ({ ...prev, [name]: value }));
+  };
+
+  const handleResetWorkingHours = () => {
+    setWorkingHoursForm(prev => ({ ...prev, slots: [] }));
+  };
 
   useEffect(() => {
     const sync = () => setUser(getStoredUser());
@@ -400,11 +489,61 @@ export default function MasterDashboard() {
       const updated = await updateMasterProfile(payload);
       setProfile(updated);
       setProfileForm(buildProfileForm(updated));
+      setWorkingHoursForm(buildWorkingHoursForm(updated));
       toast.success('Profilo aggiornato.');
     } catch (err) {
       toast.error('Errore aggiornamento profilo.');
     } finally {
       setProfileSaving(false);
+    }
+  };
+
+  const handleSaveWorkingHours = async () => {
+    const sanitizedSlots = [];
+    let invalid = false;
+
+    workingHoursForm.slots.forEach(slot => {
+      const dayKey = DAY_ORDER.includes(slot.day) ? slot.day : null;
+      if (!dayKey) {
+        invalid = true;
+        return;
+      }
+      if (!/^\d{2}:\d{2}$/.test(slot.start) || !/^\d{2}:\d{2}$/.test(slot.end)) {
+        invalid = true;
+        return;
+      }
+      const startMinutes = timeToMinutes(slot.start);
+      const endMinutes = timeToMinutes(slot.end);
+      if (Number.isNaN(startMinutes) || Number.isNaN(endMinutes) || endMinutes <= startMinutes) {
+        invalid = true;
+        return;
+      }
+      sanitizedSlots.push({ day: dayKey, start: slot.start, end: slot.end });
+    });
+
+    if (invalid) {
+      toast.error('Controlla gli orari inseriti.');
+      return;
+    }
+
+    try {
+      setWorkingHoursSaving(true);
+      const payload = {
+        workingHours: {
+          timezone: workingHoursForm.timezone?.trim() || 'Europe/Rome',
+          slots: sanitizedSlots
+        }
+      };
+      const updated = await updateMasterProfile(payload);
+      setProfile(updated);
+      setProfileForm(buildProfileForm(updated));
+      setWorkingHoursForm(buildWorkingHoursForm(updated));
+      toast.success('Disponibilità settimanale aggiornata.');
+      loadMonth(monthCursor);
+    } catch (err) {
+      toast.error('Errore nel salvataggio delle disponibilità.');
+    } finally {
+      setWorkingHoursSaving(false);
     }
   };
 
@@ -864,6 +1003,127 @@ export default function MasterDashboard() {
               ))}
             </ul>
           )}
+      </div>
+    </div>
+
+      <div className="profile-settings-card weekly-availability-card">
+        <div className="profile-settings-head">
+          <h2>Disponibilità settimanale</h2>
+          <p className="muted">
+            Definisci le fasce ricorrenti prenotabili dai clienti. Le eccezioni possono sempre essere gestite dal calendario
+            mensile.
+          </p>
+        </div>
+
+        <div className="timezone-control">
+          <label className="input-label">
+            Fuso orario
+            <input
+              type="text"
+              name="timezone"
+              value={workingHoursForm.timezone}
+              onChange={handleWorkingHoursFieldChange}
+              placeholder="Europe/Rome"
+            />
+          </label>
+          <p className="micro muted">
+            Se non imposti fasce per un giorno resterà prenotabile h24 salvo blocchi inseriti nel calendario mensile.
+          </p>
+        </div>
+
+        <div className="weekly-availability-grid">
+          {DAY_ORDER.map(day => {
+            const slots = workingSlotsByDay[day] || [];
+            const label = DAY_LABELS[day]?.full || day;
+            const statusLabel = hasCustomWeeklySlots
+              ? slots.length > 0
+                ? 'Fasce attive'
+                : 'Giorno non disponibile'
+              : 'Prenotabile h24';
+            return (
+              <div key={day} className="weekly-day-card">
+                <div className="weekly-day-head">
+                  <div>
+                    <h3>{label}</h3>
+                    <span className="micro muted">{statusLabel}</span>
+                  </div>
+                  <button type="button" className="btn ghost small" onClick={() => addWorkingSlot(day)}>
+                    + Fascia
+                  </button>
+                </div>
+
+                {slots.length === 0 ? (
+                  <p className="weekly-day-empty">
+                    {hasCustomWeeklySlots ? 'Nessuna fascia impostata.' : 'Disponibile h24 di default.'}
+                  </p>
+                ) : (
+                  <div className="weekly-slot-list">
+                    {slots.map(slot => {
+                      const endOptions = slot.start
+                        ? weeklyEndOptions.filter(option => timeToMinutes(option) > timeToMinutes(slot.start))
+                        : weeklyEndOptions;
+                      return (
+                        <div className="weekly-slot-row" key={slot.key}>
+                          <label>
+                            <span className="micro muted">Inizio</span>
+                            <select
+                              value={slot.start}
+                              onChange={evt => updateWorkingSlot(slot.key, 'start', evt.target.value)}
+                            >
+                              <option value="">--</option>
+                              {weeklyStartOptions.map(time => (
+                                <option key={`start-${slot.key}-${time}`} value={time}>
+                                  {time}
+                                </option>
+                              ))}
+                            </select>
+                          </label>
+
+                          <label>
+                            <span className="micro muted">Fine</span>
+                            <select
+                              value={slot.end}
+                              onChange={evt => updateWorkingSlot(slot.key, 'end', evt.target.value)}
+                            >
+                              <option value="">--</option>
+                              {endOptions.map(time => (
+                                <option key={`end-${slot.key}-${time}`} value={time}>
+                                  {time}
+                                </option>
+                              ))}
+                            </select>
+                          </label>
+
+                          <button type="button" className="btn ghost small" onClick={() => removeWorkingSlot(slot.key)}>
+                            Rimuovi
+                          </button>
+                        </div>
+                      );
+                    })}
+                  </div>
+                )}
+              </div>
+            );
+          })}
+        </div>
+
+        <div className="weekly-actions">
+          <button
+            type="button"
+            className="btn ghost"
+            onClick={handleResetWorkingHours}
+            disabled={workingHoursSaving}
+          >
+            Ripristina h24
+          </button>
+          <button
+            type="button"
+            className="btn primary"
+            onClick={handleSaveWorkingHours}
+            disabled={workingHoursSaving}
+          >
+            {workingHoursSaving ? 'Salvataggio' : 'Salva disponibilità'}
+          </button>
         </div>
       </div>
 
@@ -886,7 +1146,10 @@ export default function MasterDashboard() {
               {modalDay.fullDayBlocked ? (
                 <p className="muted">Giorno già bloccato completamente.</p>
               ) : (
-                <p className="muted">Il giorno è prenotabile dalle 08.00 alle 22.00.</p>
+                <p className="muted">
+                  Le fasce disponibili seguono la tua disponibilità settimanale oppure restano h24 se non hai impostato alcuna
+                  fascia.
+                </p>
               )}
 
               {modalDay.blocks?.length > 0 && (

@@ -1,8 +1,10 @@
 const DAY_NAMES = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
+const DAY_KEYS = ['sunday', 'monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday'];
 
-const START_MINUTES = 8 * 60; // 08:00
-const END_MINUTES = 22 * 60; // 22:00
+const START_MINUTES = 0; // 00:00
+const END_MINUTES = 24 * 60; // 24:00
 const STEP_MINUTES = 30;
+const FULL_DAY_RANGE = { start: START_MINUTES, end: END_MINUTES };
 
 export const timeToMinutes = value => {
   if (!/^\d{2}:\d{2}$/.test(value)) return 0;
@@ -16,15 +18,21 @@ export const minutesToTime = value => {
   return `${String(hours).padStart(2, '0')}:${String(minutes).padStart(2, '0')}`;
 };
 
-const generateBaseSegments = () => {
+const generateSegmentsForRanges = ranges => {
+  if (!ranges || ranges.length === 0) return [];
   const segments = [];
-  for (let current = START_MINUTES; current < END_MINUTES; current += STEP_MINUTES) {
-    segments.push(current);
-  }
+  ranges.forEach(range => {
+    const start = Math.max(START_MINUTES, range.start);
+    const end = Math.min(END_MINUTES, range.end);
+    for (let current = start; current < end; current += STEP_MINUTES) {
+      segments.push(current);
+    }
+  });
   return segments;
 };
 
-const sliceSegments = (segments, startMinutes, endMinutes) => segments.filter(minute => minute < startMinutes || minute >= endMinutes);
+const sliceSegments = (segments, startMinutes, endMinutes) =>
+  segments.filter(minute => minute < startMinutes || minute >= endMinutes);
 
 const toRange = (start, end) => ({ start: minutesToTime(start), end: minutesToTime(end) });
 
@@ -52,13 +60,63 @@ const buildRangesFromSegments = segments => {
 
 const overlaps = (aStart, aEnd, bStart, bEnd) => aStart < bEnd && bStart < aEnd;
 
-export const checkAvailability = ({ blocks = [], bookings = [], start, end }) => {
+const normalizeWorkingHours = workingHours => {
+  const template = DAY_KEYS.reduce((acc, day) => {
+    acc[day] = [];
+    return acc;
+  }, {});
+
+  const slots = Array.isArray(workingHours?.slots) ? workingHours.slots : [];
+  let hasCustomSlots = false;
+
+  slots.forEach(slot => {
+    const dayKey = (slot.day || '').toLowerCase();
+    if (!DAY_KEYS.includes(dayKey)) return;
+    const start = timeToMinutes(slot.start);
+    const end = timeToMinutes(slot.end);
+    if (Number.isNaN(start) || Number.isNaN(end) || end <= start) return;
+    template[dayKey].push({ start, end });
+    hasCustomSlots = true;
+  });
+
+  DAY_KEYS.forEach(day => {
+    template[day].sort((a, b) => a.start - b.start);
+  });
+
+  return { slotsByDay: template, hasCustomSlots };
+};
+
+const getDayKeyFromDate = dateStr => {
+  if (!dateStr) return null;
+  const [year, month, day] = dateStr.split('-').map(Number);
+  if (!year || !month || !day) return null;
+  const weekday = new Date(Date.UTC(year, month - 1, day)).getUTCDay();
+  return DAY_KEYS[weekday] || null;
+};
+
+const resolveRangesForDay = (template, dayKey) => {
+  if (!dayKey) {
+    return template.hasCustomSlots ? [] : [FULL_DAY_RANGE];
+  }
+  if (!template.hasCustomSlots) {
+    return [FULL_DAY_RANGE];
+  }
+  return template.slotsByDay[dayKey] || [];
+};
+
+export const checkAvailability = ({ blocks = [], bookings = [], start, end, date, workingHours }) => {
   const startMinutes = timeToMinutes(start);
   const endMinutes = timeToMinutes(end);
   if (Number.isNaN(startMinutes) || Number.isNaN(endMinutes)) return false;
   if (startMinutes < START_MINUTES || endMinutes > END_MINUTES) return false;
   if (endMinutes <= startMinutes) return false;
   if ((endMinutes - startMinutes) % STEP_MINUTES !== 0) return false;
+
+  const template = normalizeWorkingHours(workingHours);
+  const dayRanges = resolveRangesForDay(template, getDayKeyFromDate(date));
+  if (!dayRanges.length) return false;
+  const fitsTemplate = dayRanges.some(range => startMinutes >= range.start && endMinutes <= range.end);
+  if (!fitsTemplate) return false;
 
   const dayHasFullBlock = blocks.some(block => block.full_day);
   if (dayHasFullBlock) return false;
@@ -88,7 +146,8 @@ const normalizeBlocks = (blocks = []) => blocks.map(block => ({
   end: block.end
 }));
 
-export const computeMonthAvailability = ({ year, month, blocks = [], bookings = [] }) => {
+export const computeMonthAvailability = ({ year, month, blocks = [], bookings = [], workingHours }) => {
+  const workingTemplate = normalizeWorkingHours(workingHours);
   const daysInMonth = new Date(Date.UTC(year, month, 0)).getUTCDate();
   const blockByDate = blocks.reduce((acc, block) => {
     if (!acc[block.date]) acc[block.date] = [];
@@ -109,7 +168,12 @@ export const computeMonthAvailability = ({ year, month, blocks = [], bookings = 
     const dayBlocks = blockByDate[dayStr] || [];
     const dayBookings = bookingsByDate[dayStr] || [];
 
-    const segments = dayBlocks.some(block => block.full_day) ? [] : generateBaseSegments();
+    const weekday = new Date(Date.UTC(year, month - 1, day)).getUTCDay();
+    const dayKey = DAY_KEYS[weekday];
+    const allowedRanges = resolveRangesForDay(workingTemplate, dayKey);
+    const segments = dayBlocks.some(block => block.full_day)
+      ? []
+      : generateSegmentsForRanges(allowedRanges);
 
     let availableSegments = segments;
     dayBlocks.forEach(block => {
@@ -130,8 +194,6 @@ export const computeMonthAvailability = ({ year, month, blocks = [], bookings = 
 
     const availableRanges = buildRangesFromSegments(availableSegments);
     const fullDayBlocked = dayBlocks.some(block => block.full_day);
-
-    const weekday = new Date(Date.UTC(year, month - 1, day)).getUTCDay();
 
     days.push({
       date: dayStr,
