@@ -11,6 +11,7 @@ import client from '../api/client.js';
 import ConfirmModal from '../components/ConfirmModal.jsx';
 import useAudioLevel from '../hooks/useAudioLevel.js';
 import useSimulatedVoiceActivity from '../hooks/useSimulatedVoiceActivity.js';
+import { decodeTokenSub } from '../utils/jwt.js';
 
 const toastInfo = (message, options) => toast(message, { icon: 'ℹ️', ...options });
 const toastWarning = (message, options) => toast(message, { icon: '⚠️', ...options });
@@ -80,20 +81,6 @@ const PhoneIcon = props => (
 );
 
 const meterOffsets = [0, 0.12, 0.24, 0.36];
-
-const decodeTokenSub = tokenString => {
-  if (!tokenString || typeof atob !== 'function') return null;
-  try {
-    const [, payload] = tokenString.split('.');
-    if (!payload) return null;
-    const normalized = payload.replace(/-/g, '+').replace(/_/g, '/');
-    const decoded = JSON.parse(atob(normalized));
-    return decoded?.sub || null;
-  } catch (error) {
-    console.warn('Unable to decode auth token payload.', error);
-    return null;
-  }
-};
 
 const VoiceParticipant = ({ name, role, avatar, fallbackInitial, level }) => {
   const speaking = level > 0.08;
