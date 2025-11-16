@@ -8,12 +8,15 @@ let socketRef = null;
 const connectSocket = () => {
   const token = getToken();
   if (!token) {
+    console.warn('[voice] No token available for socket connection');
     if (socketRef) {
       socketRef.disconnect();
       socketRef = null;
     }
     return null;
   }
+  
+  console.info('[voice] Token available, proceeding with connection');
 
   if (socketRef) {
     if (socketRef.auth?.token !== token) {
@@ -58,7 +61,8 @@ const connectSocket = () => {
       message: error.message,
       description: error.description,
       type: error.type,
-      transportError: error?.transportError?.message
+      transportError: error?.transportError?.message,
+      token: token ? 'present' : 'missing'
     });
     
     // Try to reconnect with polling if websocket fails
