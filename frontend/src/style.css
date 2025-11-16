@@ -3006,6 +3006,91 @@ body.nav-open {
   border: 1px solid var(--border);
 }
 
+.wallet-master-panel {
+  padding: 2rem;
+  border-radius: var(--radius-lg);
+  background: linear-gradient(140deg, rgba(21, 28, 56, 0.95), rgba(17, 17, 33, 0.92));
+  border: 1px solid rgba(128, 143, 255, 0.2);
+  box-shadow: 0 28px 54px -32px rgba(6, 8, 20, 0.9);
+  display: flex;
+  flex-direction: column;
+  gap: 1.2rem;
+}
+
+.wallet-master-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  gap: 1rem;
+}
+
+.wallet-master-table-wrapper { overflow-x: auto; }
+
+.wallet-master-table {
+  width: 100%;
+  border-collapse: collapse;
+  min-width: 420px;
+}
+
+.wallet-master-table th,
+.wallet-master-table td {
+  text-align: left;
+  padding: 0.65rem 0.5rem;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+.wallet-master-table th {
+  font-size: 0.8rem;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: rgba(255, 255, 255, 0.7);
+}
+
+.wallet-master-channel {
+  display: flex;
+  flex-direction: column;
+  gap: 0.2rem;
+}
+
+.wallet-master-channel strong { font-size: 1rem; }
+
+.wallet-master-number {
+  display: block;
+  font-size: 1.25rem;
+  font-weight: 700;
+}
+
+.wallet-master-caption {
+  display: block;
+  font-size: 0.78rem;
+  color: rgba(255, 255, 255, 0.65);
+}
+
+.wallet-master-earnings {
+  font-size: 1.05rem;
+  font-weight: 600;
+}
+
+.wallet-master-total {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 1rem;
+  padding-top: 1rem;
+  border-top: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+.wallet-master-total h4 {
+  margin: 0.2rem 0 0;
+  font-size: 1.6rem;
+}
+
+.wallet-master-total .micro { margin: 0; }
+
+.metrics-skeleton .skeleton-item {
+  background: linear-gradient(90deg, rgba(255,255,255,0.06), rgba(255,255,255,0.12), rgba(255,255,255,0.06));
+}
+
 .ledger-list { list-style: none; padding: 0; margin: 1.2rem 0 0; display: grid; gap: 1rem; }
 .ledger-list {
   max-height: 360px;

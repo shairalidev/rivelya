@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import toast from 'react-hot-toast';
 import client from '../api/client.js';
-import { getToken } from '../lib/auth.js';
+import { getToken, getUser } from '../lib/auth.js';
 
 const formatDate = iso => {
   const date = iso ? new Date(iso) : null;
@@ -12,6 +12,20 @@ const formatDate = iso => {
   });
 };
 
+const channelConfig = [
+  { key: 'chat', label: 'Chat', description: 'Messaggi', unitLabel: 'messaggi' },
+  { key: 'voice', label: 'Telefono', description: 'Chiamate', unitLabel: 'chiamate' },
+  { key: 'chat_voice', label: 'Video', description: 'Videochiamate', unitLabel: 'videochiamate' }
+];
+
+const currencyFormatter = new Intl.NumberFormat('it-IT', {
+  style: 'currency',
+  currency: 'EUR',
+  minimumFractionDigits: 2
+});
+
+const formatCurrency = cents => currencyFormatter.format((cents || 0) / 100);
+
 export default function Wallet() {
   const navigate = useNavigate();
   const [data, setData] = useState({ balance_cents: 0, ledger: [], currency: 'EUR' });
@@ -20,6 +34,11 @@ export default function Wallet() {
   const [testAmount, setTestAmount] = useState('2000');
   const [testCard, setTestCard] = useState('4242 4242 4242 4242');
   const [testLoading, setTestLoading] = useState(false);
+  const [masterStats, setMasterStats] = useState(null);
+  const [statsLoading, setStatsLoading] = useState(false);
+  const [statsError, setStatsError] = useState('');
+  const user = getUser();
+  const isMaster = Boolean(user?.roles?.includes('master'));
 
   useEffect(() => {
     if (!getToken()) {
@@ -37,6 +56,29 @@ export default function Wallet() {
       })
       .finally(() => setLoading(false));
   }, [navigate]);
+
+  useEffect(() => {
+    if (!isMaster) return undefined;
+    let active = true;
+    setStatsLoading(true);
+    client.get('/wallet/master/monthly-stats')
+      .then(res => {
+        if (!active) return;
+        setMasterStats(res.data);
+        setStatsError('');
+      })
+      .catch(() => {
+        if (!active) return;
+        setStatsError('Impossibile recuperare il riepilogo mensile.');
+      })
+      .finally(() => {
+        if (!active) return;
+        setStatsLoading(false);
+      });
+    return () => {
+      active = false;
+    };
+  }, [isMaster]);
 
   const topup = async amount => {
     try {
@@ -72,6 +114,13 @@ export default function Wallet() {
   };
 
   const balance = (data.balance_cents / 100).toFixed(2);
+  const monthLabel = masterStats
+    ? new Date(Date.UTC(masterStats.year, (masterStats.month || 1) - 1, 1)).toLocaleString('it-IT', {
+      month: 'long',
+      year: 'numeric'
+    })
+    : '';
+  const totals = masterStats?.totals || { count: 0, minutes: 0, earnings_cents: 0 };
 
   return (
     <section className="container wallet">
@@ -138,6 +187,75 @@ export default function Wallet() {
             </ul>
           )}
         </div>
+
+        {isMaster && (
+          <div className="wallet-master-panel">
+            <div className="wallet-master-head">
+              <div>
+                <span className="badge-soft">Riepilogo master</span>
+                <h3>Totali mensili</h3>
+              </div>
+              <p className="muted">{monthLabel || 'Mese corrente'}</p>
+            </div>
+            {statsLoading ? (
+              <div className="skeleton-list metrics-skeleton">
+                {Array.from({ length: 3 }).map((_, idx) => (
+                  <div key={idx} className="skeleton-item" style={{ height: '72px' }} />
+                ))}
+              </div>
+            ) : statsError ? (
+              <div className="alert">{statsError}</div>
+            ) : (
+              <>
+                <div className="wallet-master-table-wrapper">
+                  <table className="wallet-master-table">
+                    <thead>
+                      <tr>
+                        <th>Canale</th>
+                        <th>Interazioni</th>
+                        <th>Minuti</th>
+                        <th>Guadagni (30%)</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {channelConfig.map(channel => {
+                        const values = masterStats?.stats?.[channel.key] || { count: 0, minutes: 0, earnings_cents: 0 };
+                        return (
+                          <tr key={channel.key}>
+                            <td>
+                              <div className="wallet-master-channel">
+                                <strong>{channel.description}</strong>
+                                <span className="muted">{channel.label}</span>
+                              </div>
+                            </td>
+                            <td>
+                              <span className="wallet-master-number">{values.count}</span>
+                              <span className="wallet-master-caption">{channel.unitLabel}</span>
+                            </td>
+                            <td>
+                              <span className="wallet-master-number">{values.minutes}</span>
+                              <span className="wallet-master-caption">minuti</span>
+                            </td>
+                            <td className="wallet-master-earnings">{formatCurrency(values.earnings_cents)}</td>
+                          </tr>
+                        );
+                      })}
+                    </tbody>
+                  </table>
+                </div>
+                <div className="wallet-master-total">
+                  <div>
+                    <p className="muted">Totale guadagni stimati</p>
+                    <h4>{formatCurrency(totals.earnings_cents)}</h4>
+                  </div>
+                  <p className="micro">
+                    {totals.minutes} minuti · {totals.count} interazioni
+                  </p>
+                </div>
+              </>
+            )}
+          </div>
+        )}
       </div>
     </section>
   );
