@@ -9,7 +9,6 @@ const router = Router();
 // GET /voice/sessions - Get user's voice sessions
 router.get('/sessions', requireAuth, async (req, res, next) => {
   try {
-    console.info('[voice] GET /voice/sessions', { userId: req.user._id.toString() });
     // Find master if user is a master
     const master = await Master.findOne({ user_id: req.user._id });
     
@@ -59,10 +58,8 @@ router.get('/sessions', requireAuth, async (req, res, next) => {
       };
     });
 
-    console.info('[voice] Returning voice sessions', { userId: req.user._id.toString(), count: serialized.length });
     res.json(serialized);
   } catch (error) {
-    console.error('[voice] Failed to list voice sessions', { userId: req.user._id.toString(), message: error.message });
     next(error);
   }
 });
@@ -70,7 +67,6 @@ router.get('/sessions', requireAuth, async (req, res, next) => {
 // GET /voice/session/:id - Get specific voice session
 router.get('/session/:id', requireAuth, async (req, res, next) => {
   try {
-    console.info('[voice] GET /voice/session/:id', { sessionId: req.params.id, userId: req.user._id.toString() });
     const session = await Session.findById(req.params.id)
       .populate('master_id', 'display_name media user_id')
       .populate('user_id', 'display_name avatar_url');
@@ -87,7 +83,6 @@ router.get('/session/:id', requireAuth, async (req, res, next) => {
     const isMaster = master && session.master_id && session.master_id._id.toString() === master._id.toString();
     
     if (!isCustomer && !isMaster) {
-      console.warn('[voice] Voice session access denied', { sessionId: req.params.id, userId: req.user._id.toString() });
       return res.status(403).json({ message: 'Accesso negato' });
     }
 
@@ -97,7 +92,6 @@ router.get('/session/:id', requireAuth, async (req, res, next) => {
     const userId = req.user._id.toString();
     const userNote = session.notes?.get(userId);
     
-    console.info('[voice] Returning voice session detail', { sessionId: req.params.id, viewerRole });
     res.json({
       session: {
         id: session._id,
@@ -122,7 +116,6 @@ router.get('/session/:id', requireAuth, async (req, res, next) => {
       noteUpdatedAt: userNote?.updatedAt
     });
   } catch (error) {
-    console.error('[voice] Failed to fetch voice session', { sessionId: req.params.id, message: error.message });
     next(error);
   }
 });
@@ -131,7 +124,6 @@ router.get('/session/:id', requireAuth, async (req, res, next) => {
 router.put('/session/:id/note', requireAuth, async (req, res, next) => {
   try {
     const { note } = req.body;
-    console.info('[voice] PUT /voice/session/:id/note', { sessionId: req.params.id, userId: req.user._id.toString() });
     const session = await Session.findById(req.params.id)
       .populate('master_id', 'user_id');
 
@@ -144,7 +136,6 @@ router.put('/session/:id/note', requireAuth, async (req, res, next) => {
     const isMaster = session.master_id?.user_id?.toString() === req.user._id.toString();
     
     if (!isCustomer && !isMaster) {
-      console.warn('[voice] Voice session note update denied', { sessionId: req.params.id, userId: req.user._id.toString() });
       return res.status(403).json({ message: 'Accesso negato' });
     }
 
@@ -163,13 +154,11 @@ router.put('/session/:id/note', requireAuth, async (req, res, next) => {
     await session.save();
 
     const userNote = session.notes.get(userId);
-    console.info('[voice] Updated voice session note', { sessionId: req.params.id, userId: req.user._id.toString() });
     res.json({
       note: userNote?.content || '',
       noteUpdatedAt: userNote?.updatedAt || now
     });
   } catch (error) {
-    console.error('[voice] Failed to update voice session note', { sessionId: req.params.id, message: error.message });
     next(error);
   }
 });
@@ -177,7 +166,6 @@ router.put('/session/:id/note', requireAuth, async (req, res, next) => {
 // POST /voice/session/:id/start - Start voice call
 router.post('/session/:id/start', requireAuth, async (req, res, next) => {
   try {
-    console.info('[voice] POST /voice/session/:id/start', { sessionId: req.params.id, userId: req.user._id.toString() });
     const session = await Session.findById(req.params.id)
       .populate({
         path: 'master_id',
@@ -195,12 +183,10 @@ router.post('/session/:id/start', requireAuth, async (req, res, next) => {
     const isMaster = session.master_id?.user_id?.toString() === req.user._id.toString();
     
     if (!isCustomer && !isMaster) {
-      console.warn('[voice] Voice session start denied', { sessionId: req.params.id, userId: req.user._id.toString() });
       return res.status(403).json({ message: 'Accesso negato' });
     }
 
     if (session.status !== 'created') {
-      console.warn('[voice] Voice session already active/ended', { sessionId: req.params.id, status: session.status });
       return res.status(400).json({ message: 'Sessione già avviata o terminata' });
     }
 
@@ -234,11 +220,6 @@ router.post('/session/:id/start', requireAuth, async (req, res, next) => {
 
     await notifyVoiceSessionStarted({ session, startedBy: req.user._id });
 
-    console.info('[voice] Voice session started successfully', {
-      sessionId: session._id.toString(),
-      startedBy: req.user._id.toString(),
-      callStatus: callResult?.status
-    });
     res.json({
       message: 'Chiamata avviata',
       status: 'active',
@@ -247,7 +228,6 @@ router.post('/session/:id/start', requireAuth, async (req, res, next) => {
       callResult
     });
   } catch (error) {
-    console.error('[voice] Failed to start voice session', { sessionId: req.params.id, message: error.message });
     next(error);
   }
 });
@@ -255,7 +235,6 @@ router.post('/session/:id/start', requireAuth, async (req, res, next) => {
 // POST /voice/session/:id/end - End voice call
 router.post('/session/:id/end', requireAuth, async (req, res, next) => {
   try {
-    console.info('[voice] POST /voice/session/:id/end', { sessionId: req.params.id, userId: req.user._id.toString() });
     const session = await Session.findById(req.params.id)
       .populate('master_id', 'user_id display_name')
       .populate('user_id', 'display_name');
@@ -269,12 +248,10 @@ router.post('/session/:id/end', requireAuth, async (req, res, next) => {
     const isMaster = session.master_id?.user_id?.toString() === req.user._id.toString();
     
     if (!isCustomer && !isMaster) {
-      console.warn('[voice] Voice session end denied', { sessionId: req.params.id, userId: req.user._id.toString() });
       return res.status(403).json({ message: 'Accesso negato' });
     }
 
     if (session.status === 'ended') {
-      console.warn('[voice] Voice session already ended', { sessionId: req.params.id });
       return res.status(400).json({ message: 'Sessione già terminata' });
     }
 
@@ -304,13 +281,6 @@ router.post('/session/:id/end', requireAuth, async (req, res, next) => {
 
     await notifyVoiceSessionEnded({ session, endedBy: req.user._id });
 
-    console.info('[voice] Voice session ended successfully', {
-      sessionId: session._id.toString(),
-      endedBy: req.user._id.toString(),
-      endStatus: endResult?.status,
-      duration: session.duration_s,
-      cost: session.cost_cents
-    });
     res.json({
       message: 'Chiamata terminata',
       status: session.status,
@@ -319,7 +289,6 @@ router.post('/session/:id/end', requireAuth, async (req, res, next) => {
       endResult
     });
   } catch (error) {
-    console.error('[voice] Failed to end voice session', { sessionId: req.params.id, message: error.message });
     next(error);
   }
 });

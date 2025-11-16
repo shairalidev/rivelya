@@ -42,13 +42,8 @@ const maskPhone = phone => {
 export const telephony = {
   async initiateCallback({ session, master, user }) {
     try {
-      console.info('[voice] Initiating telephony callback', {
-        sessionId: session?._id?.toString(),
-        masterId: master?._id?.toString(),
-        userId: user?._id?.toString()
-      });
       if (!process.env.TWILIO_ACCOUNT_SID || !process.env.TWILIO_AUTH_TOKEN) {
-        console.warn('[voice] Twilio credentials not configured, simulating voice call');
+        console.warn('Twilio credentials not configured, simulating voice call');
         await Session.findByIdAndUpdate(session._id, { status: 'active', start_ts: new Date() });
         return { status: 'simulated' };
       }
@@ -90,25 +85,14 @@ export const telephony = {
         twilio_master_call_sid: masterCall.sid
       });
 
-      console.info('[voice] Telephony callback initiated', {
-        sessionId: session?._id?.toString(),
-        conferenceSid: conference.sid,
-        customerCallSid: customerCall.sid,
-        masterCallSid: masterCall.sid
-      });
-
-      return {
+      return { 
         status: 'initiated',
         conferenceSid: conference.sid,
         customerCallSid: customerCall.sid,
         masterCallSid: masterCall.sid
       };
     } catch (error) {
-      console.error('[voice] Twilio call initiation failed', {
-        sessionId: session?._id?.toString(),
-        message: error.message,
-        stack: error.stack
-      });
+      console.error('Twilio call initiation failed:', error);
       await Session.findByIdAndUpdate(session._id, { status: 'active', start_ts: new Date() });
       return { status: 'simulated', error: error.message };
     }
@@ -116,7 +100,6 @@ export const telephony = {
 
   async endCall(sessionId) {
     try {
-      console.info('[voice] Ending telephony call', { sessionId });
       const session = await Session.findById(sessionId);
       if (!session) return { status: 'not_found' };
 
@@ -132,30 +115,15 @@ export const telephony = {
         await client.calls(session.twilio_master_call_sid).update({ status: 'completed' });
       }
 
-      console.info('[voice] Telephony call ended successfully', {
-        sessionId,
-        conferenceSid: session.twilio_conference_sid,
-        customerCallSid: session.twilio_customer_call_sid,
-        masterCallSid: session.twilio_master_call_sid
-      });
-
       return { status: 'ended' };
     } catch (error) {
-      console.error('[voice] Error ending Twilio call', {
-        sessionId,
-        message: error.message,
-        stack: error.stack
-      });
+      console.error('Error ending Twilio call:', error);
       return { status: 'error', error: error.message };
     }
   },
 
   async handleCallStatus(req, res) {
     try {
-      console.info('[voice] Received telephony status callback', {
-        endpoint: 'call-status',
-        payload: req.body
-      });
       const { sessionId, durationSec = 300 } = req.body || {};
       const sess = await Session.findById(sessionId);
       if (sess) {
@@ -180,51 +148,37 @@ export const telephony = {
       }
       res.json({ ok: true });
     } catch (error) {
-      console.error('[voice] Error handling call status', {
-        message: error.message,
-        stack: error.stack
-      });
+      console.error('Error handling call status:', error);
       res.status(500).json({ error: error.message });
     }
   },
 
   async handleConferenceStatus(req, res) {
     try {
-      console.info('[voice] Received telephony status callback', {
-        endpoint: 'conference-status',
-        payload: req.body
-      });
       const { ConferenceSid, StatusCallbackEvent, FriendlyName } = req.body;
-
+      
       const sessionId = FriendlyName?.replace('rivelya-session-', '');
-
+      
       if (sessionId) {
         emitToSession(sessionId, 'voice:conference:status', {
           event: StatusCallbackEvent,
           conferenceSid: ConferenceSid
         });
       }
-
+      
       res.json({ ok: true });
     } catch (error) {
-      console.error('[voice] Error handling conference status', {
-        message: error.message,
-        stack: error.stack
-      });
+      console.error('Error handling conference status:', error);
       res.status(500).json({ error: error.message });
     }
   },
 
   async handleParticipantStatus(req, res) {
     try {
-      console.info('[voice] Received telephony status callback', {
-        endpoint: 'participant-status',
-        payload: req.body
-      });
       const { ConferenceSid, StatusCallbackEvent, CallSid } = req.body;
-
+      
       const session = await Session.findOne({ twilio_conference_sid: ConferenceSid });
-
+      
       if (session) {
         emitToSession(session._id, 'voice:participant:status', {
           event: StatusCallbackEvent,
@@ -232,13 +186,10 @@ export const telephony = {
           conferenceSid: ConferenceSid
         });
       }
-
+      
       res.json({ ok: true });
     } catch (error) {
-      console.error('[voice] Error handling participant status', {
-        message: error.message,
-        stack: error.stack
-      });
+      console.error('Error handling participant status:', error);
       res.status(500).json({ error: error.message });
     }
   }
