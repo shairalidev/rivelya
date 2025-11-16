@@ -27,10 +27,9 @@ const connectSocket = () => {
     }
   }
 
-  const apiBaseURL = client.defaults.baseURL;
-  const socketURL = apiBaseURL?.replace(/\/api$/, '') || apiBaseURL;
-  console.info('[voice] Initializing socket.io connection', { apiBaseURL, socketURL });
-  socketRef = io(socketURL, {
+  const baseURL = client.defaults.baseURL;
+  console.info('[voice] Initializing socket.io connection', { baseURL });
+  socketRef = io(baseURL, {
     auth: { token },
     transports: ['websocket'],
     autoConnect: true
