@@ -9,7 +9,6 @@ import useSocket from '../hooks/useSocket.js';
 import useCountdown from '../hooks/useCountdown.js';
 import { getToken, subscribeAuthChange } from '../lib/auth.js';
 import CallPopup from '../components/CallPopup.jsx';
-import MicTest from '../components/MicTest.jsx';
 import client from '../api/client.js';
 import { decodeTokenSub } from '../utils/jwt.js';
 
@@ -412,7 +411,6 @@ export default function Chat() {
 
   return (
     <section className="container chat-page">
-      <MicTest />
       <div className="chat-layout">
         <aside className="chat-sidebar">
           <div className="chat-sidebar-header">

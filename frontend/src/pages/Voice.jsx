@@ -11,6 +11,7 @@ import client from '../api/client.js';
 import ConfirmModal from '../components/ConfirmModal.jsx';
 import useAudioLevel from '../hooks/useAudioLevel.js';
 import useSimulatedVoiceActivity from '../hooks/useSimulatedVoiceActivity.js';
+import useVoiceWebRTC from '../hooks/useVoiceWebRTC.js';
 import { decodeTokenSub } from '../utils/jwt.js';
 
 const toastInfo = (message, options) => toast(message, { icon: 'ℹ️', ...options });
@@ -126,6 +127,8 @@ export default function Voice() {
   const [showEndModal, setShowEndModal] = useState(false);
   const [micPermission, setMicPermission] = useState(null);
   const [audioStream, setAudioStream] = useState(null);
+  const [activeCall, setActiveCall] = useState(null);
+  const [signalHandler, setSignalHandler] = useState(null);
 
   useEffect(() => {
     const sync = () => {
@@ -193,6 +196,21 @@ export default function Voice() {
   const isSessionActive = activeSession?.status === 'active';
   const isSessionEnded = activeSession?.status === 'ended';
   const shouldShowEmpty = !sessionId && sessions.length === 0 && !sessionsQuery.isLoading;
+  const {
+    isConnected: webrtcConnected,
+    isMuted: webrtcMuted,
+    localAudio,
+    remoteAudio,
+    startCall: startWebRTCCall,
+    handleSignal: handleWebRTCSignal,
+    toggleMute: toggleWebRTCMute,
+    endCall: endWebRTCCall,
+    error: webrtcError
+  } = useVoiceWebRTC(sessionId, false, () => {
+    setActiveCall(null);
+    setIsConnected(false);
+  });
+
   const localAudioLevel = useAudioLevel(audioStream, {
     disabled: !audioStream || isMuted || !isConnected || !isSessionActive
   });
@@ -337,6 +355,33 @@ export default function Voice() {
       }
       console.info('[voice] Received voice:participant:muted', payload);
     };
+
+    // WebRTC call event handlers
+    const handleCallIncoming = payload => {
+      if (payload.sessionId === sessionId) {
+        setActiveCall({ ...payload, isIncoming: true });
+      }
+    };
+
+    const handleCallOutgoing = payload => {
+      if (payload.sessionId === sessionId) {
+        setActiveCall({ ...payload, isIncoming: false });
+      }
+    };
+
+    const handleCallEnded = payload => {
+      if (payload.sessionId === sessionId) {
+        setActiveCall(null);
+        setIsConnected(false);
+        endWebRTCCall();
+      }
+    };
+
+    const handleWebRTCSignal = payload => {
+      if (payload.sessionId === sessionId && signalHandler) {
+        signalHandler(payload);
+      }
+    };
     
     socket.on('voice:session:updated', handleSessionUpdate);
     socket.on('voice:session:started', handleSessionStarted);
@@ -344,6 +389,10 @@ export default function Voice() {
     socket.on('voice:session:expired', handleSessionExpired);
     socket.on('voice:participant:muted', handleParticipantMuted);
     socket.on('voice:session:created', handleSessionCreated);
+    socket.on('voice:call:incoming', handleCallIncoming);
+    socket.on('voice:call:outgoing', handleCallOutgoing);
+    socket.on('voice:call:ended', handleCallEnded);
+    socket.on('voice:webrtc:signal', handleWebRTCSignal);
 
     return () => {
       socket.off('voice:session:updated', handleSessionUpdate);
@@ -352,8 +401,26 @@ export default function Voice() {
       socket.off('voice:session:expired', handleSessionExpired);
       socket.off('voice:participant:muted', handleParticipantMuted);
       socket.off('voice:session:created', handleSessionCreated);
+      socket.off('voice:call:incoming', handleCallIncoming);
+      socket.off('voice:call:outgoing', handleCallOutgoing);
+      socket.off('voice:call:ended', handleCallEnded);
+      socket.off('voice:webrtc:signal', handleWebRTCSignal);
     };
-  }, [socket, queryClient, sessionId, activeSession, viewerId]);
+  }, [socket, queryClient, sessionId, activeSession, viewerId, signalHandler]);
+
+  // Set up WebRTC signal handler
+  useEffect(() => {
+    if (handleWebRTCSignal) {
+      setSignalHandler(() => handleWebRTCSignal);
+    }
+  }, [handleWebRTCSignal]);
+
+  // Auto-start WebRTC when call is accepted
+  useEffect(() => {
+    if (activeCall && activeCall.status === 'calling' && !activeCall.isIncoming) {
+      startWebRTCCall();
+    }
+  }, [activeCall, startWebRTCCall]);
 
   const noteMutation = useMutation({
     mutationFn: note => updateSessionNote(sessionId, note),
@@ -403,45 +470,52 @@ export default function Voice() {
   };
 
   const toggleMute = () => {
-    if (!audioStream) return;
-
-    const newMutedState = !isMuted;
-    setIsMuted(newMutedState);
-    console.info('[voice] Toggling mute state', { sessionId, muted: newMutedState });
-
-    // Control actual microphone
-    audioStream.getAudioTracks().forEach(track => {
-      track.enabled = !newMutedState;
-    });
-    
-    if (newMutedState) {
-      toastInfo('🔇 Microfono disattivato');
-    } else {
-      toast.success('🎤 Microfono attivato');
-    }
-    
-    if (socket && sessionId) {
-      try {
-        socket.emit('voice:mute:toggle', { sessionId, isMuted: newMutedState });
-      } catch (error) {
-        console.error('Failed to emit mute toggle:', error);
-        toast.error('Errore di connessione durante il cambio stato microfono');
+    if (webrtcConnected) {
+      toggleWebRTCMute();
+      const newMutedState = !webrtcMuted;
+      
+      if (newMutedState) {
+        toastInfo('🔇 Microfono disattivato');
+      } else {
+        toast.success('🎤 Microfono attivato');
+      }
+      
+      if (socket && sessionId) {
+        try {
+          socket.emit('voice:mute:toggle', { sessionId, isMuted: newMutedState });
+        } catch (error) {
+          console.error('Failed to emit mute toggle:', error);
+        }
+      }
+    } else if (audioStream) {
+      const newMutedState = !isMuted;
+      setIsMuted(newMutedState);
+      
+      audioStream.getAudioTracks().forEach(track => {
+        track.enabled = !newMutedState;
+      });
+      
+      if (newMutedState) {
+        toastInfo('🔇 Microfono disattivato');
+      } else {
+        toast.success('🎤 Microfono attivato');
+      }
+      
+      if (socket && sessionId) {
+        try {
+          socket.emit('voice:mute:toggle', { sessionId, isMuted: newMutedState });
+        } catch (error) {
+          console.error('Failed to emit mute toggle:', error);
+        }
       }
     }
   };
 
   const startCall = async () => {
-    console.info('[voice] Attempting to start voice call', { sessionId });
-    const hasPermission = await requestMicPermission();
-    if (!hasPermission) {
-      console.warn('[voice] Cannot start call without microphone permission', { sessionId });
-      setShowStartModal(false);
-      return;
-    }
-
+    console.info('[voice] Attempting to start WebRTC voice call', { sessionId });
+    
     try {
       const response = await client.post(`/voice/session/${sessionId}/start`);
-      setIsConnected(true);
       setShowStartModal(false);
       toast.success('Chiamata avviata');
       queryClient.invalidateQueries({ queryKey: ['voice', 'session', sessionId] });
@@ -450,7 +524,6 @@ export default function Voice() {
       const message = error?.response?.data?.message || 'Impossibile avviare la chiamata';
       toast.error(message);
       setShowStartModal(false);
-      stopAudioStream();
       console.error('[voice] Voice call start API failed', {
         sessionId,
         message: error?.response?.data?.message || error.message
@@ -470,6 +543,8 @@ export default function Voice() {
       const response = await client.post(`/voice/session/${sessionId}/end`);
       setIsConnected(false);
       setShowEndModal(false);
+      setActiveCall(null);
+      endWebRTCCall();
       stopAudioStream();
       toast.success('Chiamata terminata');
       queryClient.invalidateQueries({ queryKey: ['voice', 'session', sessionId] });
@@ -496,6 +571,8 @@ export default function Voice() {
   const resolvedViewerRole = viewerRole || 'customer';
   const masterAudioLevel = resolvedViewerRole === 'master' ? localAudioLevel : remoteAudioLevel;
   const customerAudioLevel = resolvedViewerRole === 'customer' ? localAudioLevel : remoteAudioLevel;
+  const actuallyConnected = webrtcConnected || isConnected;
+  const actuallyMuted = webrtcConnected ? webrtcMuted : isMuted;
 
   return (
     <section className="container voice-page">
@@ -726,7 +803,10 @@ export default function Voice() {
                   </div>
 
                   <div className="voice-controls">
-                    {!isConnected && canCall && (
+                    <audio ref={localAudio} muted autoPlay playsInline />
+                    <audio ref={remoteAudio} autoPlay playsInline />
+                    
+                    {!actuallyConnected && canCall && (
                       <button
                         type="button"
                         className="voice-control-btn start-call"
@@ -737,15 +817,15 @@ export default function Voice() {
                       </button>
                     )}
                     
-                    {isConnected && isSessionActive && (
+                    {actuallyConnected && isSessionActive && (
                       <>
                         <button
                           type="button"
-                          className={`voice-control-btn ${isMuted ? 'muted' : ''}`}
+                          className={`voice-control-btn ${actuallyMuted ? 'muted' : ''}`}
                           onClick={toggleMute}
-                          title={isMuted ? 'Attiva microfono' : 'Disattiva microfono'}
+                          title={actuallyMuted ? 'Attiva microfono' : 'Disattiva microfono'}
                         >
-                          {isMuted ? <MicOffIcon /> : <MicIcon />}
+                          {actuallyMuted ? <MicOffIcon /> : <MicIcon />}
                         </button>
                         <button
                           type="button"
@@ -759,9 +839,9 @@ export default function Voice() {
                   </div>
 
                   <div className="voice-status">
-                    {socketError && (
+                    {(socketError || webrtcError) && (
                       <span className="voice-error-hint">
-                        ⚠️ {socketError}
+                        ⚠️ {socketError || webrtcError}
                       </span>
                     )}
                     {!canCall && activeSession.status !== 'ended' && (
@@ -769,19 +849,24 @@ export default function Voice() {
                         Il tempo per questa sessione è terminato.
                       </span>
                     )}
-                    {isConnected && isSessionActive && (
+                    {actuallyConnected && isSessionActive && (
                       <div className="voice-active-status">
                         <span className="voice-connected-status">
-                          🔴 Chiamata in corso
+                          🔴 Chiamata in corso {webrtcConnected ? '(WebRTC)' : ''}
                         </span>
-                        {audioStream && (
+                        {(audioStream || webrtcConnected) && (
                           <span className="voice-audio-status">
-                            {isMuted ? '🔇 Microfono spento' : '🎤 Microfono acceso'}
+                            {actuallyMuted ? '🔇 Microfono spento' : '🎤 Microfono acceso'}
                           </span>
                         )}
                       </div>
                     )}
-                    {activeSession.status === 'created' && (
+                    {activeCall && activeCall.status === 'calling' && (
+                      <span className="voice-waiting-status">
+                        📞 {activeCall.isIncoming ? 'Chiamata in arrivo...' : 'Chiamata in corso...'}
+                      </span>
+                    )}
+                    {activeSession.status === 'created' && !activeCall && (
                       <span className="voice-waiting-status">
                         ⏳ In attesa di avviare la chiamata
                       </span>

@@ -204,13 +204,8 @@ router.post('/session/:id/start', requireAuth, async (req, res, next) => {
       return res.status(400).json({ message: 'Sessione già avviata o terminata' });
     }
 
-    // Initialize Twilio call
-    const { telephony } = await import('../services/telephony.service.js');
-    const callResult = await telephony.initiateCallback({
-      session,
-      master: session.master_id,
-      user: session.user_id
-    });
+    // Initialize WebRTC call instead of Twilio
+    const callResult = { status: 'webrtc_initiated', type: 'webrtc' };
 
     const now = new Date();
     if (!session.start_ts) {
@@ -222,15 +217,18 @@ router.post('/session/:id/start', requireAuth, async (req, res, next) => {
     session.status = 'active';
     await session.save();
 
-    // Emit to both participants
-    const { emitToUser, emitToSession } = await import('../services/socket.service.js');
-    emitToSession(session._id, 'voice:session:started', {
+    // Emit WebRTC call events to both participants
+    const { emitToUser } = await import('../lib/socket.js');
+    const callData = {
       sessionId: session._id,
-      startedBy: req.user._id,
-      callResult
-    });
-    emitToUser(session.user_id._id, 'voice:session:started', { sessionId: session._id, startedBy: req.user._id });
-    emitToUser(session.master_id.user_id, 'voice:session:started', { sessionId: session._id, startedBy: req.user._id });
+      callerId: req.user._id,
+      calleeId: isCustomer ? session.master_id.user_id : session.user_id._id,
+      callerName: isCustomer ? (session.user_id.display_name || 'Cliente') : (session.master_id.display_name || 'Master'),
+      status: 'calling'
+    };
+    
+    emitToUser(callData.calleeId, 'voice:call:incoming', callData);
+    emitToUser(callData.callerId, 'voice:call:outgoing', callData);
 
     await notifyVoiceSessionStarted({ session, startedBy: req.user._id });
 
@@ -248,6 +246,53 @@ router.post('/session/:id/start', requireAuth, async (req, res, next) => {
     });
   } catch (error) {
     console.error('[voice] Failed to start voice session', { sessionId: req.params.id, message: error.message });
+    next(error);
+  }
+});
+
+// POST /voice/session/:id/signal - WebRTC signaling
+router.post('/session/:id/signal', requireAuth, async (req, res, next) => {
+  try {
+    const { type, data } = req.body;
+    
+    if (!['offer', 'answer', 'ice-candidate'].includes(type)) {
+      return res.status(400).json({ message: 'Tipo di segnale non valido.' });
+    }
+
+    const session = await Session.findById(req.params.id)
+      .populate('master_id', 'user_id')
+      .populate('user_id', '_id');
+
+    if (!session) {
+      return res.status(404).json({ message: 'Sessione non trovata.' });
+    }
+
+    const isCustomer = session.user_id._id.toString() === req.user._id.toString();
+    const isMaster = session.master_id?.user_id?.toString() === req.user._id.toString();
+    
+    if (!isCustomer && !isMaster) {
+      return res.status(403).json({ message: 'Non autorizzato per questa sessione.' });
+    }
+
+    if (session.status !== 'active') {
+      return res.status(409).json({ message: 'La sessione non è attiva.' });
+    }
+
+    // Send signal to the other participant
+    const targetUserId = isCustomer ? session.master_id.user_id : session.user_id._id;
+    const { emitToUser } = await import('../lib/socket.js');
+    
+    emitToUser(targetUserId, 'voice:webrtc:signal', {
+      sessionId: session._id,
+      type,
+      data,
+      from: req.user._id
+    });
+
+    console.info('[voice] WebRTC signal relayed', { sessionId: req.params.id, type, from: req.user._id.toString(), to: targetUserId.toString() });
+    res.json({ success: true });
+  } catch (error) {
+    console.error('[voice] Failed to relay WebRTC signal', { sessionId: req.params.id, message: error.message });
     next(error);
   }
 });
@@ -278,9 +323,8 @@ router.post('/session/:id/end', requireAuth, async (req, res, next) => {
       return res.status(400).json({ message: 'Sessione già terminata' });
     }
 
-    // End Twilio call
-    const { telephony } = await import('../services/telephony.service.js');
-    const endResult = await telephony.endCall(session._id);
+    // End WebRTC call
+    const endResult = { status: 'webrtc_ended', type: 'webrtc' };
 
     const now = new Date();
     session.status = 'ended';
@@ -292,15 +336,16 @@ router.post('/session/:id/end', requireAuth, async (req, res, next) => {
     }
     await session.save();
 
-    // Emit to both participants
-    const { emitToUser, emitToSession } = await import('../services/socket.service.js');
-    emitToSession(session._id, 'voice:session:ended', {
+    // Emit WebRTC call end events
+    const { emitToUser } = await import('../lib/socket.js');
+    const endData = {
       sessionId: session._id,
-      endedBy: req.user._id,
-      endResult
-    });
-    emitToUser(session.user_id._id, 'voice:session:ended', { sessionId: session._id, endedBy: req.user._id });
-    emitToUser(session.master_id.user_id, 'voice:session:ended', { sessionId: session._id, endedBy: req.user._id });
+      status: 'ended',
+      duration: session.duration_s
+    };
+    
+    emitToUser(session.user_id._id, 'voice:call:ended', endData);
+    emitToUser(session.master_id.user_id, 'voice:call:ended', endData);
 
     await notifyVoiceSessionEnded({ session, endedBy: req.user._id });
 

@@ -133,6 +133,20 @@ export const initSocket = server => {
       }
     });
 
+    // Handle WebRTC signaling for voice sessions
+    socket.on('voice:webrtc:signal', (data) => {
+      const { sessionId, type, signalData, targetUserId } = data;
+      if (sessionId && type && signalData && targetUserId) {
+        console.info('[voice] Relaying WebRTC signal', { userId, sessionId, type, targetUserId });
+        socket.to(`user:${targetUserId}`).emit('voice:webrtc:signal', {
+          sessionId,
+          type,
+          data: signalData,
+          from: userId
+        });
+      }
+    });
+
     socket.on('disconnect', (reason) => {
       // Clean up any session rooms when user disconnects
       console.info('[voice] Socket disconnected', { userId, socketId: socket.id, reason });
