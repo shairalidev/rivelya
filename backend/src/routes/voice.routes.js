@@ -217,18 +217,16 @@ router.post('/session/:id/start', requireAuth, async (req, res, next) => {
     session.status = 'active';
     await session.save();
 
-    // Emit WebRTC call events to both participants
+    // Emit session started event to both participants for WebRTC initialization
     const { emitToUser } = await import('../lib/socket.js');
-    const callData = {
+    const sessionData = {
       sessionId: session._id,
-      callerId: req.user._id,
-      calleeId: isCustomer ? session.master_id.user_id : session.user_id._id,
-      callerName: isCustomer ? (session.user_id.display_name || 'Cliente') : (session.master_id.display_name || 'Master'),
-      status: 'calling'
+      startedBy: req.user._id,
+      status: 'active'
     };
     
-    emitToUser(callData.calleeId, 'voice:call:incoming', callData);
-    emitToUser(callData.callerId, 'voice:call:outgoing', callData);
+    emitToUser(session.user_id._id, 'voice:session:started', sessionData);
+    emitToUser(session.master_id.user_id, 'voice:session:started', sessionData);
 
     await notifyVoiceSessionStarted({ session, startedBy: req.user._id });
 

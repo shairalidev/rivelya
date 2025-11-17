@@ -206,7 +206,7 @@ export default function Voice() {
     toggleMute: toggleWebRTCMute,
     endCall: endWebRTCCall,
     error: webrtcError
-  } = useVoiceWebRTC(sessionId, false, () => {
+  } = useVoiceWebRTC(sessionId, viewerRole, () => {
     setActiveCall(null);
     setIsConnected(false);
   });
@@ -317,6 +317,11 @@ export default function Voice() {
         setIsConnected(true);
         toast.success('Chiamata avviata dal partner');
         queryClient.invalidateQueries({ queryKey: ['voice', 'session', sessionId] });
+        // Auto-start WebRTC when session starts
+        setTimeout(() => {
+          console.log('[voice] Auto-starting WebRTC after session started');
+          startWebRTCCall();
+        }, 3000);
       }
       queryClient.invalidateQueries({ queryKey: ['voice', 'sessions'] });
       console.info('[voice] Received voice:session:started', payload);
@@ -415,12 +420,16 @@ export default function Voice() {
     }
   }, [handleWebRTCSignal]);
 
-  // Auto-start WebRTC when call is accepted
+  // Auto-start WebRTC when session becomes active
   useEffect(() => {
-    if (activeCall && activeCall.status === 'calling' && !activeCall.isIncoming) {
-      startWebRTCCall();
+    if (isSessionActive && !webrtcConnected) {
+      console.log('[voice] Session is active, starting WebRTC automatically');
+      const timer = setTimeout(() => {
+        startWebRTCCall();
+      }, 2000); // Give both users time to join
+      return () => clearTimeout(timer);
     }
-  }, [activeCall, startWebRTCCall]);
+  }, [isSessionActive, webrtcConnected, startWebRTCCall]);
 
   const noteMutation = useMutation({
     mutationFn: note => updateSessionNote(sessionId, note),
@@ -861,12 +870,17 @@ export default function Voice() {
                         )}
                       </div>
                     )}
-                    {activeCall && activeCall.status === 'calling' && (
-                      <span className="voice-waiting-status">
-                        📞 {activeCall.isIncoming ? 'Chiamata in arrivo...' : 'Chiamata in corso...'}
+                    {webrtcConnected && (
+                      <span className="voice-success-status">
+                        ✅ Connessione WebRTC stabilita
                       </span>
                     )}
-                    {activeSession.status === 'created' && !activeCall && (
+                    {isSessionActive && !webrtcConnected && (
+                      <span className="voice-waiting-status">
+                        🔄 Connessione WebRTC in corso...
+                      </span>
+                    )}
+                    {activeSession.status === 'created' && (
                       <span className="voice-waiting-status">
                         ⏳ In attesa di avviare la chiamata
                       </span>

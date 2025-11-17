@@ -6,7 +6,7 @@ const ICE_SERVERS = [
   { urls: 'stun:stun1.l.google.com:19302' }
 ];
 
-export default function useVoiceWebRTC(sessionId, isInitiator, onCallEnd) {
+export default function useVoiceWebRTC(sessionId, viewerRole, onCallEnd) {
   const [isConnected, setIsConnected] = useState(false);
   const [isMuted, setIsMuted] = useState(false);
   const [localStream, setLocalStream] = useState(null);
@@ -81,7 +81,7 @@ export default function useVoiceWebRTC(sessionId, isInitiator, onCallEnd) {
   const startCall = useCallback(async () => {
     try {
       setError(null);
-      console.log('[VoiceWebRTC] Starting call');
+      console.log('[VoiceWebRTC] Starting call, viewerRole:', viewerRole, 'sessionId:', sessionId);
       
       const stream = await navigator.mediaDevices.getUserMedia({ 
         audio: { 
@@ -92,7 +92,7 @@ export default function useVoiceWebRTC(sessionId, isInitiator, onCallEnd) {
       });
       
       setLocalStream(stream);
-      console.log('[VoiceWebRTC] Got local stream');
+      console.log('[VoiceWebRTC] Got local stream, tracks:', stream.getTracks().length);
       
       if (localAudio.current) {
         localAudio.current.srcObject = stream;
@@ -103,14 +103,22 @@ export default function useVoiceWebRTC(sessionId, isInitiator, onCallEnd) {
       peerConnection.current = pc;
 
       stream.getTracks().forEach(track => {
+        console.log('[VoiceWebRTC] Adding track:', track.kind);
         pc.addTrack(track, stream);
       });
 
-      if (isInitiator) {
-        console.log('[VoiceWebRTC] Creating offer');
-        const offer = await pc.createOffer();
+      // Master always initiates the WebRTC connection
+      if (viewerRole === 'master') {
+        console.log('[VoiceWebRTC] Creating offer as master');
+        const offer = await pc.createOffer({
+          offerToReceiveAudio: true,
+          offerToReceiveVideo: false
+        });
         await pc.setLocalDescription(offer);
+        console.log('[VoiceWebRTC] Sending offer:', offer.type);
         await sendSignal('offer', offer);
+      } else {
+        console.log('[VoiceWebRTC] Waiting for offer as client');
       }
 
     } catch (error) {
@@ -122,7 +130,7 @@ export default function useVoiceWebRTC(sessionId, isInitiator, onCallEnd) {
       }
       cleanup();
     }
-  }, [isInitiator, initializePeerConnection, sendSignal, cleanup]);
+  }, [viewerRole, initializePeerConnection, sendSignal, cleanup]);
 
   const handleSignal = useCallback(async (signal) => {
     if (!peerConnection.current) return;
