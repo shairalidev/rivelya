@@ -21,6 +21,11 @@ const channelLabels = {
   chat_voice: 'Chat + Chiamata'
 };
 
+const canRejectBeforeStart = (reservation) => {
+  if (reservation.user_role !== 'master') return false;
+  return !['active', 'completed', 'rejected', 'cancelled'].includes(reservation.status);
+};
+
 export default function Reservations() {
   const [reservations, setReservations] = useState([]);
   const [loading, setLoading] = useState(true);
