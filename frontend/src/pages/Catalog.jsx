@@ -60,7 +60,7 @@ export default function Catalog() {
     <section className="container catalog">
       <div className="section-head">
         <span className="badge-soft">Catalogo</span>
-        <h1>Trova il master perfetto per te</h1>
+        <h1>Trova il Esperti perfetto per te</h1>
         <p className="muted">{subtitle}</p>
       </div>
 
@@ -123,7 +123,7 @@ export default function Catalog() {
 
         {!loading && masters.length === 0 && !error && (
           <div className="empty-state">
-            <h3>Nessun master trovato</h3>
+            <h3>Nessun Esperti trovato</h3>
             <p className="muted">Modifica i filtri o prova a rimuovere la disponibilità immediata.</p>
           </div>
         )}
@@ -165,7 +165,7 @@ export default function Catalog() {
                           <p className="muted">Voce {(master.rate_voice_cpm / 100).toFixed(2)} €/min</p>
                         )}
                         {master.services?.chat_voice && (
-                          <p className="muted">Chat+Voce {(master.rate_chat_voice_cpm / 100).toFixed(2)} €/min</p>
+                          <p className="muted">Chat e Voce {(master.rate_chat_voice_cpm / 100).toFixed(2)} €/min</p>
                         )}
                       </div>
                       <Link to={`/masters/${master._id}`} className="btn ghost">Dettagli</Link>

@@ -405,7 +405,7 @@ export default function MasterProfile() {
         end: booking.end,
         notes: booking.notes
       });
-      toast.success('Richiesta inviata al master. Ti avviseremo quando verrà confermata.');
+      toast.success('Richiesta inviata al Esperti. Ti avviseremo quando verrà confermata.');
       setBooking({ date: booking.date, start: booking.start, end: booking.end, channel: booking.channel, notes: '' });
       loadAvailability(master._id);
     } catch (err) {

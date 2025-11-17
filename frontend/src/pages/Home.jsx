@@ -3,7 +3,7 @@ import { Link } from 'react-router-dom';
 import client from '../api/client.js';
 
 const stats = [
-  { label: 'Master certificati', value: '120+' },
+  { label: 'Esperti certificati', value: '120+' },
   { label: 'Tempo medio di risposta', value: '45s' },
   { label: 'Valutazione media', value: '4.9/5' }
 ];
@@ -27,14 +27,14 @@ const pillars = [
 ];
 
 const steps = [
-  { title: 'Scegli il master', description: 'Filtra per categoria, lingua e disponibilità in tempo reale.' },
+  { title: 'Scegli il Esperti', description: 'Filtra per categoria, lingua e disponibilità in tempo reale.' },
   { title: 'Prenota in 1 click', description: 'Attiva sessioni telefoniche o chat con tariffa chiara al minuto.' },
   { title: 'Ricevi report e follow-up', description: 'Ritrova note, registri e consigli nella tua area personale.' }
 ];
 
 const testimonials = [
   {
-    quote: 'La nostra customer care ha ridotto del 30% i tempi di risposta ai clienti premium grazie alla rete di master Rivelya.',
+    quote: 'La nostra customer care ha ridotto del 30% i tempi di risposta ai clienti premium grazie alla rete di Esperti Rivelya.',
     author: 'Francesca B., Customer Experience Lead'
   },
   {
@@ -62,7 +62,7 @@ export default function Home() {
             Attiva in pochi secondi una sessione con cartomanti, guide spirituali e coach del benessere certificati. Ricariche smart, report automatici e supporto 24/7.
           </p>
           <div className="hero-actions">
-            <Link to="/catalog" className="btn primary">Esplora i master</Link>
+            <Link to="/catalog" className="btn primary">Esplora i Esperti</Link>
             <Link to="/register" className="btn outline">Attiva account</Link>
           </div>
           <div className="hero-stats">
@@ -110,7 +110,7 @@ export default function Home() {
         <div className="section-head">
           <span className="badge-soft">Per aziende</span>
           <h2>Soluzione enterprise con SLA dedicati</h2>
-          <p className="muted">Integra i master Rivelya nel tuo servizio clienti o offri benefit esclusivi al tuo team con wallet condivisi e fatturazione centralizzata.</p>
+          <p className="muted">Integra i Esperti Rivelya nel tuo servizio clienti o offri benefit esclusivi al tuo team con wallet condivisi e fatturazione centralizzata.</p>
         </div>
         <div className="grid-two">
           {steps.map(step => (

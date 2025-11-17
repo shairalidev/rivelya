@@ -351,14 +351,14 @@ export default function Layout() {
             <p className="footer-copy">
               Una piattaforma curata di consulenti certificati in cartomanzia, spiritualità e percorsi di inner wellness. Sessioni immediate, trasparenti e sicure.
             </p>
-            <p className="footer-copy">Sede operativa: Via Monte Napoleone 8, Milano</p>
+            <p className="footer-copy">Partita IVA : 10051650017</p>
           </div>
           <div className="footer-columns">
             <div>
               <p className="footer-title">Contatti</p>
-              <a href="mailto:hello@rivelya.com" className="footer-link">hello@rivelya.com</a>
-              <a href="tel:+390212345678" className="footer-link">+39 02 1234 5678</a>
-              <p className="footer-link">Lun-Dom · 8:00 - 22:00</p>
+              <a href="mailto:info@rivelya.com" className="footer-link">info@rivelya.com</a>
+              <a href="tel:+390110243717" className="footer-link">+39 011 024 3717</a>
+              <p className="footer-link">Lun-Dom · 10:00 - 20:00</p>
             </div>
             <div>
               <p className="footer-title">Piattaforma</p>

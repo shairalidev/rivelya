@@ -57,7 +57,7 @@ export default function Login() {
         <p className="eyebrow">Area clienti</p>
         <h1>Accedi al tuo account</h1>
         <p className="muted">
-          Gestisci le tue ricariche, consulta lo storico delle sessioni e riprendi le conversazioni con i master di fiducia.
+          Gestisci le tue ricariche, consulta lo storico delle sessioni e riprendi le conversazioni con i Esperti di fiducia.
         </p>
         {notice && <p className="auth-notice">{notice}</p>}
         <form className="form" onSubmit={submit}>
