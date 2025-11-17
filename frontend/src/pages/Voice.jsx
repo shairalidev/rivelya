@@ -322,8 +322,17 @@ export default function Voice() {
         
         // Start WebRTC when session is started by partner
         setTimeout(() => {
-          console.log('[voice] Starting WebRTC after partner started session');
-          startWebRTCCall();
+          if (socket?.connected) {
+            console.log('[voice] Starting WebRTC after partner started session');
+            startWebRTCCall();
+          } else {
+            console.warn('[voice] Socket not connected, delaying WebRTC start');
+            setTimeout(() => {
+              if (socket?.connected) {
+                startWebRTCCall();
+              }
+            }, 2000);
+          }
         }, 1000);
       }
       queryClient.invalidateQueries({ queryKey: ['voice', 'sessions'] });
@@ -386,9 +395,12 @@ export default function Voice() {
     };
 
     const handleWebRTCSignal = payload => {
+      console.log('[voice] Received WebRTC signal:', payload.type, 'for session:', payload.sessionId, 'current session:', sessionId, 'has handler:', !!signalHandler);
       if (payload.sessionId === sessionId && signalHandler) {
-        console.log('[voice] Received WebRTC signal:', payload.type, 'for session:', payload.sessionId);
+        console.log('[voice] Processing WebRTC signal:', payload.type);
         signalHandler(payload);
+      } else if (payload.sessionId === sessionId && !signalHandler) {
+        console.warn('[voice] Received WebRTC signal but no handler available');
       }
     };
 
@@ -429,9 +441,10 @@ export default function Voice() {
   // Set up WebRTC signal handler
   useEffect(() => {
     if (handleWebRTCSignal) {
+      console.log('[voice] Setting up WebRTC signal handler for session:', sessionId);
       setSignalHandler(() => handleWebRTCSignal);
     }
-  }, [handleWebRTCSignal]);
+  }, [handleWebRTCSignal, sessionId]);
 
   // Remove auto-start WebRTC - require manual initiation
   // WebRTC will only start when user clicks "Avvia chiamata" button
@@ -535,10 +548,19 @@ export default function Voice() {
       toast.success('Chiamata avviata');
       queryClient.invalidateQueries({ queryKey: ['voice', 'session', sessionId] });
       
-      // Then start WebRTC connection
+      // Then start WebRTC connection after ensuring socket is ready
       setTimeout(() => {
-        console.log('[voice] Starting WebRTC after session start');
-        startWebRTCCall();
+        if (socket?.connected) {
+          console.log('[voice] Starting WebRTC after session start');
+          startWebRTCCall();
+        } else {
+          console.warn('[voice] Socket not connected, delaying WebRTC start');
+          setTimeout(() => {
+            if (socket?.connected) {
+              startWebRTCCall();
+            }
+          }, 2000);
+        }
       }, 1000);
       
       console.info('[voice] Voice call start API succeeded', { sessionId, status: response.data?.status });
@@ -860,6 +882,14 @@ export default function Voice() {
                   </div>
 
                   <div className="voice-status">
+                    {/* Debug info */}
+                    <div style={{ fontSize: '12px', color: '#666', marginBottom: '8px' }}>
+                      Socket: {socket?.connected ? '🟢 Connesso' : '🔴 Disconnesso'} | 
+                      Session: {activeSession?.status} | 
+                      Role: {viewerRole} | 
+                      Handler: {signalHandler ? '✅' : '❌'}
+                    </div>
+                    
                     {(socketError || webrtcError) && (
                       <span className="voice-error-hint">
                         ⚠️ {socketError || webrtcError}

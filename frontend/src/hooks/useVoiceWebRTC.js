@@ -98,13 +98,18 @@ export default function useVoiceWebRTC(sessionId, viewerRole, onCallEnd) {
   }, [localStream, setError]);
 
   const sendSignal = useCallback(async (type, data) => {
-    if (!sessionId) return;
+    if (!sessionId) {
+      console.warn('[VoiceWebRTC] Cannot send signal - no sessionId');
+      return;
+    }
     
     try {
-      await client.post(`/voice/session/${sessionId}/signal`, { type, data });
+      console.log('[VoiceWebRTC] Sending signal:', type, 'to session:', sessionId);
+      const response = await client.post(`/voice/session/${sessionId}/signal`, { type, data });
+      console.log('[VoiceWebRTC] Signal sent successfully:', type, response.status);
     } catch (error) {
-      console.error('[VoiceWebRTC] Failed to send signal:', error);
-      setError('Errore di connessione durante la chiamata');
+      console.error('[VoiceWebRTC] Failed to send signal:', type, error.response?.status, error.response?.data?.message || error.message);
+      setError('Errore di connessione durante la chiamata: ' + (error.response?.data?.message || error.message));
     }
   }, [sessionId]);
 
@@ -210,10 +215,10 @@ export default function useVoiceWebRTC(sessionId, viewerRole, onCallEnd) {
         }
         
         await pc.setLocalDescription(offer);
-        console.log('[VoiceWebRTC] Local description set, sending offer');
+        console.log('[VoiceWebRTC] Local description set, sending offer to session:', sessionId);
         await sendSignal('offer', offer);
       } else {
-        console.log('[VoiceWebRTC] Waiting for offer as client');
+        console.log('[VoiceWebRTC] Waiting for offer as client, sessionId:', sessionId);
       }
 
     } catch (error) {
