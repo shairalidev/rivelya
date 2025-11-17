@@ -35,13 +35,16 @@ const bookingSchema = new mongoose.Schema({
     new_end_time: { type: String },
     reason: { type: String, maxlength: 300 },
     requested_at: { type: Date },
-    response: { type: String, enum: ['accepted', 'rejected'] },
+    response: { type: String, enum: ['accepted', 'rejected', 'superseded'] },
     responded_at: { type: Date }
   }],
   original_booking: {
-    date: { type: String },
-    start_time: { type: String },
-    end_time: { type: String }
+    type: new mongoose.Schema({
+      date: { type: String },
+      start_time: { type: String },
+      end_time: { type: String }
+    }, { _id: false }),
+    default: {}
   }
 }, { timestamps: true });
 

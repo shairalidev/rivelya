@@ -482,6 +482,8 @@ router.post('/:bookingId/reschedule', requireAuth, async (req, res, next) => {
     }
 
     // Store original booking details if not already stored
+    if (!booking.original_booking) booking.original_booking = {};
+
     if (!booking.original_booking.date) {
       booking.original_booking = {
         date: booking.date,
