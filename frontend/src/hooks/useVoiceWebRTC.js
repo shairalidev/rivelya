@@ -13,6 +13,7 @@ export default function useVoiceWebRTC(sessionId, viewerRole, onCallEnd) {
   const [remoteStream, setRemoteStream] = useState(null);
   const [error, setError] = useState(null);
   const [isInitializing, setIsInitializing] = useState(false);
+  const micPermissionState = useRef('unknown');
   
   const peerConnection = useRef(null);
   const localAudio = useRef(null);
@@ -33,6 +34,58 @@ export default function useVoiceWebRTC(sessionId, viewerRole, onCallEnd) {
     setError(null);
     setIsInitializing(false);
   }, [localStream]);
+
+  const requestMicrophoneAccess = useCallback(async () => {
+    if (localStream) {
+      return localStream;
+    }
+
+    if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
+      throw new Error('getUserMedia not supported');
+    }
+
+    try {
+      if (navigator.permissions?.query) {
+        const status = await navigator.permissions.query({ name: 'microphone' });
+        micPermissionState.current = status.state;
+        if (status.state === 'denied') {
+          throw new DOMException('Microphone permission denied', 'NotAllowedError');
+        }
+        if (status.state === 'prompt') {
+          setError('Consenti l\'accesso al microfono per avviare la chiamata.');
+        }
+      }
+
+      const stream = await navigator.mediaDevices.getUserMedia({
+        audio: {
+          echoCancellation: true,
+          noiseSuppression: true,
+          autoGainControl: true
+        }
+      });
+
+      micPermissionState.current = 'granted';
+      setLocalStream(stream);
+      if (localAudio.current) {
+        localAudio.current.srcObject = stream;
+        localAudio.current.muted = true;
+      }
+
+      return stream;
+    } catch (error) {
+      console.error('[VoiceWebRTC] Failed to acquire microphone:', error);
+      if (error.name === 'NotAllowedError') {
+        setError('Accesso al microfono negato');
+      } else if (error.name === 'NotFoundError') {
+        setError('Nessun microfono trovato. Controlla che sia collegato.');
+      } else if (error.name === 'NotReadableError') {
+        setError('Microfono in uso da un\'altra applicazione.');
+      } else {
+        setError('Impossibile accedere al microfono');
+      }
+      throw error;
+    }
+  }, [localStream, setError]);
 
   const sendSignal = useCallback(async (type, data) => {
     if (!sessionId) return;
@@ -82,8 +135,8 @@ export default function useVoiceWebRTC(sessionId, viewerRole, onCallEnd) {
     return pc;
   }, [sendSignal]);
 
-  const startCall = useCallback(async () => {
-    if (isInitializing || peerConnection.current || localStream) {
+  const startCall = useCallback(async ({ skipOffer = false } = {}) => {
+    if (isInitializing || peerConnection.current) {
       console.log('[VoiceWebRTC] Call already initializing or active');
       return;
     }
@@ -93,21 +146,8 @@ export default function useVoiceWebRTC(sessionId, viewerRole, onCallEnd) {
       setError(null);
       console.log('[VoiceWebRTC] Starting call, viewerRole:', viewerRole, 'sessionId:', sessionId);
       
-      const stream = await navigator.mediaDevices.getUserMedia({ 
-        audio: { 
-          echoCancellation: true,
-          noiseSuppression: true,
-          autoGainControl: true
-        } 
-      });
-      
-      setLocalStream(stream);
+      const stream = await requestMicrophoneAccess();
       console.log('[VoiceWebRTC] Got local stream, tracks:', stream.getTracks().length);
-      
-      if (localAudio.current) {
-        localAudio.current.srcObject = stream;
-        localAudio.current.muted = true;
-      }
 
       const pc = initializePeerConnection();
       peerConnection.current = pc;
@@ -117,8 +157,9 @@ export default function useVoiceWebRTC(sessionId, viewerRole, onCallEnd) {
         pc.addTrack(track, stream);
       });
 
-      // Master always initiates the WebRTC connection
-      if (viewerRole === 'master') {
+      // Master always initiates the WebRTC connection unless we're
+      // starting in response to an incoming signal (skipOffer=true)
+      if (viewerRole === 'master' && !skipOffer) {
         console.log('[VoiceWebRTC] Creating offer as master');
         const offer = await pc.createOffer({
           offerToReceiveAudio: true,
@@ -133,22 +174,34 @@ export default function useVoiceWebRTC(sessionId, viewerRole, onCallEnd) {
 
     } catch (error) {
       console.error('[VoiceWebRTC] Failed to start call:', error);
-      if (error.name === 'NotAllowedError') {
-        setError('Accesso al microfono negato');
-      } else {
-        setError('Impossibile accedere al microfono');
-      }
       cleanup();
     } finally {
       setIsInitializing(false);
     }
-  }, [viewerRole, sessionId, isInitializing, peerConnection.current, localStream, initializePeerConnection, sendSignal, cleanup]);
+  }, [viewerRole, sessionId, isInitializing, initializePeerConnection, sendSignal, cleanup, requestMicrophoneAccess]);
 
   const handleSignal = useCallback(async (signal) => {
-    if (!peerConnection.current) return;
+    if (!signal || !signal.type) {
+      console.warn('[VoiceWebRTC] Ignoring malformed signal', signal);
+      return;
+    }
+
+    if (!peerConnection.current) {
+      console.log('[VoiceWebRTC] No peer connection yet, starting before handling signal');
+      await startCall({ skipOffer: true });
+    }
+
+    if (!peerConnection.current) {
+      await new Promise(resolve => setTimeout(resolve, 200));
+    }
 
     try {
       const pc = peerConnection.current;
+
+      if (!pc) {
+        console.warn('[VoiceWebRTC] Peer connection unavailable for signal handling');
+        return;
+      }
 
       switch (signal.type) {
         case 'offer':
@@ -173,7 +226,7 @@ export default function useVoiceWebRTC(sessionId, viewerRole, onCallEnd) {
       console.error('[VoiceWebRTC] Failed to handle signal:', error);
       setError('Errore durante la negoziazione');
     }
-  }, [sendSignal]);
+  }, [sendSignal, startCall]);
 
   const toggleMute = useCallback(() => {
     if (localStream) {

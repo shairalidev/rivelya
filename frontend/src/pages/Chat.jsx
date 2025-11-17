@@ -168,6 +168,21 @@ export default function Chat() {
     setNoteUpdatedAt(threadQuery.data?.noteUpdatedAt || null);
   }, [threadId, threadQuery.data?.note, threadQuery.data?.noteUpdatedAt]);
 
+  useEffect(() => {
+    if (!threadId) return;
+    const queryCall = threadQuery.data?.activeCall;
+    if (queryCall) {
+      setActiveCall(current => {
+        if (current?.callId === queryCall.callId) {
+          return { ...current, ...queryCall };
+        }
+        return queryCall;
+      });
+    } else if (activeCallRef.current?.threadId === threadId) {
+      setActiveCall(null);
+    }
+  }, [threadId, threadQuery.data?.activeCall]);
+
   const sendMutation = useMutation({
     mutationFn: ({ id, body }) => sendMessage(id, body),
     onSuccess: async message => {
@@ -227,7 +242,7 @@ export default function Chat() {
 
     const handleCallAccepted = payload => {
       if (matchesActiveCall(payload)) {
-        setActiveCall(prev => (prev ? { ...prev, status: 'accepted' } : null));
+        setActiveCall(prev => (prev ? { ...prev, status: 'accepted', startedAt: payload.startedAt || prev.startedAt } : null));
       }
     };
 
@@ -326,13 +341,20 @@ export default function Chat() {
 
   const startCall = async () => {
     if (!threadId || !canPost) return;
-    
+    if (activeCall?.status === 'calling' || activeCall?.status === 'accepted') {
+      toast.error('È già presente una chiamata attiva per questa conversazione.');
+      return;
+    }
+
     try {
       const response = await client.post(`/chat/threads/${threadId}/call/start`);
       // Call state will be updated via socket events
     } catch (error) {
       const msg = error?.response?.data?.message || 'Impossibile avviare la chiamata.';
       toast.error(msg);
+      if (error?.response?.status === 409) {
+        threadQuery.refetch?.();
+      }
     }
   };
 
@@ -628,22 +650,23 @@ export default function Chat() {
               </button>
             </div>
           </div>
-
+          {activeCall && (
+            <div className="chat-call-panel">
+              <CallPopup
+                call={activeCall}
+                threadId={activeCall.threadId}
+                isIncoming={activeCall.isIncoming}
+                onAccept={acceptCall}
+                onReject={rejectCall}
+                onEnd={endCall}
+                onSignal={setSignalHandler}
+                partnerName={callPartnerName}
+                variant="sidebar"
+              />
+            </div>
+          )}
         </aside>
       </div>
-      
-      {activeCall && (
-        <CallPopup
-          call={activeCall}
-          threadId={activeCall.threadId}
-          isIncoming={activeCall.isIncoming}
-          onAccept={acceptCall}
-          onReject={rejectCall}
-          onEnd={endCall}
-          onSignal={setSignalHandler}
-          partnerName={callPartnerName}
-        />
-      )}
     </section>
   );
 }

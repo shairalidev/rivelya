@@ -37,16 +37,24 @@ const MicOffIcon = props => (
 
 export default function CallPopup({ 
   call, 
-  threadId, 
-  isIncoming, 
-  onAccept, 
-  onReject, 
-  onEnd, 
+  threadId,
+  isIncoming,
+  onAccept,
+  onReject,
+  onEnd,
   onSignal,
-  partnerName 
+  partnerName,
+  variant = 'floating'
 }) {
   const [callDuration, setCallDuration] = useState(0);
   const [callStartTime, setCallStartTime] = useState(null);
+
+  useEffect(() => {
+    if (!call) {
+      setCallDuration(0);
+      setCallStartTime(null);
+    }
+  }, [call?.callId]);
 
   const {
     isConnected,
@@ -64,10 +72,11 @@ export default function CallPopup({
 
   // Handle call duration timer
   useEffect(() => {
-    if (call?.status === 'accepted' && !callStartTime) {
-      setCallStartTime(Date.now());
+    if (call?.status === 'accepted') {
+      const resolvedStart = call.startedAt ? new Date(call.startedAt).getTime() : Date.now();
+      setCallStartTime(previous => previous || resolvedStart);
     }
-  }, [call?.status, callStartTime]);
+  }, [call?.status, call?.startedAt]);
 
   useEffect(() => {
     let interval;
@@ -134,8 +143,10 @@ export default function CallPopup({
 
   if (!call) return null;
 
+  const containerClass = `call-popup${variant === 'sidebar' ? ' sidebar' : ''}`;
+
   return (
-    <div className="call-popup">
+    <div className={containerClass}>
       <audio ref={localAudio} muted autoPlay playsInline />
       <audio ref={remoteAudio} autoPlay playsInline />
       
