@@ -15,6 +15,7 @@ export default function useWebRTC(threadId, callId, isInitiator, onCallEnd) {
   const [isInitializing, setIsInitializing] = useState(false);
 
   const peerConnection = useRef(null);
+  const isStartingRef = useRef(false);
   const localAudio = useRef(null);
   const remoteAudio = useRef(null);
   const micPermissionState = useRef('unknown');
@@ -151,13 +152,14 @@ export default function useWebRTC(threadId, callId, isInitiator, onCallEnd) {
   }, [sendSignal]);
 
   const startCall = useCallback(async ({ skipOffer = false } = {}) => {
-    if (isInitializing || peerConnection.current) {
+    if (isInitializing || peerConnection.current || isStartingRef.current) {
       console.log('[WebRTC] Call already initializing or active');
       return;
     }
 
     try {
       setIsInitializing(true);
+      isStartingRef.current = true;
       setError(null);
       console.log('[WebRTC] Starting call, isInitiator:', isInitiator);
 
@@ -193,6 +195,7 @@ export default function useWebRTC(threadId, callId, isInitiator, onCallEnd) {
       cleanup();
     } finally {
       setIsInitializing(false);
+      isStartingRef.current = false;
     }
   }, [isInitiator, initializePeerConnection, sendSignal, cleanup, requestMicrophoneAccess, isInitializing]);
 
