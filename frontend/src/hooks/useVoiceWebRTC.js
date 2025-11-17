@@ -291,6 +291,11 @@ export default function useVoiceWebRTC(sessionId, viewerRole, onCallEnd) {
             console.warn('[VoiceWebRTC] Cannot handle answer, connection closed');
             return;
           }
+          if (pc.remoteDescription?.type === 'answer') {
+            console.warn('[VoiceWebRTC] Remote answer already applied, ignoring duplicate');
+            return;
+          }
+
           console.log('[VoiceWebRTC] Received answer, setting remote description');
           await pc.setRemoteDescription(new RTCSessionDescription(signal.data));
           break;
