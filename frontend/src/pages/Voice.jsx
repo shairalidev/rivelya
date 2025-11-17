@@ -196,6 +196,7 @@ export default function Voice() {
   const isSessionActive = activeSession?.status === 'active';
   const isSessionEnded = activeSession?.status === 'ended';
   const shouldShowEmpty = !sessionId && sessions.length === 0 && !sessionsQuery.isLoading;
+  const viewerRole = sessionQuery.data?.viewerRole;
   const {
     isConnected: webrtcConnected,
     isMuted: webrtcMuted,
@@ -575,7 +576,6 @@ export default function Voice() {
     }
   };
 
-  const viewerRole = sessionQuery.data?.viewerRole;
   const masterName = activeSession?.master?.name || 'Esperti Rivelya';
   const masterAvatar = activeSession?.master?.avatarUrl || '';
   const masterInitial = masterName.charAt(0).toUpperCase();
