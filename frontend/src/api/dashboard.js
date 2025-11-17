@@ -15,6 +15,16 @@ export const respondToReschedule = async (bookingId, action) => {
   return data;
 };
 
+export const requestStartNow = async (bookingId) => {
+  const { data } = await client.post(`/bookings/${bookingId}/start-now/request`);
+  return data;
+};
+
+export const respondStartNow = async (bookingId, action) => {
+  const { data } = await client.post(`/bookings/${bookingId}/start-now/respond`, { action });
+  return data;
+};
+
 export const getSessionHistory = async (params = {}) => {
   const { data } = await client.get('/sessions/history', { params });
   return data;
