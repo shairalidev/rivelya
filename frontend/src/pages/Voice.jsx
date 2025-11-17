@@ -750,7 +750,7 @@ export default function Voice() {
                 className="btn primary"
                 onClick={() => navigate('/catalog')}
               >
-                Esplora Master
+                Esplora Esperti
               </button>
             </div>
           )}

@@ -79,7 +79,7 @@ export default function Register() {
                     aria-checked={form.accountType === 'master'}
                     onClick={() => setForm(prev => ({ ...prev, accountType: 'master' }))}
                   >
-                    Master professionista
+                    Esperti professionista
                   </button>
                 </div>
                 <p className="micro muted">

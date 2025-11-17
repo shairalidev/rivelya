@@ -10,7 +10,7 @@ import {
 
 const navItems = [
   { label: 'Esperienza', to: '/', exact: true },
-  { label: 'Master', to: '/catalog' },
+  { label: 'Esperti', to: '/catalog' },
   { label: 'Business', to: '/#business', anchor: true },
   { label: 'Supporto', to: '/#supporto', anchor: true }
 ];
