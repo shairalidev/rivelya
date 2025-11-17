@@ -45,23 +45,30 @@ export default function useWebRTC(threadId, callId, isInitiator, onCallEnd) {
   }, [threadId, callId]);
 
   const initializePeerConnection = useCallback(() => {
+    console.log('[WebRTC] Initializing peer connection with ICE servers:', ICE_SERVERS);
     const pc = new RTCPeerConnection({ iceServers: ICE_SERVERS });
     
     pc.onicecandidate = (event) => {
       if (event.candidate) {
+        console.log('[WebRTC] Sending ICE candidate:', event.candidate);
         sendSignal('ice-candidate', event.candidate);
+      } else {
+        console.log('[WebRTC] ICE gathering complete');
       }
     };
 
     pc.ontrack = (event) => {
       const [stream] = event.streams;
+      console.log('[WebRTC] Received remote stream:', stream, 'tracks:', stream.getTracks());
       setRemoteStream(stream);
       if (remoteAudio.current) {
         remoteAudio.current.srcObject = stream;
+        remoteAudio.current.play().catch(e => console.warn('[WebRTC] Remote audio play failed:', e));
       }
     };
 
     pc.onconnectionstatechange = () => {
+      console.log('[WebRTC] Connection state changed:', pc.connectionState);
       if (pc.connectionState === 'connected') {
         setIsConnected(true);
         setError(null);
@@ -73,14 +80,29 @@ export default function useWebRTC(threadId, callId, isInitiator, onCallEnd) {
       }
     };
 
+    pc.oniceconnectionstatechange = () => {
+      console.log('[WebRTC] ICE connection state changed:', pc.iceConnectionState);
+    };
+
+    pc.onicegatheringstatechange = () => {
+      console.log('[WebRTC] ICE gathering state changed:', pc.iceGatheringState);
+    };
+
     return pc;
   }, [sendSignal]);
 
   const startCall = useCallback(async () => {
     try {
       setError(null);
+      console.log('[WebRTC] Starting call, isInitiator:', isInitiator);
+      
+      // Check if getUserMedia is available
+      if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
+        throw new Error('getUserMedia not supported');
+      }
       
       // Get user media
+      console.log('[WebRTC] Requesting user media...');
       const stream = await navigator.mediaDevices.getUserMedia({ 
         audio: { 
           echoCancellation: true,
@@ -89,10 +111,13 @@ export default function useWebRTC(threadId, callId, isInitiator, onCallEnd) {
         } 
       });
       
+      console.log('[WebRTC] Got local stream:', stream, 'tracks:', stream.getTracks().map(t => ({ kind: t.kind, enabled: t.enabled, readyState: t.readyState })));
       setLocalStream(stream);
       
       if (localAudio.current) {
         localAudio.current.srcObject = stream;
+        // Don't play local audio to avoid feedback
+        localAudio.current.muted = true;
       }
 
       // Initialize peer connection
@@ -101,19 +126,33 @@ export default function useWebRTC(threadId, callId, isInitiator, onCallEnd) {
 
       // Add local stream to peer connection
       stream.getTracks().forEach(track => {
+        console.log('[WebRTC] Adding local track:', track.kind, track.enabled, track.readyState);
         pc.addTrack(track, stream);
       });
 
       if (isInitiator) {
         // Create offer
-        const offer = await pc.createOffer();
+        console.log('[WebRTC] Creating offer as initiator');
+        const offer = await pc.createOffer({
+          offerToReceiveAudio: true,
+          offerToReceiveVideo: false
+        });
         await pc.setLocalDescription(offer);
+        console.log('[WebRTC] Sending offer:', offer);
         await sendSignal('offer', offer);
       }
 
     } catch (error) {
-      console.error('Failed to start call:', error);
-      setError('Impossibile accedere al microfono');
+      console.error('[WebRTC] Failed to start call:', error);
+      if (error.name === 'NotAllowedError') {
+        setError('Accesso al microfono negato. Controlla le impostazioni del browser.');
+      } else if (error.name === 'NotFoundError') {
+        setError('Nessun microfono trovato. Controlla che sia collegato.');
+      } else if (error.name === 'NotReadableError') {
+        setError('Microfono in uso da un\'altra applicazione.');
+      } else {
+        setError('Impossibile accedere al microfono: ' + error.message);
+      }
       cleanup();
     }
   }, [isInitiator, initializePeerConnection, sendSignal, cleanup]);
@@ -126,6 +165,7 @@ export default function useWebRTC(threadId, callId, isInitiator, onCallEnd) {
 
       switch (signal.type) {
         case 'offer':
+          console.log('[WebRTC] Received offer, creating answer');
           await pc.setRemoteDescription(new RTCSessionDescription(signal.data));
           const answer = await pc.createAnswer();
           await pc.setLocalDescription(answer);
@@ -133,10 +173,12 @@ export default function useWebRTC(threadId, callId, isInitiator, onCallEnd) {
           break;
 
         case 'answer':
+          console.log('[WebRTC] Received answer, setting remote description');
           await pc.setRemoteDescription(new RTCSessionDescription(signal.data));
           break;
 
         case 'ice-candidate':
+          console.log('[WebRTC] Received ICE candidate:', signal.data);
           await pc.addIceCandidate(new RTCIceCandidate(signal.data));
           break;
       }
@@ -150,8 +192,9 @@ export default function useWebRTC(threadId, callId, isInitiator, onCallEnd) {
     if (localStream) {
       const audioTrack = localStream.getAudioTracks()[0];
       if (audioTrack) {
-        audioTrack.enabled = isMuted;
+        audioTrack.enabled = isMuted; // If currently muted, enable it
         setIsMuted(!isMuted);
+        console.log('[WebRTC] Toggled mute:', !isMuted);
       }
     }
   }, [localStream, isMuted]);

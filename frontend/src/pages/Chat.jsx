@@ -9,6 +9,7 @@ import useSocket from '../hooks/useSocket.js';
 import useCountdown from '../hooks/useCountdown.js';
 import { getToken, subscribeAuthChange } from '../lib/auth.js';
 import CallPopup from '../components/CallPopup.jsx';
+import MicTest from '../components/MicTest.jsx';
 import client from '../api/client.js';
 
 const formatDuration = seconds => {
@@ -60,6 +61,22 @@ const VoiceIcon = props => (
 const PhoneIcon = props => (
   <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" {...props}>
     <path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6 19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72 12.84 12.84 0 0 0 .7 2.81 2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45 12.84 12.84 0 0 0 2.81.7A2 2 0 0 1 22 16.92z"/>
+  </svg>
+);
+
+const PhoneOffIcon = props => (
+  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" {...props}>
+    <path d="M10.68 13.31a16 16 0 0 0 3.41 2.6l1.27-1.27a2 2 0 0 1 2.11-.45 12.84 12.84 0 0 0 2.81.7A2 2 0 0 1 22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6 19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72 12.84 12.84 0 0 0 .7 2.81 2 2 0 0 1-.45 2.11L8.09 9.91"/>
+    <line x1="22" x2="2" y1="2" y2="22"/>
+  </svg>
+);
+
+const MicIcon = props => (
+  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" {...props}>
+    <path d="M12 2a3 3 0 0 0-3 3v7a3 3 0 0 0 6 0V5a3 3 0 0 0-3-3Z"/>
+    <path d="M19 10v2a7 7 0 0 1-14 0v-2"/>
+    <line x1="12" x2="12" y1="19" y2="23"/>
+    <line x1="8" x2="16" y1="23" y2="23"/>
   </svg>
 );
 
@@ -228,7 +245,7 @@ export default function Chat() {
       socket.off('chat:call:timeout', handleCallTimeout);
       socket.off('chat:call:signal', handleCallSignal);
     };
-  }, [socket, queryClient, threadId]);
+  }, [socket, queryClient, threadId, signalHandler]);
 
   useEffect(() => {
     if (!threadId && threads.length > 0) {
@@ -355,6 +372,7 @@ export default function Chat() {
 
   return (
     <section className="container chat-page">
+      <MicTest />
       <div className="chat-layout">
         <aside className="chat-sidebar">
           <div className="chat-sidebar-header">
@@ -572,27 +590,7 @@ export default function Chat() {
               </button>
             </div>
           </div>
-          <div className="chat-call-area">
-            {activeCall && activeCall.status === 'accepted' ? (
-              <>
-                <div className="chat-call-status">
-                  🔴 Chiamata in corso
-                </div>
-                <div className="chat-call-controls">
-                  <button className="chat-call-btn mute" title="Mute">
-                    <MicIcon />
-                  </button>
-                  <button className="chat-call-btn end" onClick={endCall} title="Termina">
-                    <PhoneOffIcon />
-                  </button>
-                </div>
-              </>
-            ) : (
-              <div className="chat-call-status">
-                {activeCall ? 'Chiamata in corso...' : 'Nessuna chiamata attiva'}
-              </div>
-            )}
-          </div>
+
         </aside>
       </div>
       

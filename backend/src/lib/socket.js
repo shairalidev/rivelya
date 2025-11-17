@@ -76,7 +76,7 @@ export const initSocket = server => {
     socket.join(`user:${userId}`);
     console.info('[voice] Socket connected and joined personal room', { userId, socketId: socket.id });
 
-    // Handle voice session events
+    // Handle voice session events (legacy - keeping for compatibility)
     socket.on('voice:session:join', (data) => {
       if (data.sessionId) {
         socket.join(`session:${data.sessionId}`);
@@ -118,9 +118,24 @@ export const initSocket = server => {
       }
     });
 
-    socket.on('disconnect', () => {
+    // Handle WebRTC signaling for chat calls
+    socket.on('chat:call:webrtc:signal', (data) => {
+      const { callId, threadId, type, signalData, targetUserId } = data;
+      if (callId && threadId && type && signalData && targetUserId) {
+        console.info('[chat] Relaying WebRTC signal', { userId, callId, type, targetUserId });
+        socket.to(`user:${targetUserId}`).emit('chat:call:signal', {
+          callId,
+          threadId,
+          type,
+          data: signalData,
+          from: userId
+        });
+      }
+    });
+
+    socket.on('disconnect', (reason) => {
       // Clean up any session rooms when user disconnects
-      console.info('[voice] Socket disconnected', { userId, socketId: socket.id });
+      console.info('[voice] Socket disconnected', { userId, socketId: socket.id, reason });
     });
   });
 
