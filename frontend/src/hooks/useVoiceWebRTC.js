@@ -14,8 +14,9 @@ export default function useVoiceWebRTC(sessionId, viewerRole, onCallEnd) {
   const [error, setError] = useState(null);
   const [isInitializing, setIsInitializing] = useState(false);
   const micPermissionState = useRef('unknown');
-  
+
   const peerConnection = useRef(null);
+  const isStartingRef = useRef(false);
   const localAudio = useRef(null);
   const remoteAudio = useRef(null);
 
@@ -136,13 +137,14 @@ export default function useVoiceWebRTC(sessionId, viewerRole, onCallEnd) {
   }, [sendSignal]);
 
   const startCall = useCallback(async ({ skipOffer = false } = {}) => {
-    if (isInitializing || peerConnection.current) {
+    if (isInitializing || peerConnection.current || isStartingRef.current) {
       console.log('[VoiceWebRTC] Call already initializing or active');
       return;
     }
 
     try {
       setIsInitializing(true);
+      isStartingRef.current = true;
       setError(null);
       console.log('[VoiceWebRTC] Starting call, viewerRole:', viewerRole, 'sessionId:', sessionId);
       
@@ -177,6 +179,7 @@ export default function useVoiceWebRTC(sessionId, viewerRole, onCallEnd) {
       cleanup();
     } finally {
       setIsInitializing(false);
+      isStartingRef.current = false;
     }
   }, [viewerRole, sessionId, isInitializing, initializePeerConnection, sendSignal, cleanup, requestMicrophoneAccess]);
 
