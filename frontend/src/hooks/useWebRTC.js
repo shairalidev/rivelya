@@ -192,14 +192,13 @@ export default function useWebRTC(threadId, callId, isInitiator, onCallEnd) {
       await new Promise(resolve => setTimeout(resolve, 100));
 
       if (isInitiator && !skipOffer) {
-        // Create offer
         console.log('[WebRTC] Creating offer as initiator');
         const offer = await pc.createOffer({
           offerToReceiveAudio: true,
           offerToReceiveVideo: false
         });
         await pc.setLocalDescription(offer);
-        console.log('[WebRTC] Local description set, sending offer');
+        console.log('[WebRTC] Sending offer:', offer.type);
         await sendSignal('offer', offer);
       } else {
         console.log('[WebRTC] Waiting for offer from remote peer');
@@ -215,7 +214,7 @@ export default function useWebRTC(threadId, callId, isInitiator, onCallEnd) {
   }, [isInitiator, initializePeerConnection, sendSignal, cleanup, requestMicrophoneAccess, isInitializing]);
 
   const handleSignal = useCallback(async (signal) => {
-    if (!signal?.type) {
+    if (!signal?.type || !signal?.data) {
       console.warn('[WebRTC] Ignoring invalid signal payload', signal);
       return;
     }
@@ -225,67 +224,40 @@ export default function useWebRTC(threadId, callId, isInitiator, onCallEnd) {
     if (!peerConnection.current) {
       console.log('[WebRTC] No peer connection yet, starting before handling signal');
       await startCall({ skipOffer: true });
-      // Wait a bit for the peer connection to be established
       await new Promise(resolve => setTimeout(resolve, 200));
     }
 
     try {
       const pc = peerConnection.current;
-
       if (!pc) {
-        console.warn('[WebRTC] Peer connection still unavailable for signal handling');
+        console.warn('[WebRTC] Peer connection still unavailable');
         return;
       }
 
       switch (signal.type) {
         case 'offer':
-          if (!signal.data) {
-            console.warn('[WebRTC] Missing offer data in signal');
-            return;
-          }
-          console.log('[WebRTC] Received offer, setting remote description and creating answer');
+          console.log('[WebRTC] Processing offer');
           await pc.setRemoteDescription(new RTCSessionDescription(signal.data));
           const answer = await pc.createAnswer();
           await pc.setLocalDescription(answer);
-          console.log('[WebRTC] Sending answer');
           await sendSignal('answer', answer);
           break;
 
         case 'answer':
-          if (!signal.data) {
-            console.warn('[WebRTC] Missing answer data in signal');
-            return;
-          }
-          console.log('[WebRTC] Received answer, setting remote description');
+          console.log('[WebRTC] Processing answer');
           await pc.setRemoteDescription(new RTCSessionDescription(signal.data));
           break;
 
         case 'ice-candidate':
-          if (!signal.data) {
-            console.warn('[WebRTC] Missing ICE candidate data in signal');
-            return;
-          }
-          console.log('[WebRTC] Received ICE candidate, adding to peer connection');
+          console.log('[WebRTC] Processing ICE candidate');
           if (pc.remoteDescription) {
             await pc.addIceCandidate(new RTCIceCandidate(signal.data));
-          } else {
-            console.log('[WebRTC] Queuing ICE candidate until remote description is set');
-            // Queue the candidate for later
-            setTimeout(async () => {
-              if (pc.remoteDescription) {
-                try {
-                  await pc.addIceCandidate(new RTCIceCandidate(signal.data));
-                } catch (e) {
-                  console.warn('[WebRTC] Failed to add queued ICE candidate:', e);
-                }
-              }
-            }, 1000);
           }
           break;
       }
     } catch (error) {
-      console.error('[WebRTC] Failed to handle signal:', error);
-      setError('Errore durante la negoziazione della chiamata: ' + error.message);
+      console.error('[WebRTC] Signal handling error:', error);
+      setError('Errore di connessione: ' + error.message);
     }
   }, [sendSignal, startCall]);
 

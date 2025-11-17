@@ -116,11 +116,12 @@ export default function CallPopup({
 
   // Auto-start call when accepted
   useEffect(() => {
-    if (call?.status === 'accepted' && startCall && !isConnected) {
+    if (call?.status === 'accepted' && startCall) {
       console.log('[CallPopup] Call accepted, starting WebRTC connection');
+      // Start immediately without checking isConnected to ensure both sides start
       startCall();
     }
-  }, [call?.status, startCall, isConnected]);
+  }, [call?.status, startCall]);
 
   const formatDuration = (seconds) => {
     const mins = Math.floor(seconds / 60);

@@ -242,6 +242,7 @@ export default function Chat() {
 
     const handleCallAccepted = payload => {
       if (matchesActiveCall(payload)) {
+        console.log('[chat] Call accepted, updating state');
         setActiveCall(prev => (prev ? { ...prev, status: 'accepted', startedAt: payload.startedAt || prev.startedAt } : null));
       }
     };
