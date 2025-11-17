@@ -15,6 +15,7 @@ export default function useWebRTC(threadId, callId, isInitiator, onCallEnd) {
   const [isInitializing, setIsInitializing] = useState(false);
 
   const peerConnection = useRef(null);
+  const isStartingRef = useRef(false);
   const localAudio = useRef(null);
   const remoteAudio = useRef(null);
   const micPermissionState = useRef('unknown');
@@ -151,13 +152,14 @@ export default function useWebRTC(threadId, callId, isInitiator, onCallEnd) {
   }, [sendSignal]);
 
   const startCall = useCallback(async ({ skipOffer = false } = {}) => {
-    if (isInitializing || peerConnection.current) {
+    if (isInitializing || peerConnection.current || isStartingRef.current) {
       console.log('[WebRTC] Call already initializing or active');
       return;
     }
 
     try {
       setIsInitializing(true);
+      isStartingRef.current = true;
       setError(null);
       console.log('[WebRTC] Starting call, isInitiator:', isInitiator);
 
@@ -193,10 +195,16 @@ export default function useWebRTC(threadId, callId, isInitiator, onCallEnd) {
       cleanup();
     } finally {
       setIsInitializing(false);
+      isStartingRef.current = false;
     }
   }, [isInitiator, initializePeerConnection, sendSignal, cleanup, requestMicrophoneAccess, isInitializing]);
 
   const handleSignal = useCallback(async (signal) => {
+    if (!signal?.type) {
+      console.warn('[WebRTC] Ignoring invalid signal payload', signal);
+      return;
+    }
+
     if (!peerConnection.current) {
       console.log('[WebRTC] No peer connection yet, starting before handling signal');
       await startCall({ skipOffer: true });
@@ -212,6 +220,10 @@ export default function useWebRTC(threadId, callId, isInitiator, onCallEnd) {
 
       switch (signal.type) {
         case 'offer':
+          if (!signal.data) {
+            console.warn('[WebRTC] Missing offer data in signal');
+            return;
+          }
           console.log('[WebRTC] Received offer, creating answer');
           await pc.setRemoteDescription(new RTCSessionDescription(signal.data));
           const answer = await pc.createAnswer();
@@ -220,11 +232,19 @@ export default function useWebRTC(threadId, callId, isInitiator, onCallEnd) {
           break;
 
         case 'answer':
+          if (!signal.data) {
+            console.warn('[WebRTC] Missing answer data in signal');
+            return;
+          }
           console.log('[WebRTC] Received answer, setting remote description');
           await pc.setRemoteDescription(new RTCSessionDescription(signal.data));
           break;
 
         case 'ice-candidate':
+          if (!signal.data) {
+            console.warn('[WebRTC] Missing ICE candidate data in signal');
+            return;
+          }
           console.log('[WebRTC] Received ICE candidate:', signal.data);
           await pc.addIceCandidate(new RTCIceCandidate(signal.data));
           break;
