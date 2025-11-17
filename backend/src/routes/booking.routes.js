@@ -39,6 +39,10 @@ const rescheduleResponseSchema = Joi.object({
   action: Joi.string().valid('accept', 'reject').required()
 });
 
+const startNowResponseSchema = Joi.object({
+  action: Joi.string().valid('accept', 'reject').required()
+});
+
 const ensureMaster = async userId =>
   Master.findOne({ user_id: userId }).select(
     '_id display_name rate_chat_cpm rate_voice_cpm rate_chat_voice_cpm services is_accepting_requests user_id working_hours'
@@ -78,6 +82,23 @@ const serializeMasterRequest = booking => ({
       }
     : null
 });
+
+const startBookingSession = async ({ booking, starterRole, starterName, targetUserId }) => {
+  booking.status = 'active';
+  booking.started_by = starterRole;
+  booking.started_at = new Date();
+  booking.can_start = false;
+  booking.start_now_request = undefined;
+  await booking.save();
+
+  await createNotification({
+    userId: targetUserId,
+    type: 'session:started',
+    title: 'Sessione avviata',
+    body: `${starterName} ha avviato la sessione ${booking.reservation_id}. Unisciti ora!`,
+    meta: { bookingId: booking._id, reservationId: booking.reservation_id }
+  });
+};
 
 router.post('/', requireAuth, async (req, res, next) => {
   try {
@@ -642,6 +663,136 @@ router.post('/:bookingId/reschedule/respond', requireAuth, async (req, res, next
   }
 });
 
+// Request immediate session start
+router.post('/:bookingId/start-now/request', requireAuth, async (req, res, next) => {
+  try {
+    const booking = await Booking.findById(req.params.bookingId)
+      .populate('master_id', 'user_id display_name')
+      .populate('customer_id', '_id display_name');
+
+    if (!booking) return res.status(404).json({ message: 'Prenotazione non trovata.' });
+
+    const isCustomer = booking.customer_id._id.toString() === req.user._id.toString();
+    const isMaster = booking.master_id.user_id.toString() === req.user._id.toString();
+
+    if (!isCustomer && !isMaster) {
+      return res.status(403).json({ message: 'Non autorizzato.' });
+    }
+
+    if (!booking.can_start || booking.status !== 'ready_to_start') {
+      return res.status(400).json({ message: 'La prenotazione non è pronta per iniziare.' });
+    }
+
+    if (booking.start_now_request?.status === 'pending') {
+      return res.status(409).json({ message: 'C\'è già una richiesta di avvio immediato in attesa.' });
+    }
+
+    booking.start_now_request = {
+      requested_by: isCustomer ? 'customer' : 'master',
+      requested_at: new Date(),
+      status: 'pending'
+    };
+
+    await booking.save();
+
+    const targetUserId = isCustomer ? booking.master_id.user_id : booking.customer_id._id;
+    const requesterName = isCustomer ?
+      (booking.customer_id.display_name || 'Cliente') :
+      (booking.master_id.display_name || 'Master');
+
+    await createNotification({
+      userId: targetUserId,
+      type: 'booking:start_now_requested',
+      title: 'Richiesta di avvio immediato',
+      body: `${requesterName} vuole avviare subito la sessione ${booking.reservation_id}.`,
+      meta: { bookingId: booking._id, reservationId: booking.reservation_id }
+    });
+
+    res.json({ message: 'Richiesta di avvio immediato inviata.' });
+  } catch (error) {
+    next(error);
+  }
+});
+
+// Respond to start now request
+router.post('/:bookingId/start-now/respond', requireAuth, async (req, res, next) => {
+  try {
+    const { action } = await startNowResponseSchema.validateAsync(req.body);
+    const booking = await Booking.findById(req.params.bookingId)
+      .populate('master_id', 'user_id display_name')
+      .populate('customer_id', '_id display_name');
+
+    if (!booking) return res.status(404).json({ message: 'Prenotazione non trovata.' });
+    if (!booking.start_now_request || booking.start_now_request.status !== 'pending') {
+      return res.status(400).json({ message: 'Nessuna richiesta di avvio immediato pendente.' });
+    }
+
+    const isCustomer = booking.customer_id._id.toString() === req.user._id.toString();
+    const isMaster = booking.master_id.user_id.toString() === req.user._id.toString();
+
+    if (!isCustomer && !isMaster) {
+      return res.status(403).json({ message: 'Non autorizzato.' });
+    }
+
+    const requesterRole = booking.start_now_request.requested_by;
+    const responderRole = isCustomer ? 'customer' : 'master';
+
+    if (requesterRole === responderRole) {
+      return res.status(403).json({ message: 'Non puoi rispondere alla tua richiesta.' });
+    }
+
+    if (action === 'reject') {
+      booking.start_now_request.status = 'rejected';
+      booking.start_now_request.responded_at = new Date();
+      await booking.save();
+
+      const requesterId = requesterRole === 'customer' ? booking.customer_id._id : booking.master_id.user_id;
+
+      await createNotification({
+        userId: requesterId,
+        type: 'booking:start_now_rejected',
+        title: 'Avvio immediato rifiutato',
+        body: 'La tua richiesta di avviare subito la sessione è stata rifiutata.',
+        meta: { bookingId: booking._id, reservationId: booking.reservation_id }
+      });
+
+      return res.json({ message: 'Richiesta di avvio immediato rifiutata.' });
+    }
+
+    booking.start_now_request.status = 'accepted';
+    booking.start_now_request.responded_at = new Date();
+
+    const starterName = requesterRole === 'customer'
+      ? (booking.customer_id.display_name || 'Cliente')
+      : (booking.master_id.display_name || 'Master');
+
+    const targetUserId = requesterRole === 'customer' ? booking.master_id.user_id : booking.customer_id._id;
+    const requesterId = requesterRole === 'customer' ? booking.customer_id._id : booking.master_id.user_id;
+
+    await startBookingSession({
+      booking,
+      starterRole: requesterRole,
+      starterName,
+      targetUserId
+    });
+
+    await createNotification({
+      userId: requesterId,
+      type: 'booking:start_now_accepted',
+      title: 'Avvio immediato accettato',
+      body: 'L\'altra persona ha accettato di iniziare subito la sessione. Unisciti ora!',
+      meta: { bookingId: booking._id, reservationId: booking.reservation_id }
+    });
+
+    res.json({ message: 'Sessione avviata con successo.' });
+  } catch (error) {
+    if (error.isJoi) {
+      return res.status(400).json({ message: 'Richiesta non valida.' });
+    }
+    next(error);
+  }
+});
+
 // Get reservations for both customer and master
 router.get('/reservations', requireAuth, async (req, res, next) => {
   try {
@@ -699,6 +850,7 @@ router.get('/reservations', requireAuth, async (req, res, next) => {
         status: booking.status,
         can_start: booking.can_start,
         started_by: booking.started_by,
+        start_now_request: booking.start_now_request,
         amount_cents: booking.amount_cents,
         duration_minutes: booking.duration_minutes,
         notes: booking.notes,
@@ -749,23 +901,16 @@ router.post('/:bookingId/start', requireAuth, async (req, res, next) => {
       return res.status(400).json({ message: 'Puoi avviare la sessione solo 15 minuti prima dell\'orario previsto.' });
     }
 
-    booking.status = 'active';
-    booking.started_by = isCustomer ? 'customer' : 'master';
-    booking.started_at = now;
-    await booking.save();
-
-    // Notify the other party
     const targetUserId = isCustomer ? booking.master_id.user_id : booking.customer_id._id;
-    const starterName = isCustomer ? 
-      (booking.customer_id.display_name || 'Cliente') : 
+    const starterName = isCustomer ?
+      (booking.customer_id.display_name || 'Cliente') :
       (booking.master_id.display_name || 'Master');
 
-    await createNotification({
-      userId: targetUserId,
-      type: 'session:started',
-      title: 'Sessione avviata',
-      body: `${starterName} ha avviato la sessione ${booking.reservation_id}. Unisciti ora!`,
-      meta: { bookingId: booking._id, reservationId: booking.reservation_id }
+    await startBookingSession({
+      booking,
+      starterRole: isCustomer ? 'customer' : 'master',
+      starterName,
+      targetUserId
     });
 
     res.json({ 
