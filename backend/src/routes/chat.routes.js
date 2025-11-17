@@ -88,6 +88,27 @@ const buildThreadPayload = (thread, { lastMessage = null, unreadCount = 0 } = {}
   };
 };
 
+const buildActiveCallPayload = (call, thread, viewerId) => {
+  if (!call) return null;
+
+  const viewerIdStr = viewerId?.toString();
+  const masterUserId = thread.master_user_id?._id || thread.master_user_id;
+  const callerName = call.caller_id.toString() === masterUserId?.toString()
+    ? thread.master_id?.display_name
+    : resolveDisplayName(thread.customer_id);
+
+  return {
+    callId: call._id,
+    threadId: call.thread_id,
+    callerId: call.caller_id,
+    calleeId: call.callee_id,
+    callerName,
+    status: call.status,
+    startedAt: call.started_at,
+    isIncoming: call.callee_id.toString() === viewerIdStr
+  };
+};
+
 const ensureThreadForUser = async (threadId, user) => {
   const thread = await ChatThread.findById(threadId)
     .populate('booking_id', 'date start_time end_time channel status')
@@ -179,6 +200,10 @@ router.get('/threads/:threadId', requireAuth, async (req, res, next) => {
     const remaining = thread.expires_at ? Math.max(0, Math.floor((thread.expires_at.getTime() - Date.now()) / 1000)) : 0;
 
     const note = await ChatThreadNote.findOne({ thread_id: thread._id, user_id: req.user._id }).select('note updatedAt');
+    const activeCall = await ChatCall.findOne({
+      thread_id: thread._id,
+      status: { $in: ['calling', 'accepted'] }
+    }).sort({ createdAt: -1 });
 
     res.json({
       thread: buildThreadPayload(thread),
@@ -193,7 +218,8 @@ router.get('/threads/:threadId', requireAuth, async (req, res, next) => {
       remainingSeconds: remaining,
       canPost: remaining > 0 && thread.status === 'open',
       note: note?.note || '',
-      noteUpdatedAt: note?.updatedAt || null
+      noteUpdatedAt: note?.updatedAt || null,
+      activeCall: buildActiveCallPayload(activeCall, thread, req.user._id)
     });
   } catch (error) {
     next(error);
@@ -392,7 +418,8 @@ router.post('/threads/:threadId/call/:callId/accept', requireAuth, async (req, r
     const callData = {
       callId: call._id,
       threadId: call.thread_id,
-      status: 'accepted'
+      status: 'accepted',
+      startedAt: call.started_at
     };
 
     emitToUser(call.caller_id, 'chat:call:accepted', callData);

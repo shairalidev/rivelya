@@ -189,6 +189,11 @@ export default function useVoiceWebRTC(sessionId, viewerRole, onCallEnd) {
     try {
       const pc = peerConnection.current;
 
+      if (!pc) {
+        console.warn('[VoiceWebRTC] Peer connection unavailable for signal handling');
+        return;
+      }
+
       switch (signal.type) {
         case 'offer':
           console.log('[VoiceWebRTC] Received offer');

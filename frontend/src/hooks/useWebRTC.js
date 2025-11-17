@@ -25,6 +25,7 @@ export default function useWebRTC(threadId, callId, isInitiator, onCallEnd) {
     }
     if (peerConnection.current) {
       peerConnection.current.close();
+      peerConnection.current = null;
     }
     setLocalStream(null);
     setRemoteStream(null);
@@ -203,6 +204,11 @@ export default function useWebRTC(threadId, callId, isInitiator, onCallEnd) {
 
     try {
       const pc = peerConnection.current;
+
+      if (!pc) {
+        console.warn('[WebRTC] Peer connection unavailable for signal handling');
+        return;
+      }
 
       switch (signal.type) {
         case 'offer':

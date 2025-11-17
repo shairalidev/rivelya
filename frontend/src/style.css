@@ -4275,6 +4275,18 @@ body.nav-open {
   align-items: center;
 }
 
+.chat-sidebar-panel {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.chat-call-panel {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
 .call-popup {
   position: fixed;
   bottom: 20px;
@@ -4286,6 +4298,14 @@ body.nav-open {
   border: 1px solid rgba(255, 255, 255, 0.1);
   z-index: 1000;
   animation: slideUp 0.3s ease-out;
+}
+
+.call-popup.sidebar {
+  position: relative;
+  inset: auto;
+  width: 100%;
+  box-shadow: 0 10px 25px rgba(0, 0, 0, 0.18);
+  animation: none;
 }
 
 @keyframes slideUp {
