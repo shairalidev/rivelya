@@ -260,11 +260,12 @@ router.post('/:bookingId/respond', requireAuth, requireRole('master'), async (re
     const booking = await Booking.findOne({ _id: req.params.bookingId, master_id: master._id })
       .populate('customer_id', 'display_name first_name last_name email phone wallet_id');
     if (!booking) return res.status(404).json({ message: 'Prenotazione non trovata.' });
-    if (booking.status !== 'awaiting_master') {
-      return res.status(400).json({ message: 'La prenotazione è già stata gestita.' });
-    }
+    const rejectNotAllowed = ['active', 'completed', 'cancelled', 'rejected'];
 
     if (action === 'accept') {
+      if (booking.status !== 'awaiting_master') {
+        return res.status(400).json({ message: 'La prenotazione è già stata gestita.' });
+      }
       booking.status = 'ready_to_start';
       booking.can_start = true;
       await booking.save();
@@ -307,8 +308,14 @@ router.post('/:bookingId/respond', requireAuth, requireRole('master'), async (re
       return res.json({ booking: serializeMasterRequest(booking) });
     }
 
+    if (rejectNotAllowed.includes(booking.status)) {
+      return res.status(400).json({ message: 'La prenotazione è già stata gestita.' });
+    }
+
     booking.status = 'rejected';
     booking.can_start = false;
+    booking.start_now_request = undefined;
+    booking.reschedule_request = undefined;
     await booking.save();
 
     if (booking.wallet_txn_id && booking.amount_cents > 0 && booking.customer_id?.wallet_id) {

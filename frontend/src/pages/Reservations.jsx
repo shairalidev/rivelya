@@ -384,7 +384,16 @@ export default function Reservations() {
                     {reservation.status === 'reschedule_requested' ? 'Nuova riprogrammazione' : 'Riprogramma'}
                   </button>
                 )}
-                
+
+                {canRejectBeforeStart(reservation) && reservation.status !== 'awaiting_master' && (
+                  <button
+                    className="btn outline"
+                    onClick={() => handleBookingResponse(reservation.id, 'reject')}
+                  >
+                    Rifiuta prenotazione
+                  </button>
+                )}
+
                 {/* Debug info - remove after testing */}
                 <div style={{ fontSize: '0.7rem', color: 'var(--muted)', marginTop: '0.5rem' }}>
                   Status: {reservation.status} | Future: {new Date(reservation.date) > new Date() ? 'Yes' : 'No'} | Can reschedule: {canReschedule(reservation) ? 'Yes' : 'No'}
