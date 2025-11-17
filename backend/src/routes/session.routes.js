@@ -139,4 +139,54 @@ router.post('/chat', requireAuth, async (req, res, next) => {
   } catch (e) { next(e); }
 });
 
+// GET /session/history - Get user's session history
+router.get('/history', requireAuth, async (req, res, next) => {
+  try {
+    const { page = 1, limit = 20, status } = req.query;
+    const filter = { user_id: req.user._id };
+    if (status) filter.status = status;
+
+    const sessions = await Session.find(filter)
+      .sort({ createdAt: -1 })
+      .limit(limit * 1)
+      .skip((page - 1) * limit)
+      .populate('master_id', 'display_name avatar_url services')
+      .populate('booking_id', 'date start_time end_time channel');
+
+    const total = await Session.countDocuments(filter);
+
+    res.json({
+      sessions: sessions.map(session => ({
+        id: session._id,
+        master: {
+          id: session.master_id._id,
+          name: session.master_id.display_name,
+          avatar: session.master_id.avatar_url
+        },
+        channel: session.channel,
+        status: session.status,
+        startTime: session.start_ts,
+        endTime: session.end_ts,
+        duration: session.duration_s,
+        cost: session.cost_cents,
+        rate: session.price_cpm,
+        booking: session.booking_id ? {
+          date: session.booking_id.date,
+          start: session.booking_id.start_time,
+          end: session.booking_id.end_time
+        } : null,
+        createdAt: session.createdAt
+      })),
+      pagination: {
+        page: parseInt(page),
+        limit: parseInt(limit),
+        total,
+        pages: Math.ceil(total / limit)
+      }
+    });
+  } catch (error) {
+    next(error);
+  }
+});
+
 export default router;

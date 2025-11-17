@@ -4,9 +4,7 @@ import toast from 'react-hot-toast';
 import {
   fetchAvailabilityMonthForMaster,
   addAvailabilityBlock,
-  deleteAvailabilityBlock,
-  fetchMasterRequests,
-  respondToBooking
+  deleteAvailabilityBlock
 } from '../api/booking.js';
 import client from '../api/client.js';
 import FancySelect from '../components/FancySelect.jsx';
@@ -16,17 +14,6 @@ import useSocket from '../hooks/useSocket.js';
 import { DAY_ORDER, DAY_LABELS } from '../utils/schedule.js';
 
 const weekdays = ['Lun', 'Mar', 'Mer', 'Gio', 'Ven', 'Sab', 'Dom'];
-const statusLabels = {
-  awaiting_master: 'In attesa',
-  confirmed: 'Confermato',
-  rejected: 'Rifiutato'
-};
-const channelLabels = {
-  chat: 'Chat',
-  voice: 'Voce',
-  chat_voice: 'Chat e Voce'
-};
-
 const formatCurrency = c => (c / 100).toFixed(2);
 
 const formatCentsInput = value => {
@@ -155,8 +142,7 @@ export default function MasterDashboard() {
   const [monthData, setMonthData] = useState(null);
   const [loadingMonth, setLoadingMonth] = useState(true);
 
-  const [requests, setRequests] = useState([]);
-  const [loadingRequests, setLoadingRequests] = useState(true);
+
 
   const [modalDay, setModalDay] = useState(null);
   const [blockForm, setBlockForm] = useState(initialBlockForm);
@@ -324,17 +310,7 @@ export default function MasterDashboard() {
     }
   };
 
-  const loadRequests = useCallback(async (silent = false) => {
-    try {
-      if (!silent) setLoadingRequests(true);
-      const data = await fetchMasterRequests();
-      setRequests(data);
-    } catch {
-      toast.error('Impossibile caricare richieste.');
-    } finally {
-      setLoadingRequests(false);
-    }
-  }, []);
+
 
   useEffect(() => {
     if (user?.roles?.includes('master')) loadProfile();
@@ -344,24 +320,15 @@ export default function MasterDashboard() {
     if (user?.roles?.includes('master')) loadMonth(monthCursor);
   }, [user?.roles, monthCursor.year, monthCursor.month]);
 
-  useEffect(() => {
-    if (user?.roles?.includes('master')) loadRequests();
-  }, [user?.roles, loadRequests]);
+
 
   const socket = useSocket();
 
   useEffect(() => {
     if (!socket) return;
-    const reload = () => loadRequests(true);
-    socket.on('notification:new', reload);
-    socket.on('booking:updated', reload);
-    socket.on('booking:request', reload);
-    return () => {
-      socket.off('notification:new', reload);
-      socket.off('booking:updated', reload);
-      socket.off('booking:request', reload);
-    };
-  }, [socket, loadRequests]);
+    // Socket listeners removed as requests moved to reservations page
+    return () => {};
+  }, [socket]);
 
   const calendar = useMemo(() => {
     if (!monthData) return [];
@@ -547,31 +514,9 @@ export default function MasterDashboard() {
     }
   };
 
-  const handleRespond = async (bookingId, action) => {
-    try {
-      const updated = await respondToBooking(bookingId, action);
-      setRequests(prev => prev.map(r => (r.id === updated.id ? updated : r)));
-      toast.success(action === 'accept' ? 'Richiesta accettata.' : 'Richiesta rifiutata.');
-      loadMonth(monthCursor);
-    } catch {
-      toast.error('Errore nella risposta.');
-    }
-  };
 
-  const startCommunication = () => {
-    navigate('/chat');
-  };
 
-  const startVoiceCall = async (bookingId) => {
-    try {
-      const res = await client.post(`/bookings/${bookingId}/start-voice`);
-      if (res.data.redirect_url) {
-        navigate(res.data.redirect_url);
-      }
-    } catch (error) {
-      toast.error('Impossibile avviare la chiamata vocale.');
-    }
-  };
+
 
   return (
     <section className="container master-dashboard">
@@ -865,146 +810,50 @@ export default function MasterDashboard() {
         )}
       </div>
 
-      {/* GRID: CALENDAR + REQUESTS */}
-      <div className="dashboard-grid">
-
-        {/* CALENDAR */}
-        <div className="calendar-card">
-          <div className="calendar-head">
-            <h2>Disponibilità mensile</h2>
-            <p className="muted">Blocca o gestisci le eccezioni con facilità.</p>
-          </div>
-
-          {loadingMonth ? (
-            <div className="calendar-skeleton" />
-          ) : !monthData ? (
-            <p className="muted">Nessun dato disponibile.</p>
-          ) : (
-            <div className="calendar-grid">
-              <div className="calendar-weekdays">
-                {weekdays.map(w => (
-                  <span key={w}>{w}</span>
-                ))}
-              </div>
-
-              {calendar.map((week, idx) => (
-                <div className="calendar-week" key={`wk-${idx}`}>
-                  {week.map((day, i) => {
-                    if (!day)
-                      return <button key={`e-${i}`} className="calendar-day empty" />;
-
-                    const isBlocked = day.fullDayBlocked;
-                    const hasAvail = day.availableRanges?.length > 0;
-                    const label = Number(day.date.split('-')[2]);
-
-                    return (
-                      <button
-                        key={day.date}
-                        className={`calendar-day${isBlocked ? ' blocked' : ''}${hasAvail ? ' available' : ''}`}
-                        onClick={() => openDayModal(day)}
-                      >
-                        <span>{label}</span>
-                      </button>
-                    );
-                  })}
-                </div>
-              ))}
-            </div>
-          )}
+      {/* CALENDAR FULL WIDTH */}
+      <div className="calendar-card" style={{ width: '100%' }}>
+        <div className="calendar-head">
+          <h2>Disponibilità mensile</h2>
+          <p className="muted">Blocca o gestisci le eccezioni con facilità. Per gestire le prenotazioni vai alla <a href="/reservations" style={{ color: 'var(--accent)' }}>Gestione Prenotazioni</a>.</p>
         </div>
 
-        {/* REQUESTS CLEANED */}
-        <div className="requests-card">
-          <div className="requests-head">
-            <h2>Richieste clienti</h2>
-            <p className="muted">Gestisci le prenotazioni in arrivo.</p>
-          </div>
-
-          {loadingRequests ? (
-            <div className="request-skeleton" />
-          ) : requests.length === 0 ? (
-            <p className="muted">Nessuna richiesta in questo periodo.</p>
-          ) : (
-            <ul className="requests-list">
-              {requests.map(req => (
-                <li key={req.id} className={`request-item status-${req.status}`}>
-
-                  {/* LEFT INFO */}
-                  <div>
-                    <p className="request-date">
-                      {new Date(`${req.date}T${req.start}:00`).toLocaleString('it-IT', {
-                        day: '2-digit',
-                        month: 'short',
-                        year: 'numeric',
-                        hour: '2-digit',
-                        minute: '2-digit'
-                      })}{' '}
-                      · {channelLabels[req.channel] || req.channel}
-                    </p>
-
-                    <p className="muted">
-                      {req.customer?.name || 'Cliente'} · {formatCurrency(req.amount_cents)} €
-                    </p>
-
-                    {req.notes && (
-                      <p className="micro muted">Nota: {req.notes}</p>
-                    )}
-                  </div>
-
-                  {/* CLEANED ACTIONS */}
-                  <div className="request-actions">
-                    {req.status === 'awaiting_master' ? (
-                      <>
-                        <button
-                          type="button"
-                          className="btn primary"
-                          onClick={() => handleRespond(req.id, 'accept')}
-                        >
-                          Accetta
-                        </button>
-
-                        <button
-                          type="button"
-                          className="btn ghost"
-                          onClick={() => handleRespond(req.id, 'reject')}
-                        >
-                          Rifiuta
-                        </button>
-                      </>
-                    ) : (
-                      <>
-                        <span className="status-pill">{statusLabels[req.status]}</span>
-
-                        {req.status === 'confirmed' && req.channel === 'voice' && (
-                          <button
-                            type="button"
-                            className="btn outline"
-                            onClick={() => startVoiceCall(req.id)}
-                          >
-                            Avvia chiamata
-                          </button>
-                        )}
-                        {req.status === 'confirmed' &&
-                          ['chat', 'chat_voice'].includes(req.channel) &&
-                          profile?.services?.chat !== false && (
-                            <button
-                              type="button"
-                              className="btn outline"
-                              onClick={startCommunication}
-                            >
-                              Apri chat
-                            </button>
-                          )}
-                      </>
-                    )}
-                  </div>
-
-                </li>
+        {loadingMonth ? (
+          <div className="calendar-skeleton" />
+        ) : !monthData ? (
+          <p className="muted">Nessun dato disponibile.</p>
+        ) : (
+          <div className="calendar-grid">
+            <div className="calendar-weekdays">
+              {weekdays.map(w => (
+                <span key={w}>{w}</span>
               ))}
-            </ul>
-          )}
+            </div>
+
+            {calendar.map((week, idx) => (
+              <div className="calendar-week" key={`wk-${idx}`}>
+                {week.map((day, i) => {
+                  if (!day)
+                    return <button key={`e-${i}`} className="calendar-day empty" />;
+
+                  const isBlocked = day.fullDayBlocked;
+                  const hasAvail = day.availableRanges?.length > 0;
+                  const label = Number(day.date.split('-')[2]);
+
+                  return (
+                    <button
+                      key={day.date}
+                      className={`calendar-day${isBlocked ? ' blocked' : ''}${hasAvail ? ' available' : ''}`}
+                      onClick={() => openDayModal(day)}
+                    >
+                      <span>{label}</span>
+                    </button>
+                  );
+                })}
+              </div>
+            ))}
+          </div>
+        )}
       </div>
-    </div>
 
       <div className="profile-settings-card weekly-availability-card">
         <div className="profile-settings-head">

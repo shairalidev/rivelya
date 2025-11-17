@@ -1,6 +1,7 @@
 import mongoose from 'mongoose';
 
 const bookingSchema = new mongoose.Schema({
+  reservation_id: { type: String, unique: true, required: true, index: true },
   master_id: { type: mongoose.Schema.Types.ObjectId, ref: 'Master', index: true, required: true },
   customer_id: { type: mongoose.Schema.Types.ObjectId, ref: 'User', index: true, required: true },
   channel: { type: String, enum: ['chat', 'voice', 'chat_voice'], required: true },
@@ -11,14 +12,57 @@ const bookingSchema = new mongoose.Schema({
   duration_minutes: { type: Number, required: true, min: 1 },
   status: {
     type: String,
-    enum: ['awaiting_master', 'confirmed', 'rejected', 'cancelled', 'completed'],
+    enum: ['awaiting_master', 'confirmed', 'rejected', 'cancelled', 'completed', 'reschedule_requested', 'ready_to_start'],
     default: 'awaiting_master'
   },
+  can_start: { type: Boolean, default: false },
+  started_by: { type: String, enum: ['customer', 'master'] },
+  started_at: { type: Date },
   wallet_txn_id: { type: mongoose.Schema.Types.ObjectId, ref: 'Transaction' },
-  notes: { type: String, maxlength: 600 }
+  notes: { type: String, maxlength: 600 },
+  reschedule_request: {
+    requested_by: { type: String, enum: ['customer', 'master'] },
+    new_date: { type: String },
+    new_start_time: { type: String },
+    new_end_time: { type: String },
+    reason: { type: String, maxlength: 300 },
+    requested_at: { type: Date }
+  },
+  reschedule_history: [{
+    requested_by: { type: String, enum: ['customer', 'master'] },
+    new_date: { type: String },
+    new_start_time: { type: String },
+    new_end_time: { type: String },
+    reason: { type: String, maxlength: 300 },
+    requested_at: { type: Date },
+    response: { type: String, enum: ['accepted', 'rejected'] },
+    responded_at: { type: Date }
+  }],
+  original_booking: {
+    date: { type: String },
+    start_time: { type: String },
+    end_time: { type: String }
+  }
 }, { timestamps: true });
 
 bookingSchema.index({ master_id: 1, date: 1 });
 bookingSchema.index({ customer_id: 1, status: 1 });
+bookingSchema.index({ status: 1, createdAt: -1 });
+
+// Generate reservation ID before saving
+bookingSchema.pre('save', function(next) {
+  if (!this.reservation_id) {
+    this.reservation_id = 'RV' + Date.now() + Math.random().toString(36).substr(2, 4).toUpperCase();
+  }
+  next();
+});
+
+// Also generate on validate to ensure it's set before validation
+bookingSchema.pre('validate', function(next) {
+  if (!this.reservation_id) {
+    this.reservation_id = 'RV' + Date.now() + Math.random().toString(36).substr(2, 4).toUpperCase();
+  }
+  next();
+});
 
 export const Booking = mongoose.model('Booking', bookingSchema);

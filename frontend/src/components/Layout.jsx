@@ -190,6 +190,14 @@ export default function Layout() {
               </Link>
             )}
             <Link
+              to="/reservations"
+              role="menuitem"
+              className="dropdown-link"
+              onMouseDown={handleProfileNavMouseDown('/reservations')}
+            >
+              Gestione Prenotazioni
+            </Link>
+            <Link
               to="/chat"
               role="menuitem"
               className="dropdown-link"

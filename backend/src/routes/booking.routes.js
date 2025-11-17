@@ -28,6 +28,17 @@ const respondSchema = Joi.object({
   action: Joi.string().valid('accept', 'reject').required()
 });
 
+const rescheduleSchema = Joi.object({
+  newDate: Joi.string().pattern(/^\d{4}-\d{2}-\d{2}$/).required(),
+  newStart: Joi.string().pattern(/^\d{2}:\d{2}$/).required(),
+  newEnd: Joi.string().pattern(/^\d{2}:\d{2}$/).required(),
+  reason: Joi.string().max(300).allow('', null)
+});
+
+const rescheduleResponseSchema = Joi.object({
+  action: Joi.string().valid('accept', 'reject').required()
+});
+
 const ensureMaster = async userId =>
   Master.findOne({ user_id: userId }).select(
     '_id display_name rate_chat_cpm rate_voice_cpm rate_chat_voice_cpm services is_accepting_requests user_id working_hours'
@@ -233,7 +244,8 @@ router.post('/:bookingId/respond', requireAuth, requireRole('master'), async (re
     }
 
     if (action === 'accept') {
-      booking.status = 'confirmed';
+      booking.status = 'ready_to_start';
+      booking.can_start = true;
       await booking.save();
 
       if (booking.channel === 'chat' || booking.channel === 'chat_voice') {
@@ -275,6 +287,7 @@ router.post('/:bookingId/respond', requireAuth, requireRole('master'), async (re
     }
 
     booking.status = 'rejected';
+    booking.can_start = false;
     await booking.save();
 
     if (booking.wallet_txn_id && booking.amount_cents > 0 && booking.customer_id?.wallet_id) {
@@ -363,6 +376,400 @@ router.post('/:bookingId/start-voice', requireAuth, async (req, res, next) => {
       session_id: sess._id,
       redirect_url: `/voice/${sess._id}`,
       booking_id: booking._id
+    });
+  } catch (error) {
+    next(error);
+  }
+});
+
+// Get customer bookings with history
+router.get('/customer/history', requireAuth, async (req, res, next) => {
+  try {
+    const { page = 1, limit = 20, status } = req.query;
+    const filter = { customer_id: req.user._id };
+    if (status) filter.status = status;
+
+    const bookings = await Booking.find(filter)
+      .sort({ createdAt: -1 })
+      .limit(limit * 1)
+      .skip((page - 1) * limit)
+      .populate('master_id', 'display_name avatar_url services')
+      .populate('wallet_txn_id', 'amount type createdAt');
+
+    const total = await Booking.countDocuments(filter);
+
+    res.json({
+      bookings: bookings.map(booking => ({
+        id: booking._id,
+        master: {
+          id: booking.master_id._id,
+          name: booking.master_id.display_name,
+          avatar: booking.master_id.avatar_url
+        },
+        date: booking.date,
+        start: booking.start_time,
+        end: booking.end_time,
+        channel: booking.channel,
+        status: booking.status,
+        amount_cents: booking.amount_cents,
+        duration_minutes: booking.duration_minutes,
+        notes: booking.notes,
+        reschedule_request: booking.reschedule_request,
+        reschedule_history: booking.reschedule_history || [],
+        original_booking: booking.original_booking,
+        createdAt: booking.createdAt
+      })),
+      pagination: {
+        page: parseInt(page),
+        limit: parseInt(limit),
+        total,
+        pages: Math.ceil(total / limit)
+      }
+    });
+  } catch (error) {
+    next(error);
+  }
+});
+
+// Request reschedule
+router.post('/:bookingId/reschedule', requireAuth, async (req, res, next) => {
+  try {
+    const payload = await rescheduleSchema.validateAsync(req.body);
+    const booking = await Booking.findById(req.params.bookingId)
+      .populate('master_id', 'user_id display_name working_hours')
+      .populate('customer_id', '_id display_name');
+
+    if (!booking) return res.status(404).json({ message: 'Prenotazione non trovata.' });
+    
+    const isCustomer = booking.customer_id._id.toString() === req.user._id.toString();
+    const isMaster = booking.master_id.user_id.toString() === req.user._id.toString();
+    
+    if (!isCustomer && !isMaster) {
+      return res.status(403).json({ message: 'Non autorizzato.' });
+    }
+
+    if (!['confirmed', 'awaiting_master', 'reschedule_requested'].includes(booking.status)) {
+      return res.status(400).json({ message: 'Impossibile riprogrammare questa prenotazione.' });
+    }
+
+    // If there's already a pending reschedule request, move it to history
+    if (booking.reschedule_request) {
+      if (!booking.reschedule_history) booking.reschedule_history = [];
+      booking.reschedule_history.push({
+        ...booking.reschedule_request,
+        response: 'superseded',
+        responded_at: new Date()
+      });
+    }
+
+    // Validate new time slot
+    const { blocks, bookings } = await loadDayContext({ 
+      masterId: booking.master_id._id, 
+      date: payload.newDate 
+    });
+    
+    const slotIsFree = checkAvailability({
+      blocks,
+      bookings: bookings.filter(b => b._id.toString() !== booking._id.toString()),
+      start: payload.newStart,
+      end: payload.newEnd,
+      date: payload.newDate,
+      workingHours: booking.master_id.working_hours
+    });
+
+    if (!slotIsFree) {
+      return res.status(409).json({ message: 'La nuova fascia oraria non è disponibile.' });
+    }
+
+    // Store original booking details if not already stored
+    if (!booking.original_booking.date) {
+      booking.original_booking = {
+        date: booking.date,
+        start_time: booking.start_time,
+        end_time: booking.end_time
+      };
+    }
+
+    booking.reschedule_request = {
+      requested_by: isCustomer ? 'customer' : 'master',
+      new_date: payload.newDate,
+      new_start_time: payload.newStart,
+      new_end_time: payload.newEnd,
+      reason: payload.reason || '',
+      requested_at: new Date()
+    };
+    booking.status = 'reschedule_requested';
+    await booking.save();
+
+    const targetUserId = isCustomer ? booking.master_id.user_id : booking.customer_id._id;
+    const requesterName = isCustomer ? 
+      (booking.customer_id.display_name || 'Cliente') : 
+      (booking.master_id.display_name || 'Master');
+
+    await createNotification({
+      userId: targetUserId,
+      type: 'booking:reschedule_requested',
+      title: 'Richiesta di riprogrammazione',
+      body: `${requesterName} ha richiesto di riprogrammare la sessione del ${booking.date} per il ${payload.newDate}.`,
+      meta: { bookingId: booking._id }
+    });
+
+    res.json({ message: 'Richiesta di riprogrammazione inviata.' });
+  } catch (error) {
+    if (error.isJoi) {
+      return res.status(400).json({ message: 'Dati non validi.' });
+    }
+    next(error);
+  }
+});
+
+// Respond to reschedule request
+router.post('/:bookingId/reschedule/respond', requireAuth, async (req, res, next) => {
+  try {
+    const { action } = await rescheduleResponseSchema.validateAsync(req.body);
+    const booking = await Booking.findById(req.params.bookingId)
+      .populate('master_id', 'user_id display_name working_hours')
+      .populate('customer_id', '_id display_name');
+
+    if (!booking) return res.status(404).json({ message: 'Prenotazione non trovata.' });
+    if (booking.status !== 'reschedule_requested') {
+      return res.status(400).json({ message: 'Nessuna richiesta di riprogrammazione pendente.' });
+    }
+
+    const isCustomer = booking.customer_id._id.toString() === req.user._id.toString();
+    const isMaster = booking.master_id.user_id.toString() === req.user._id.toString();
+    
+    if (!isCustomer && !isMaster) {
+      return res.status(403).json({ message: 'Non autorizzato.' });
+    }
+
+    // Check if user is the one who should respond (opposite of who requested)
+    const shouldRespond = (booking.reschedule_request.requested_by === 'customer' && isMaster) ||
+                         (booking.reschedule_request.requested_by === 'master' && isCustomer);
+    
+    if (!shouldRespond) {
+      return res.status(403).json({ message: 'Non puoi rispondere alla tua stessa richiesta.' });
+    }
+
+    // Store current reschedule request for history
+    const currentRequest = { ...booking.reschedule_request };
+    
+    if (action === 'accept') {
+      // Double-check availability
+      const { blocks, bookings } = await loadDayContext({ 
+        masterId: booking.master_id._id, 
+        date: booking.reschedule_request.new_date 
+      });
+      
+      const slotIsFree = checkAvailability({
+        blocks,
+        bookings: bookings.filter(b => b._id.toString() !== booking._id.toString()),
+        start: booking.reschedule_request.new_start_time,
+        end: booking.reschedule_request.new_end_time,
+        date: booking.reschedule_request.new_date,
+        workingHours: booking.master_id.working_hours
+      });
+
+      if (!slotIsFree) {
+        return res.status(409).json({ message: 'La fascia oraria non è più disponibile.' });
+      }
+
+      // Update booking with new schedule
+      booking.date = booking.reschedule_request.new_date;
+      booking.start_time = booking.reschedule_request.new_start_time;
+      booking.end_time = booking.reschedule_request.new_end_time;
+      booking.status = 'ready_to_start';
+      booking.can_start = true;
+      
+      // Add to history
+      if (!booking.reschedule_history) booking.reschedule_history = [];
+      booking.reschedule_history.push({
+        ...currentRequest,
+        response: 'accepted',
+        responded_at: new Date()
+      });
+      
+      booking.reschedule_request = undefined;
+      await booking.save();
+
+      const targetUserId = currentRequest.requested_by === 'customer' ? 
+        booking.customer_id._id : booking.master_id.user_id;
+      
+      await createNotification({
+        userId: targetUserId,
+        type: 'booking:reschedule_accepted',
+        title: 'Riprogrammazione accettata',
+        body: `La tua richiesta di riprogrammazione è stata accettata. Nuovo orario: ${booking.date} dalle ${booking.start_time} alle ${booking.end_time}.`,
+        meta: { bookingId: booking._id }
+      });
+
+      res.json({ message: 'Riprogrammazione accettata.' });
+    } else {
+      booking.status = 'ready_to_start';
+      booking.can_start = true;
+      
+      // Add to history
+      if (!booking.reschedule_history) booking.reschedule_history = [];
+      booking.reschedule_history.push({
+        ...currentRequest,
+        response: 'rejected',
+        responded_at: new Date()
+      });
+      
+      booking.reschedule_request = undefined;
+      await booking.save();
+
+      const targetUserId = currentRequest.requested_by === 'customer' ? 
+        booking.customer_id._id : booking.master_id.user_id;
+      
+      await createNotification({
+        userId: targetUserId,
+        type: 'booking:reschedule_rejected',
+        title: 'Riprogrammazione rifiutata',
+        body: 'La tua richiesta di riprogrammazione è stata rifiutata. La prenotazione originale rimane confermata.',
+        meta: { bookingId: booking._id }
+      });
+
+      res.json({ message: 'Riprogrammazione rifiutata.' });
+    }
+  } catch (error) {
+    if (error.isJoi) {
+      return res.status(400).json({ message: 'Richiesta non valida.' });
+    }
+    next(error);
+  }
+});
+
+// Get reservations for both customer and master
+router.get('/reservations', requireAuth, async (req, res, next) => {
+  try {
+    const { page = 1, limit = 20, status } = req.query;
+    const userId = req.user._id;
+    
+    // Check if user is a master
+    const master = await Master.findOne({ user_id: userId });
+    
+    let filter = {};
+    if (master) {
+      // Master can see bookings where they are the master OR the customer
+      filter = {
+        $or: [
+          { master_id: master._id },
+          { customer_id: userId }
+        ]
+      };
+    } else {
+      // Regular user sees only their customer bookings
+      filter = { customer_id: userId };
+    }
+    
+    if (status) filter.status = status;
+
+    const bookings = await Booking.find(filter)
+      .sort({ createdAt: -1 })
+      .limit(limit * 1)
+      .skip((page - 1) * limit)
+      .populate('master_id', 'display_name avatar_url user_id')
+      .populate('customer_id', 'display_name avatar_url')
+      .populate('wallet_txn_id', 'amount type createdAt');
+
+    const total = await Booking.countDocuments(filter);
+
+    res.json({
+      reservations: bookings.map(booking => ({
+        id: booking._id,
+        reservation_id: booking.reservation_id,
+        master: {
+          id: booking.master_id._id,
+          name: booking.master_id.display_name,
+          avatar: booking.master_id.avatar_url,
+          user_id: booking.master_id.user_id
+        },
+        customer: {
+          id: booking.customer_id._id,
+          name: booking.customer_id.display_name,
+          avatar: booking.customer_id.avatar_url
+        },
+        date: booking.date,
+        start: booking.start_time,
+        end: booking.end_time,
+        channel: booking.channel,
+        status: booking.status,
+        can_start: booking.can_start,
+        started_by: booking.started_by,
+        amount_cents: booking.amount_cents,
+        duration_minutes: booking.duration_minutes,
+        notes: booking.notes,
+        reschedule_request: booking.reschedule_request,
+        reschedule_history: booking.reschedule_history || [],
+        original_booking: booking.original_booking,
+        user_role: master && booking.master_id._id.toString() === master._id.toString() ? 'master' : 'customer',
+        createdAt: booking.createdAt
+      })),
+      pagination: {
+        page: parseInt(page),
+        limit: parseInt(limit),
+        total,
+        pages: Math.ceil(total / limit)
+      }
+    });
+  } catch (error) {
+    next(error);
+  }
+});
+
+// Start session (mutual confirmation required)
+router.post('/:bookingId/start', requireAuth, async (req, res, next) => {
+  try {
+    const booking = await Booking.findById(req.params.bookingId)
+      .populate('master_id', 'user_id display_name')
+      .populate('customer_id', '_id display_name');
+
+    if (!booking) return res.status(404).json({ message: 'Prenotazione non trovata.' });
+    
+    const isCustomer = booking.customer_id._id.toString() === req.user._id.toString();
+    const isMaster = booking.master_id.user_id.toString() === req.user._id.toString();
+    
+    if (!isCustomer && !isMaster) {
+      return res.status(403).json({ message: 'Non autorizzato.' });
+    }
+
+    if (!booking.can_start || booking.status !== 'ready_to_start') {
+      return res.status(400).json({ message: 'La sessione non può essere avviata ora.' });
+    }
+
+    // Check if session is scheduled for now (within 15 minutes)
+    const now = new Date();
+    const sessionDateTime = new Date(`${booking.date}T${booking.start_time}:00`);
+    const timeDiff = Math.abs(now - sessionDateTime) / (1000 * 60); // minutes
+    
+    if (timeDiff > 15) {
+      return res.status(400).json({ message: 'Puoi avviare la sessione solo 15 minuti prima dell\'orario previsto.' });
+    }
+
+    booking.status = 'active';
+    booking.started_by = isCustomer ? 'customer' : 'master';
+    booking.started_at = now;
+    await booking.save();
+
+    // Notify the other party
+    const targetUserId = isCustomer ? booking.master_id.user_id : booking.customer_id._id;
+    const starterName = isCustomer ? 
+      (booking.customer_id.display_name || 'Cliente') : 
+      (booking.master_id.display_name || 'Master');
+
+    await createNotification({
+      userId: targetUserId,
+      type: 'session:started',
+      title: 'Sessione avviata',
+      body: `${starterName} ha avviato la sessione ${booking.reservation_id}. Unisciti ora!`,
+      meta: { bookingId: booking._id, reservationId: booking.reservation_id }
+    });
+
+    res.json({ 
+      message: 'Sessione avviata con successo.',
+      session_url: booking.channel === 'voice' ? `/voice/${booking._id}` : `/chat/${booking._id}`,
+      reservation_id: booking.reservation_id
     });
   } catch (error) {
     next(error);

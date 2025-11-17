@@ -12,6 +12,8 @@ import MasterProfile from './pages/MasterProfile.jsx';
 import Profile from './pages/Profile.jsx';
 import VerifyEmail from './pages/VerifyEmail.jsx';
 import MasterDashboard from './pages/MasterDashboard.jsx';
+import Dashboard from './pages/Dashboard.jsx';
+import Reservations from './pages/Reservations.jsx';
 import Chat from './pages/Chat.jsx';
 import Voice from './pages/Voice.jsx';
 
@@ -36,6 +38,8 @@ export default function App() {
           <Route path="/catalog" element={<Catalog />} />
           <Route path="/masters/:id" element={<MasterProfile />} />
           <Route path="/master/dashboard" element={<MasterDashboard />} />
+          <Route path="/dashboard" element={<Dashboard />} />
+          <Route path="/reservations" element={<Reservations />} />
           <Route path="/chat" element={<Chat />} />
           <Route path="/chat/:threadId" element={<Chat />} />
           <Route path="/voice" element={<Voice />} />
