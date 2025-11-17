@@ -181,18 +181,9 @@ export default function useVoiceWebRTC(sessionId, viewerRole, onCallEnd) {
   }, [viewerRole, sessionId, isInitializing, initializePeerConnection, sendSignal, cleanup, requestMicrophoneAccess]);
 
   const handleSignal = useCallback(async (signal) => {
-    if (!signal || !signal.type) {
-      console.warn('[VoiceWebRTC] Ignoring malformed signal', signal);
-      return;
-    }
-
     if (!peerConnection.current) {
       console.log('[VoiceWebRTC] No peer connection yet, starting before handling signal');
       await startCall({ skipOffer: true });
-    }
-
-    if (!peerConnection.current) {
-      await new Promise(resolve => setTimeout(resolve, 200));
     }
 
     try {

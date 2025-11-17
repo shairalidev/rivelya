@@ -197,18 +197,9 @@ export default function useWebRTC(threadId, callId, isInitiator, onCallEnd) {
   }, [isInitiator, initializePeerConnection, sendSignal, cleanup, requestMicrophoneAccess, isInitializing]);
 
   const handleSignal = useCallback(async (signal) => {
-    if (!signal || !signal.type) {
-      console.warn('[WebRTC] Ignoring malformed signal', signal);
-      return;
-    }
-
     if (!peerConnection.current) {
       console.log('[WebRTC] No peer connection yet, starting before handling signal');
       await startCall({ skipOffer: true });
-    }
-
-    if (!peerConnection.current) {
-      await new Promise(resolve => setTimeout(resolve, 200));
     }
 
     try {
