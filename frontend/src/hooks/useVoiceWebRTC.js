@@ -22,11 +22,18 @@ export default function useVoiceWebRTC(sessionId, viewerRole, onCallEnd) {
 
   const cleanup = useCallback(() => {
     console.log('[VoiceWebRTC] Cleaning up connection');
+    
+    // Stop any ongoing initialization
+    isStartingRef.current = false;
+    
     if (localStream) {
       localStream.getTracks().forEach(track => track.stop());
     }
     if (peerConnection.current) {
-      peerConnection.current.close();
+      // Check if already closed to avoid errors
+      if (peerConnection.current.signalingState !== 'closed') {
+        peerConnection.current.close();
+      }
       peerConnection.current = null;
     }
     setLocalStream(null);
@@ -164,6 +171,12 @@ export default function useVoiceWebRTC(sessionId, viewerRole, onCallEnd) {
       const pc = initializePeerConnection();
       peerConnection.current = pc;
 
+      // Check if connection is still valid before proceeding
+      if (pc.signalingState === 'closed') {
+        console.warn('[VoiceWebRTC] Peer connection closed during initialization');
+        return;
+      }
+
       stream.getTracks().forEach(track => {
         console.log('[VoiceWebRTC] Adding track:', track.kind);
         pc.addTrack(track, stream);
@@ -171,6 +184,12 @@ export default function useVoiceWebRTC(sessionId, viewerRole, onCallEnd) {
 
       // Wait a bit for ICE gathering to start
       await new Promise(resolve => setTimeout(resolve, 100));
+
+      // Check connection state again before creating offer
+      if (pc.signalingState === 'closed') {
+        console.warn('[VoiceWebRTC] Peer connection closed before creating offer');
+        return;
+      }
 
       // Esperti always initiates the WebRTC connection unless we're
       // starting in response to an incoming signal (skipOffer=true)
@@ -180,6 +199,13 @@ export default function useVoiceWebRTC(sessionId, viewerRole, onCallEnd) {
           offerToReceiveAudio: true,
           offerToReceiveVideo: false
         });
+        
+        // Check state before setting local description
+        if (pc.signalingState === 'closed') {
+          console.warn('[VoiceWebRTC] Peer connection closed before setting local description');
+          return;
+        }
+        
         await pc.setLocalDescription(offer);
         console.log('[VoiceWebRTC] Local description set, sending offer');
         await sendSignal('offer', offer);
@@ -214,8 +240,8 @@ export default function useVoiceWebRTC(sessionId, viewerRole, onCallEnd) {
     try {
       const pc = peerConnection.current;
 
-      if (!pc) {
-        console.warn('[VoiceWebRTC] Peer connection still unavailable for signal handling');
+      if (!pc || pc.signalingState === 'closed') {
+        console.warn('[VoiceWebRTC] Peer connection unavailable or closed for signal handling');
         return;
       }
 
@@ -225,8 +251,18 @@ export default function useVoiceWebRTC(sessionId, viewerRole, onCallEnd) {
             console.warn('[VoiceWebRTC] Missing offer data in signal');
             return;
           }
+          if (pc.signalingState === 'closed') {
+            console.warn('[VoiceWebRTC] Cannot handle offer, connection closed');
+            return;
+          }
           console.log('[VoiceWebRTC] Received offer, setting remote description and creating answer');
           await pc.setRemoteDescription(new RTCSessionDescription(signal.data));
+          
+          if (pc.signalingState === 'closed') {
+            console.warn('[VoiceWebRTC] Connection closed after setting remote description');
+            return;
+          }
+          
           const answer = await pc.createAnswer();
           await pc.setLocalDescription(answer);
           console.log('[VoiceWebRTC] Sending answer');
@@ -238,6 +274,10 @@ export default function useVoiceWebRTC(sessionId, viewerRole, onCallEnd) {
             console.warn('[VoiceWebRTC] Missing answer data in signal');
             return;
           }
+          if (pc.signalingState === 'closed') {
+            console.warn('[VoiceWebRTC] Cannot handle answer, connection closed');
+            return;
+          }
           console.log('[VoiceWebRTC] Received answer, setting remote description');
           await pc.setRemoteDescription(new RTCSessionDescription(signal.data));
           break;
@@ -247,6 +287,10 @@ export default function useVoiceWebRTC(sessionId, viewerRole, onCallEnd) {
             console.warn('[VoiceWebRTC] Missing ICE candidate data in signal');
             return;
           }
+          if (pc.signalingState === 'closed') {
+            console.warn('[VoiceWebRTC] Cannot handle ICE candidate, connection closed');
+            return;
+          }
           console.log('[VoiceWebRTC] Received ICE candidate, adding to peer connection');
           if (pc.remoteDescription) {
             await pc.addIceCandidate(new RTCIceCandidate(signal.data));
@@ -254,7 +298,7 @@ export default function useVoiceWebRTC(sessionId, viewerRole, onCallEnd) {
             console.log('[VoiceWebRTC] Queuing ICE candidate until remote description is set');
             // Queue the candidate for later
             setTimeout(async () => {
-              if (pc.remoteDescription) {
+              if (pc.remoteDescription && pc.signalingState !== 'closed') {
                 try {
                   await pc.addIceCandidate(new RTCIceCandidate(signal.data));
                 } catch (e) {
