@@ -85,7 +85,11 @@ export default function CallPopup({
   useEffect(() => {
     if (onSignal && handleSignal) {
       onSignal(handleSignal);
+      return () => {
+        onSignal(null);
+      };
     }
+    return undefined;
   }, [onSignal, handleSignal]);
 
   // Connect audio streams to elements when they change

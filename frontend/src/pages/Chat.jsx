@@ -11,6 +11,7 @@ import { getToken, subscribeAuthChange } from '../lib/auth.js';
 import CallPopup from '../components/CallPopup.jsx';
 import MicTest from '../components/MicTest.jsx';
 import client from '../api/client.js';
+import { decodeTokenSub } from '../utils/jwt.js';
 
 const formatDuration = seconds => {
   if (seconds == null) return '--:--';
@@ -40,6 +41,13 @@ const channelShortLabels = {
   chat: 'Chat',
   voice: 'Voce',
   chat_voice: 'Chat + Voce'
+};
+
+const normalizeId = value => {
+  if (!value) return null;
+  if (typeof value === 'string') return value;
+  if (typeof value.toString === 'function') return value.toString();
+  return null;
 };
 
 const ChatBubbleIcon = props => (
@@ -104,6 +112,9 @@ export default function Chat() {
   const [noteUpdatedAt, setNoteUpdatedAt] = useState(null);
   const [activeCall, setActiveCall] = useState(null);
   const [signalHandler, setSignalHandler] = useState(null);
+  const signalHandlerRef = useRef(null);
+  const activeCallRef = useRef(null);
+  const viewerId = useMemo(() => decodeTokenSub(token), [token]);
 
   useEffect(() => {
     const sync = () => {
@@ -114,6 +125,14 @@ export default function Chat() {
       unsubscribe();
     };
   }, []);
+
+  useEffect(() => {
+    signalHandlerRef.current = signalHandler;
+  }, [signalHandler]);
+
+  useEffect(() => {
+    activeCallRef.current = activeCall;
+  }, [activeCall]);
 
   useEffect(() => {
     if (!token) {
@@ -172,8 +191,18 @@ export default function Chat() {
     if (!socket) return undefined;
     const handleMessage = payload => {
       queryClient.invalidateQueries({ queryKey: ['chat', 'threads'] });
-      if (payload.threadId && payload.threadId === threadId) {
+      const payloadThreadId = normalizeId(payload.threadId);
+      const currentThreadId = normalizeId(threadId);
+      if (payloadThreadId && payloadThreadId === currentThreadId) {
         queryClient.invalidateQueries({ queryKey: ['chat', 'thread', threadId] });
+      } else if (payloadThreadId && payloadThreadId !== currentThreadId) {
+        const senderId = normalizeId(payload.senderId);
+        if (!viewerId || senderId !== viewerId) {
+          const snippet = typeof payload.body === 'string'
+            ? (payload.body.length > 80 ? `${payload.body.slice(0, 77)}…` : payload.body)
+            : 'Nuovo messaggio in chat';
+          toast(snippet, { icon: '💬' });
+        }
       }
     };
     const handleThreadUpdate = payload => {
@@ -183,45 +212,47 @@ export default function Chat() {
       }
     };
 
+    const matchesActiveCall = payload => {
+      const payloadCallId = normalizeId(payload.callId);
+      const currentCallId = normalizeId(activeCallRef.current?.callId);
+      return Boolean(payloadCallId && currentCallId && payloadCallId === currentCallId);
+    };
+
     const handleCallIncoming = payload => {
-      if (payload.threadId === threadId) {
-        setActiveCall({ ...payload, isIncoming: true });
-      }
+      setActiveCall({ ...payload, isIncoming: true });
     };
 
     const handleCallOutgoing = payload => {
-      if (payload.threadId === threadId) {
-        setActiveCall({ ...payload, isIncoming: false });
-      }
+      setActiveCall({ ...payload, isIncoming: false });
     };
 
     const handleCallAccepted = payload => {
-      if (payload.threadId === threadId) {
-        setActiveCall(prev => prev ? { ...prev, status: 'accepted' } : null);
+      if (matchesActiveCall(payload)) {
+        setActiveCall(prev => (prev ? { ...prev, status: 'accepted' } : null));
       }
     };
 
     const handleCallRejected = payload => {
-      if (payload.threadId === threadId) {
+      if (matchesActiveCall(payload)) {
         setActiveCall(null);
       }
     };
 
     const handleCallEnded = payload => {
-      if (payload.threadId === threadId) {
+      if (matchesActiveCall(payload)) {
         setActiveCall(null);
       }
     };
 
     const handleCallTimeout = payload => {
-      if (payload.threadId === threadId) {
+      if (matchesActiveCall(payload)) {
         setActiveCall(null);
       }
     };
 
     const handleCallSignal = payload => {
-      if (payload.threadId === threadId && signalHandler) {
-        signalHandler(payload);
+      if (matchesActiveCall(payload)) {
+        signalHandlerRef.current?.(payload);
       }
     };
     socket.on('chat:message', handleMessage);
@@ -245,7 +276,7 @@ export default function Chat() {
       socket.off('chat:call:timeout', handleCallTimeout);
       socket.off('chat:call:signal', handleCallSignal);
     };
-  }, [socket, queryClient, threadId, signalHandler]);
+  }, [socket, queryClient, threadId, viewerId]);
 
   useEffect(() => {
     if (!threadId && threads.length > 0) {
@@ -307,10 +338,10 @@ export default function Chat() {
   };
 
   const acceptCall = async () => {
-    if (!activeCall || !threadId) return;
-    
+    if (!activeCall || !activeCall.threadId) return;
+
     try {
-      await client.post(`/chat/threads/${threadId}/call/${activeCall.callId}/accept`);
+      await client.post(`/chat/threads/${activeCall.threadId}/call/${activeCall.callId}/accept`);
       // Call state will be updated via socket events
     } catch (error) {
       const msg = error?.response?.data?.message || 'Impossibile accettare la chiamata.';
@@ -320,10 +351,10 @@ export default function Chat() {
   };
 
   const rejectCall = async () => {
-    if (!activeCall || !threadId) return;
-    
+    if (!activeCall || !activeCall.threadId) return;
+
     try {
-      await client.post(`/chat/threads/${threadId}/call/${activeCall.callId}/reject`);
+      await client.post(`/chat/threads/${activeCall.threadId}/call/${activeCall.callId}/reject`);
       setActiveCall(null);
     } catch (error) {
       const msg = error?.response?.data?.message || 'Impossibile rifiutare la chiamata.';
@@ -333,10 +364,10 @@ export default function Chat() {
   };
 
   const endCall = async () => {
-    if (!activeCall || !threadId) return;
-    
+    if (!activeCall || !activeCall.threadId) return;
+
     try {
-      await client.post(`/chat/threads/${threadId}/call/${activeCall.callId}/end`);
+      await client.post(`/chat/threads/${activeCall.threadId}/call/${activeCall.callId}/end`);
       setActiveCall(null);
     } catch (error) {
       const msg = error?.response?.data?.message || 'Impossibile terminare la chiamata.';
@@ -348,6 +379,15 @@ export default function Chat() {
   const viewerRole = threadQuery.data?.viewerRole;
   const viewerMessageRole = viewerRole === 'master' ? 'master' : viewerRole === 'client' ? 'client' : null;
   const messages = threadQuery.data?.messages || [];
+  const activeCallThread = useMemo(
+    () => threads.find(thread => thread.id === activeCall?.threadId),
+    [threads, activeCall?.threadId]
+  );
+  const callPartnerName = activeCall
+    ? activeCall.isIncoming
+      ? activeCall.callerName
+      : resolveName(activeCallThread)
+    : null;
   const sessionChannel = activeThread?.channel || activeThread?.booking?.channel;
   const channelLabel = sessionChannel ? channelLabels[sessionChannel] || 'Sessione' : null;
   const sessionRateLabel = sessionChannel
@@ -597,13 +637,13 @@ export default function Chat() {
       {activeCall && (
         <CallPopup
           call={activeCall}
-          threadId={threadId}
+          threadId={activeCall.threadId}
           isIncoming={activeCall.isIncoming}
           onAccept={acceptCall}
           onReject={rejectCall}
           onEnd={endCall}
           onSignal={setSignalHandler}
-          partnerName={activeCall.isIncoming ? activeCall.callerName : resolveName(activeThread)}
+          partnerName={callPartnerName}
         />
       )}
     </section>

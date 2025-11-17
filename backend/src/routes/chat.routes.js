@@ -7,6 +7,7 @@ import { Master } from '../models/master.model.js';
 import { emitToUser } from '../lib/socket.js';
 import { ChatThreadNote } from '../models/chat-thread-note.model.js';
 import { ChatCall } from '../models/chat-call.model.js';
+import { createNotification } from '../utils/notifications.js';
 
 const router = Router();
 
@@ -266,6 +267,26 @@ router.post('/threads/:threadId/messages', requireAuth, async (req, res, next) =
 
     emitToUser(thread.customer_id, 'chat:message', response);
     emitToUser(thread.master_user_id, 'chat:message', response);
+
+    const recipient = isMaster ? thread.customer_id : thread.master_user_id;
+    const recipientId = recipient?._id || recipient;
+    if (recipientId) {
+      const senderName = resolveDisplayName(req.user);
+      const snippet = typeof message.body === 'string'
+        ? (message.body.length > 140 ? `${message.body.slice(0, 137)}…` : message.body)
+        : 'Hai un nuovo messaggio in chat.';
+      try {
+        await createNotification({
+          userId: recipientId,
+          type: 'chat:message',
+          title: 'Nuovo messaggio in chat',
+          body: `${senderName}: ${snippet}`,
+          meta: { threadId: thread._id, messageId: message._id }
+        });
+      } catch (notifyError) {
+        console.warn('Failed to create chat notification', notifyError);
+      }
+    }
 
     res.status(201).json({ message: response });
   } catch (error) {

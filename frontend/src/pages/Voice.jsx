@@ -11,6 +11,7 @@ import client from '../api/client.js';
 import ConfirmModal from '../components/ConfirmModal.jsx';
 import useAudioLevel from '../hooks/useAudioLevel.js';
 import useSimulatedVoiceActivity from '../hooks/useSimulatedVoiceActivity.js';
+import { decodeTokenSub } from '../utils/jwt.js';
 
 const toastInfo = (message, options) => toast(message, { icon: 'ℹ️', ...options });
 const toastWarning = (message, options) => toast(message, { icon: '⚠️', ...options });
@@ -80,20 +81,6 @@ const PhoneIcon = props => (
 );
 
 const meterOffsets = [0, 0.12, 0.24, 0.36];
-
-const decodeTokenSub = tokenString => {
-  if (!tokenString || typeof atob !== 'function') return null;
-  try {
-    const [, payload] = tokenString.split('.');
-    if (!payload) return null;
-    const normalized = payload.replace(/-/g, '+').replace(/_/g, '/');
-    const decoded = JSON.parse(atob(normalized));
-    return decoded?.sub || null;
-  } catch (error) {
-    console.warn('Unable to decode auth token payload.', error);
-    return null;
-  }
-};
 
 const VoiceParticipant = ({ name, role, avatar, fallbackInitial, level }) => {
   const speaking = level > 0.08;
@@ -171,6 +158,9 @@ export default function Voice() {
 
   const stopAudioStream = () => {
     if (audioStream) {
+      console.info('[voice] Stopping local audio stream', {
+        trackCount: audioStream.getTracks()?.length || 0
+      });
       audioStream.getTracks().forEach(track => track.stop());
       setAudioStream(null);
       setIsMuted(false);
@@ -216,6 +206,7 @@ export default function Voice() {
       // Join the voice session room
       if (socket && sessionId) {
         try {
+          console.info('[voice] Joining voice session room', { sessionId });
           socket.emit('voice:session:join', { sessionId });
           setSocketError(null);
         } catch (error) {
@@ -229,6 +220,7 @@ export default function Voice() {
       // Leave the voice session room
       if (socket && sessionId) {
         try {
+          console.info('[voice] Leaving voice session room', { sessionId });
           socket.emit('voice:session:leave', { sessionId });
         } catch (error) {
           console.error('Failed to leave voice session:', error);
@@ -288,6 +280,7 @@ export default function Voice() {
       if (payload.sessionId && payload.sessionId === sessionId) {
         queryClient.invalidateQueries({ queryKey: ['voice', 'session', sessionId] });
       }
+      console.info('[voice] Received voice:session:updated', payload);
     };
 
     const handleSessionCreated = payload => {
@@ -298,6 +291,7 @@ export default function Voice() {
       if (payload?.createdBy && payload.createdBy !== viewerId) {
         toast.success('📞 Nuova sessione vocale disponibile');
       }
+      console.info('[voice] Received voice:session:created', payload);
     };
     
     const handleSessionStarted = payload => {
@@ -307,6 +301,7 @@ export default function Voice() {
         queryClient.invalidateQueries({ queryKey: ['voice', 'session', sessionId] });
       }
       queryClient.invalidateQueries({ queryKey: ['voice', 'sessions'] });
+      console.info('[voice] Received voice:session:started', payload);
     };
     
     const handleSessionEnded = payload => {
@@ -317,6 +312,7 @@ export default function Voice() {
         queryClient.invalidateQueries({ queryKey: ['voice', 'session', sessionId] });
       }
       queryClient.invalidateQueries({ queryKey: ['voice', 'sessions'] });
+      console.info('[voice] Received voice:session:ended', payload);
     };
     
     const handleSessionExpired = payload => {
@@ -327,6 +323,7 @@ export default function Voice() {
         queryClient.invalidateQueries({ queryKey: ['voice', 'session', sessionId] });
       }
       queryClient.invalidateQueries({ queryKey: ['voice', 'sessions'] });
+      console.info('[voice] Received voice:session:expired', payload);
     };
 
     const handleParticipantMuted = payload => {
@@ -338,6 +335,7 @@ export default function Voice() {
           toastInfo(`🎤 ${participantName} ha attivato il microfono`);
         }
       }
+      console.info('[voice] Received voice:participant:muted', payload);
     };
     
     socket.on('voice:session:updated', handleSessionUpdate);
@@ -390,11 +388,15 @@ export default function Voice() {
   const requestMicPermission = async () => {
     try {
       const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+      console.info('[voice] Microphone permission granted', {
+        trackCount: stream.getAudioTracks()?.length || 0
+      });
       setAudioStream(stream);
       setMicPermission('granted');
       return true;
     } catch (error) {
       setMicPermission('denied');
+      console.error('[voice] Microphone permission denied', { message: error.message });
       toast.error('Accesso al microfono negato. Abilita il microfono nelle impostazioni del browser.');
       return false;
     }
@@ -402,10 +404,11 @@ export default function Voice() {
 
   const toggleMute = () => {
     if (!audioStream) return;
-    
+
     const newMutedState = !isMuted;
     setIsMuted(newMutedState);
-    
+    console.info('[voice] Toggling mute state', { sessionId, muted: newMutedState });
+
     // Control actual microphone
     audioStream.getAudioTracks().forEach(track => {
       track.enabled = !newMutedState;
@@ -428,23 +431,30 @@ export default function Voice() {
   };
 
   const startCall = async () => {
+    console.info('[voice] Attempting to start voice call', { sessionId });
     const hasPermission = await requestMicPermission();
     if (!hasPermission) {
+      console.warn('[voice] Cannot start call without microphone permission', { sessionId });
       setShowStartModal(false);
       return;
     }
-    
+
     try {
       const response = await client.post(`/voice/session/${sessionId}/start`);
       setIsConnected(true);
       setShowStartModal(false);
       toast.success('Chiamata avviata');
       queryClient.invalidateQueries({ queryKey: ['voice', 'session', sessionId] });
+      console.info('[voice] Voice call start API succeeded', { sessionId, status: response.data?.status });
     } catch (error) {
       const message = error?.response?.data?.message || 'Impossibile avviare la chiamata';
       toast.error(message);
       setShowStartModal(false);
       stopAudioStream();
+      console.error('[voice] Voice call start API failed', {
+        sessionId,
+        message: error?.response?.data?.message || error.message
+      });
     }
   };
 
@@ -464,10 +474,15 @@ export default function Voice() {
       toast.success('Chiamata terminata');
       queryClient.invalidateQueries({ queryKey: ['voice', 'session', sessionId] });
       queryClient.invalidateQueries({ queryKey: ['voice', 'sessions'] });
+      console.info('[voice] Voice call end API succeeded', { sessionId, status: response.data?.status });
     } catch (error) {
       const message = error?.response?.data?.message || 'Errore durante la chiusura della chiamata';
       toast.error(message);
       setShowEndModal(false);
+      console.error('[voice] Voice call end API failed', {
+        sessionId,
+        message: error?.response?.data?.message || error.message
+      });
     }
   };
 
