@@ -132,11 +132,21 @@ export default function useWebRTC(threadId, callId, isInitiator, onCallEnd) {
       if (pc.connectionState === 'connected') {
         setIsConnected(true);
         setError(null);
-      } else if (pc.connectionState === 'failed' || pc.connectionState === 'disconnected') {
+      } else if (pc.connectionState === 'failed') {
         setIsConnected(false);
-        if (pc.connectionState === 'failed') {
-          setError('Connessione fallita');
-        }
+        setError('Connessione fallita. Riprova.');
+        // Attempt to restart the connection after a delay
+        setTimeout(() => {
+          if (peerConnection.current === pc && threadId && callId) {
+            console.log('[WebRTC] Attempting to restart connection after failure');
+            cleanup();
+            // Don't auto-restart to avoid infinite loops
+            setError('Connessione persa. Premi il pulsante per riconnetterti.');
+          }
+        }, 2000);
+      } else if (pc.connectionState === 'disconnected') {
+        setIsConnected(false);
+        console.log('[WebRTC] Connection disconnected, waiting for reconnection...');
       }
     };
 
@@ -161,7 +171,7 @@ export default function useWebRTC(threadId, callId, isInitiator, onCallEnd) {
       setIsInitializing(true);
       isStartingRef.current = true;
       setError(null);
-      console.log('[WebRTC] Starting call, isInitiator:', isInitiator);
+      console.log('[WebRTC] Starting call, isInitiator:', isInitiator, 'skipOffer:', skipOffer);
 
       console.log('[WebRTC] Requesting user media...');
       const stream = await requestMicrophoneAccess();
@@ -178,6 +188,9 @@ export default function useWebRTC(threadId, callId, isInitiator, onCallEnd) {
         pc.addTrack(track, stream);
       });
 
+      // Wait a bit for ICE gathering to start
+      await new Promise(resolve => setTimeout(resolve, 100));
+
       if (isInitiator && !skipOffer) {
         // Create offer
         console.log('[WebRTC] Creating offer as initiator');
@@ -186,8 +199,10 @@ export default function useWebRTC(threadId, callId, isInitiator, onCallEnd) {
           offerToReceiveVideo: false
         });
         await pc.setLocalDescription(offer);
-        console.log('[WebRTC] Sending offer:', offer);
+        console.log('[WebRTC] Local description set, sending offer');
         await sendSignal('offer', offer);
+      } else {
+        console.log('[WebRTC] Waiting for offer from remote peer');
       }
 
     } catch (error) {
@@ -205,16 +220,20 @@ export default function useWebRTC(threadId, callId, isInitiator, onCallEnd) {
       return;
     }
 
+    console.log('[WebRTC] Handling signal:', signal.type, 'hasPC:', !!peerConnection.current);
+
     if (!peerConnection.current) {
       console.log('[WebRTC] No peer connection yet, starting before handling signal');
       await startCall({ skipOffer: true });
+      // Wait a bit for the peer connection to be established
+      await new Promise(resolve => setTimeout(resolve, 200));
     }
 
     try {
       const pc = peerConnection.current;
 
       if (!pc) {
-        console.warn('[WebRTC] Peer connection unavailable for signal handling');
+        console.warn('[WebRTC] Peer connection still unavailable for signal handling');
         return;
       }
 
@@ -224,10 +243,11 @@ export default function useWebRTC(threadId, callId, isInitiator, onCallEnd) {
             console.warn('[WebRTC] Missing offer data in signal');
             return;
           }
-          console.log('[WebRTC] Received offer, creating answer');
+          console.log('[WebRTC] Received offer, setting remote description and creating answer');
           await pc.setRemoteDescription(new RTCSessionDescription(signal.data));
           const answer = await pc.createAnswer();
           await pc.setLocalDescription(answer);
+          console.log('[WebRTC] Sending answer');
           await sendSignal('answer', answer);
           break;
 
@@ -245,13 +265,27 @@ export default function useWebRTC(threadId, callId, isInitiator, onCallEnd) {
             console.warn('[WebRTC] Missing ICE candidate data in signal');
             return;
           }
-          console.log('[WebRTC] Received ICE candidate:', signal.data);
-          await pc.addIceCandidate(new RTCIceCandidate(signal.data));
+          console.log('[WebRTC] Received ICE candidate, adding to peer connection');
+          if (pc.remoteDescription) {
+            await pc.addIceCandidate(new RTCIceCandidate(signal.data));
+          } else {
+            console.log('[WebRTC] Queuing ICE candidate until remote description is set');
+            // Queue the candidate for later
+            setTimeout(async () => {
+              if (pc.remoteDescription) {
+                try {
+                  await pc.addIceCandidate(new RTCIceCandidate(signal.data));
+                } catch (e) {
+                  console.warn('[WebRTC] Failed to add queued ICE candidate:', e);
+                }
+              }
+            }, 1000);
+          }
           break;
       }
     } catch (error) {
-      console.error('Failed to handle signal:', error);
-      setError('Errore durante la negoziazione della chiamata');
+      console.error('[WebRTC] Failed to handle signal:', error);
+      setError('Errore durante la negoziazione della chiamata: ' + error.message);
     }
   }, [sendSignal, startCall]);
 

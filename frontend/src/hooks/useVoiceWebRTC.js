@@ -125,11 +125,21 @@ export default function useVoiceWebRTC(sessionId, viewerRole, onCallEnd) {
       if (pc.connectionState === 'connected') {
         setIsConnected(true);
         setError(null);
-      } else if (pc.connectionState === 'failed' || pc.connectionState === 'disconnected') {
+      } else if (pc.connectionState === 'failed') {
         setIsConnected(false);
-        if (pc.connectionState === 'failed') {
-          setError('Connessione fallita');
-        }
+        setError('Connessione fallita. Riprova.');
+        // Attempt to restart the connection after a delay
+        setTimeout(() => {
+          if (peerConnection.current === pc && sessionId) {
+            console.log('[VoiceWebRTC] Attempting to restart connection after failure');
+            cleanup();
+            // Don't auto-restart to avoid infinite loops
+            setError('Connessione persa. Riavvia la chiamata per riconnetterti.');
+          }
+        }, 2000);
+      } else if (pc.connectionState === 'disconnected') {
+        setIsConnected(false);
+        console.log('[VoiceWebRTC] Connection disconnected, waiting for reconnection...');
       }
     };
 
@@ -146,7 +156,7 @@ export default function useVoiceWebRTC(sessionId, viewerRole, onCallEnd) {
       setIsInitializing(true);
       isStartingRef.current = true;
       setError(null);
-      console.log('[VoiceWebRTC] Starting call, viewerRole:', viewerRole, 'sessionId:', sessionId);
+      console.log('[VoiceWebRTC] Starting call, viewerRole:', viewerRole, 'sessionId:', sessionId, 'skipOffer:', skipOffer);
       
       const stream = await requestMicrophoneAccess();
       console.log('[VoiceWebRTC] Got local stream, tracks:', stream.getTracks().length);
@@ -159,6 +169,9 @@ export default function useVoiceWebRTC(sessionId, viewerRole, onCallEnd) {
         pc.addTrack(track, stream);
       });
 
+      // Wait a bit for ICE gathering to start
+      await new Promise(resolve => setTimeout(resolve, 100));
+
       // Master always initiates the WebRTC connection unless we're
       // starting in response to an incoming signal (skipOffer=true)
       if (viewerRole === 'master' && !skipOffer) {
@@ -168,7 +181,7 @@ export default function useVoiceWebRTC(sessionId, viewerRole, onCallEnd) {
           offerToReceiveVideo: false
         });
         await pc.setLocalDescription(offer);
-        console.log('[VoiceWebRTC] Sending offer:', offer.type);
+        console.log('[VoiceWebRTC] Local description set, sending offer');
         await sendSignal('offer', offer);
       } else {
         console.log('[VoiceWebRTC] Waiting for offer as client');
@@ -189,16 +202,20 @@ export default function useVoiceWebRTC(sessionId, viewerRole, onCallEnd) {
       return;
     }
 
+    console.log('[VoiceWebRTC] Handling signal:', signal.type, 'hasPC:', !!peerConnection.current);
+
     if (!peerConnection.current) {
       console.log('[VoiceWebRTC] No peer connection yet, starting before handling signal');
       await startCall({ skipOffer: true });
+      // Wait a bit for the peer connection to be established
+      await new Promise(resolve => setTimeout(resolve, 200));
     }
 
     try {
       const pc = peerConnection.current;
 
       if (!pc) {
-        console.warn('[VoiceWebRTC] Peer connection unavailable for signal handling');
+        console.warn('[VoiceWebRTC] Peer connection still unavailable for signal handling');
         return;
       }
 
@@ -208,10 +225,11 @@ export default function useVoiceWebRTC(sessionId, viewerRole, onCallEnd) {
             console.warn('[VoiceWebRTC] Missing offer data in signal');
             return;
           }
-          console.log('[VoiceWebRTC] Received offer');
+          console.log('[VoiceWebRTC] Received offer, setting remote description and creating answer');
           await pc.setRemoteDescription(new RTCSessionDescription(signal.data));
           const answer = await pc.createAnswer();
           await pc.setLocalDescription(answer);
+          console.log('[VoiceWebRTC] Sending answer');
           await sendSignal('answer', answer);
           break;
 
@@ -220,7 +238,7 @@ export default function useVoiceWebRTC(sessionId, viewerRole, onCallEnd) {
             console.warn('[VoiceWebRTC] Missing answer data in signal');
             return;
           }
-          console.log('[VoiceWebRTC] Received answer');
+          console.log('[VoiceWebRTC] Received answer, setting remote description');
           await pc.setRemoteDescription(new RTCSessionDescription(signal.data));
           break;
 
@@ -229,13 +247,27 @@ export default function useVoiceWebRTC(sessionId, viewerRole, onCallEnd) {
             console.warn('[VoiceWebRTC] Missing ICE candidate data in signal');
             return;
           }
-          console.log('[VoiceWebRTC] Received ICE candidate');
-          await pc.addIceCandidate(new RTCIceCandidate(signal.data));
+          console.log('[VoiceWebRTC] Received ICE candidate, adding to peer connection');
+          if (pc.remoteDescription) {
+            await pc.addIceCandidate(new RTCIceCandidate(signal.data));
+          } else {
+            console.log('[VoiceWebRTC] Queuing ICE candidate until remote description is set');
+            // Queue the candidate for later
+            setTimeout(async () => {
+              if (pc.remoteDescription) {
+                try {
+                  await pc.addIceCandidate(new RTCIceCandidate(signal.data));
+                } catch (e) {
+                  console.warn('[VoiceWebRTC] Failed to add queued ICE candidate:', e);
+                }
+              }
+            }, 1000);
+          }
           break;
       }
     } catch (error) {
       console.error('[VoiceWebRTC] Failed to handle signal:', error);
-      setError('Errore durante la negoziazione');
+      setError('Errore durante la negoziazione: ' + error.message);
     }
   }, [sendSignal, startCall]);
 

@@ -266,7 +266,15 @@ export default function Chat() {
 
     const handleCallSignal = payload => {
       if (matchesActiveCall(payload)) {
+        console.log('[chat] Received WebRTC signal:', payload.type, 'for call:', payload.callId);
         signalHandlerRef.current?.(payload);
+      }
+    };
+
+    const handleConnectionStatus = payload => {
+      if (matchesActiveCall(payload)) {
+        console.log('[chat] Connection status update:', payload.status, 'for call:', payload.callId);
+        // Handle connection status updates if needed
       }
     };
     socket.on('chat:message', handleMessage);
@@ -278,6 +286,7 @@ export default function Chat() {
     socket.on('chat:call:ended', handleCallEnded);
     socket.on('chat:call:timeout', handleCallTimeout);
     socket.on('chat:call:signal', handleCallSignal);
+    socket.on('chat:call:connection:status', handleConnectionStatus);
     
     return () => {
       socket.off('chat:message', handleMessage);
@@ -289,6 +298,7 @@ export default function Chat() {
       socket.off('chat:call:ended', handleCallEnded);
       socket.off('chat:call:timeout', handleCallTimeout);
       socket.off('chat:call:signal', handleCallSignal);
+      socket.off('chat:call:connection:status', handleConnectionStatus);
     };
   }, [socket, queryClient, threadId, viewerId]);
 

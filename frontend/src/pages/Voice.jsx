@@ -382,7 +382,15 @@ export default function Voice() {
 
     const handleWebRTCSignal = payload => {
       if (payload.sessionId === sessionId && signalHandler) {
+        console.log('[voice] Received WebRTC signal:', payload.type, 'for session:', payload.sessionId);
         signalHandler(payload);
+      }
+    };
+
+    const handleConnectionStatus = payload => {
+      if (payload.sessionId === sessionId) {
+        console.log('[voice] Connection status update:', payload.status, 'for session:', payload.sessionId);
+        // Handle connection status updates if needed
       }
     };
     
@@ -396,6 +404,7 @@ export default function Voice() {
     socket.on('voice:call:outgoing', handleCallOutgoing);
     socket.on('voice:call:ended', handleCallEnded);
     socket.on('voice:webrtc:signal', handleWebRTCSignal);
+    socket.on('voice:session:connection:status', handleConnectionStatus);
 
     return () => {
       socket.off('voice:session:updated', handleSessionUpdate);
@@ -408,6 +417,7 @@ export default function Voice() {
       socket.off('voice:call:outgoing', handleCallOutgoing);
       socket.off('voice:call:ended', handleCallEnded);
       socket.off('voice:webrtc:signal', handleWebRTCSignal);
+      socket.off('voice:session:connection:status', handleConnectionStatus);
     };
   }, [socket, queryClient, sessionId, activeSession, viewerId, signalHandler]);
 
@@ -420,11 +430,11 @@ export default function Voice() {
 
   // Auto-start WebRTC when session becomes active (only once)
   useEffect(() => {
-    if (isSessionActive && !webrtcConnected && !activeCall) {
+    if (isSessionActive && !webrtcConnected && !webrtcInitializing && !activeCall) {
       console.log('[voice] Session is active, starting WebRTC automatically');
       startWebRTCCall();
     }
-  }, [isSessionActive]); // Remove dependencies to prevent re-runs
+  }, [isSessionActive, webrtcConnected, webrtcInitializing, activeCall, startWebRTCCall]);
 
   const noteMutation = useMutation({
     mutationFn: note => updateSessionNote(sessionId, note),

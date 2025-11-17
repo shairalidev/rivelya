@@ -123,7 +123,7 @@ export const initSocket = server => {
       const { callId, threadId, type, signalData, targetUserId } = data;
       if (callId && threadId && type && signalData && targetUserId) {
         console.info('[chat] Relaying WebRTC signal', { userId, callId, type, targetUserId });
-        socket.to(`user:${targetUserId}`).emit('chat:call:signal', {
+        ioInstance.to(`user:${targetUserId}`).emit('chat:call:signal', {
           callId,
           threadId,
           type,
@@ -138,10 +138,37 @@ export const initSocket = server => {
       const { sessionId, type, signalData, targetUserId } = data;
       if (sessionId && type && signalData && targetUserId) {
         console.info('[voice] Relaying WebRTC signal', { userId, sessionId, type, targetUserId });
-        socket.to(`user:${targetUserId}`).emit('voice:webrtc:signal', {
+        ioInstance.to(`user:${targetUserId}`).emit('voice:webrtc:signal', {
           sessionId,
           type,
           data: signalData,
+          from: userId
+        });
+      }
+    });
+
+    // Handle call connection status updates
+    socket.on('chat:call:connection:update', (data) => {
+      const { callId, threadId, status, targetUserId } = data;
+      if (callId && threadId && status && targetUserId) {
+        console.info('[chat] Relaying connection status', { userId, callId, status, targetUserId });
+        ioInstance.to(`user:${targetUserId}`).emit('chat:call:connection:status', {
+          callId,
+          threadId,
+          status,
+          from: userId
+        });
+      }
+    });
+
+    // Handle voice session connection status updates
+    socket.on('voice:session:connection:update', (data) => {
+      const { sessionId, status, targetUserId } = data;
+      if (sessionId && status && targetUserId) {
+        console.info('[voice] Relaying connection status', { userId, sessionId, status, targetUserId });
+        ioInstance.to(`user:${targetUserId}`).emit('voice:session:connection:status', {
+          sessionId,
+          status,
           from: userId
         });
       }
