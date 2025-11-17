@@ -76,7 +76,7 @@ export default function Home() {
         </div>
         <div className="hero-visual">
           <div className="hero-card">
-            <p className="muted">Top rated</p>
+            <p className="muted">Esperti più apprezzati</p>
             <ul>
               {featured.map(master => (
                 <li key={master._id} className="hero-master">
