@@ -92,6 +92,19 @@ export default function CallPopup({
     return undefined;
   }, [onSignal, handleSignal]);
 
+  // Connect audio streams to elements when they change
+  useEffect(() => {
+    if (localAudio.current && localAudio.current.srcObject) {
+      localAudio.current.muted = true; // Prevent feedback
+    }
+  }, [localAudio.current?.srcObject]);
+
+  useEffect(() => {
+    if (remoteAudio.current && remoteAudio.current.srcObject) {
+      remoteAudio.current.play().catch(e => console.warn('Remote audio play failed:', e));
+    }
+  }, [remoteAudio.current?.srcObject]);
+
   // Auto-start call when accepted
   useEffect(() => {
     if (call?.status === 'accepted' && startCall) {
@@ -123,8 +136,8 @@ export default function CallPopup({
 
   return (
     <div className="call-popup">
-      <audio ref={localAudio} muted autoPlay />
-      <audio ref={remoteAudio} autoPlay />
+      <audio ref={localAudio} muted autoPlay playsInline />
+      <audio ref={remoteAudio} autoPlay playsInline />
       
       <div className="call-popup-content">
         <div className="call-info">
