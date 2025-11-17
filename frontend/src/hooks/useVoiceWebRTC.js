@@ -172,7 +172,7 @@ export default function useVoiceWebRTC(sessionId, viewerRole, onCallEnd) {
       // Wait a bit for ICE gathering to start
       await new Promise(resolve => setTimeout(resolve, 100));
 
-      // Master always initiates the WebRTC connection unless we're
+      // Esperti always initiates the WebRTC connection unless we're
       // starting in response to an incoming signal (skipOffer=true)
       if (viewerRole === 'master' && !skipOffer) {
         console.log('[VoiceWebRTC] Creating offer as master');

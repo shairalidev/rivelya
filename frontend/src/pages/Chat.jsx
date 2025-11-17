@@ -435,7 +435,7 @@ export default function Chat() {
     ? `${dayjs(activeThread.booking.date).format('DD MMMM YYYY')} · ${activeThread.booking.start} - ${activeThread.booking.end}`
     : '';
   const allowedMinutes = activeThread?.allowedSeconds > 0 ? Math.ceil(activeThread.allowedSeconds / 60) : null;
-  const masterName = activeThread?.master?.name || 'Master Rivelya';
+  const masterName = activeThread?.master?.name || 'Esperti Rivelya';
   const masterAvatar = activeThread?.master?.avatarUrl || '';
   const masterInitial = getInitial(activeThread?.master?.name || 'M');
   const customerName = activeThread?.customer?.name || 'Cliente Rivelya';

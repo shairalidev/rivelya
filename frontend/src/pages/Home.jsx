@@ -82,7 +82,7 @@ export default function Home() {
                 <li key={master._id} className="hero-master">
                   <img src={master.media?.avatar_url || 'https://placehold.co/64'} alt="" />
                   <div>
-                    <p className="hero-master-name">{master.display_name || 'Master Rivelya'}</p>
+                    <p className="hero-master-name">{master.display_name || 'Esperti Rivelya'}</p>
                     <p className="hero-master-meta">
                       Rating {typeof master.kpis?.avg_rating === 'number' ? master.kpis.avg_rating.toFixed(1) : '—'} · {(master.categories || []).join(' · ')}
                     </p>

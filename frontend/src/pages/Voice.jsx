@@ -576,7 +576,7 @@ export default function Voice() {
   };
 
   const viewerRole = sessionQuery.data?.viewerRole;
-  const masterName = activeSession?.master?.name || 'Master Rivelya';
+  const masterName = activeSession?.master?.name || 'Esperti Rivelya';
   const masterAvatar = activeSession?.master?.avatarUrl || '';
   const masterInitial = masterName.charAt(0).toUpperCase();
   const customerName = activeSession?.customer?.name || 'Cliente Rivelya';
@@ -802,7 +802,7 @@ export default function Voice() {
                   <div className="voice-participants">
                     <VoiceParticipant
                       name={masterName}
-                      role="Master"
+                      role="Esperti"
                       avatar={masterAvatar}
                       fallbackInitial={masterInitial}
                       level={masterAudioLevel}

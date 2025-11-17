@@ -37,7 +37,7 @@ const extractUserId = ref => {
   return ref;
 };
 
-const resolveMasterName = session => session.master_id?.display_name || 'Master Rivelya';
+const resolveMasterName = session => session.master_id?.display_name || 'Esperti Rivelya';
 
 const resolveCustomerName = session => resolveDisplayName(session.user_id);
 

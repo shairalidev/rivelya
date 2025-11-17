@@ -144,7 +144,7 @@ export default function Catalog() {
                   </div>
                   <div className="master-content">
                     <div className="master-header">
-                      <h3>{master.display_name || 'Master Rivelya'}</h3>
+                      <h3>{master.display_name || 'Esperti Rivelya'}</h3>
                       <span className="rating">★ {rating}</span>
                     </div>
                     <p className="muted">{master.headline || master.bio || 'Professionista certificato del network Rivelya.'}</p>

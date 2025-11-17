@@ -68,7 +68,7 @@ export default function MasterProfile() {
       })
       .catch(() => {
         setMaster(null);
-        setError('Master non trovato o non disponibile.');
+        setError('Esperti non trovato o non disponibile.');
       })
       .finally(() => setLoading(false));
   }, [id]);
@@ -433,7 +433,7 @@ export default function MasterProfile() {
   if (error || !master) {
     return (
       <section className="container profile">
-        <div className="alert">{error || 'Master non disponibile.'}</div>
+        <div className="alert">{error || 'Esperti non disponibile.'}</div>
       </section>
     );
   }
@@ -449,12 +449,12 @@ export default function MasterProfile() {
     <section className="container profile">
       <div className="profile-card">
         <div className="profile-avatar">
-          <img src={master.media?.avatar_url || 'https://placehold.co/320'} alt={master.display_name || 'Master Rivelya'} />
+          <img src={master.media?.avatar_url || 'https://placehold.co/320'} alt={master.display_name || 'Esperti Rivelya'} />
           <span className={`status-badge ${availabilityStatus}`}>{availabilityLabel}</span>
         </div>
         <div className="profile-content">
-          <span className="badge-soft">Master {master.categories?.[0] || 'Rivelya'}</span>
-          <h1>{master.display_name || 'Master Rivelya'}</h1>
+          <span className="badge-soft">Esperti {master.categories?.[0] || 'Rivelya'}</span>
+          <h1>{master.display_name || 'Esperti Rivelya'}</h1>
           <p className="muted">{master.headline || 'Professionista certificato del network Rivelya.'}</p>
           <div className="profile-rating">
             <span className="rating-large">★ {rating}</span>

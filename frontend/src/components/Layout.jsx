@@ -362,7 +362,7 @@ export default function Layout() {
             </div>
             <div>
               <p className="footer-title">Piattaforma</p>
-              <Link to="/catalog" className="footer-link">Catalogo Master</Link>
+              <Link to="/catalog" className="footer-link">Catalogo Esperti</Link>
               <Link to="/login" className="footer-link">Area clienti</Link>
               <Link to="/register" className="footer-link">Diventa cliente</Link>
             </div>
