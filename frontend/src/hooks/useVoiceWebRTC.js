@@ -184,6 +184,11 @@ export default function useVoiceWebRTC(sessionId, viewerRole, onCallEnd) {
   }, [viewerRole, sessionId, isInitializing, initializePeerConnection, sendSignal, cleanup, requestMicrophoneAccess]);
 
   const handleSignal = useCallback(async (signal) => {
+    if (!signal?.type) {
+      console.warn('[VoiceWebRTC] Ignoring invalid signal payload', signal);
+      return;
+    }
+
     if (!peerConnection.current) {
       console.log('[VoiceWebRTC] No peer connection yet, starting before handling signal');
       await startCall({ skipOffer: true });
@@ -199,6 +204,10 @@ export default function useVoiceWebRTC(sessionId, viewerRole, onCallEnd) {
 
       switch (signal.type) {
         case 'offer':
+          if (!signal.data) {
+            console.warn('[VoiceWebRTC] Missing offer data in signal');
+            return;
+          }
           console.log('[VoiceWebRTC] Received offer');
           await pc.setRemoteDescription(new RTCSessionDescription(signal.data));
           const answer = await pc.createAnswer();
@@ -207,11 +216,19 @@ export default function useVoiceWebRTC(sessionId, viewerRole, onCallEnd) {
           break;
 
         case 'answer':
+          if (!signal.data) {
+            console.warn('[VoiceWebRTC] Missing answer data in signal');
+            return;
+          }
           console.log('[VoiceWebRTC] Received answer');
           await pc.setRemoteDescription(new RTCSessionDescription(signal.data));
           break;
 
         case 'ice-candidate':
+          if (!signal.data) {
+            console.warn('[VoiceWebRTC] Missing ICE candidate data in signal');
+            return;
+          }
           console.log('[VoiceWebRTC] Received ICE candidate');
           await pc.addIceCandidate(new RTCIceCandidate(signal.data));
           break;
