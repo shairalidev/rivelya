@@ -319,8 +319,12 @@ export default function Voice() {
         setIsConnected(true);
         toast.success('Chiamata avviata dal partner');
         queryClient.invalidateQueries({ queryKey: ['voice', 'session', sessionId] });
-        // Session started by partner - they will initiate WebRTC
-        console.log('[voice] Session started by partner, waiting for WebRTC');
+        
+        // Start WebRTC when session is started by partner
+        setTimeout(() => {
+          console.log('[voice] Starting WebRTC after partner started session');
+          startWebRTCCall();
+        }, 1000);
       }
       queryClient.invalidateQueries({ queryKey: ['voice', 'sessions'] });
       console.info('[voice] Received voice:session:started', payload);
@@ -429,13 +433,8 @@ export default function Voice() {
     }
   }, [handleWebRTCSignal]);
 
-  // Auto-start WebRTC when session becomes active (only once)
-  useEffect(() => {
-    if (isSessionActive && !webrtcConnected && !webrtcInitializing && !activeCall) {
-      console.log('[voice] Session is active, starting WebRTC automatically');
-      startWebRTCCall();
-    }
-  }, [isSessionActive, webrtcConnected, webrtcInitializing, activeCall, startWebRTCCall]);
+  // Remove auto-start WebRTC - require manual initiation
+  // WebRTC will only start when user clicks "Avvia chiamata" button
 
   const noteMutation = useMutation({
     mutationFn: note => updateSessionNote(sessionId, note),
@@ -527,13 +526,21 @@ export default function Voice() {
   };
 
   const startCall = async () => {
-    console.info('[voice] Attempting to start WebRTC voice call', { sessionId });
+    console.info('[voice] Attempting to start voice call', { sessionId });
     
     try {
+      // First start the session via API
       const response = await client.post(`/voice/session/${sessionId}/start`);
       setShowStartModal(false);
       toast.success('Chiamata avviata');
       queryClient.invalidateQueries({ queryKey: ['voice', 'session', sessionId] });
+      
+      // Then start WebRTC connection
+      setTimeout(() => {
+        console.log('[voice] Starting WebRTC after session start');
+        startWebRTCCall();
+      }, 1000);
+      
       console.info('[voice] Voice call start API succeeded', { sessionId, status: response.data?.status });
     } catch (error) {
       const message = error?.response?.data?.message || 'Impossibile avviare la chiamata';

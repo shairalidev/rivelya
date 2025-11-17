@@ -17,6 +17,7 @@ export default function useVoiceWebRTC(sessionId, viewerRole, onCallEnd) {
 
   const peerConnection = useRef(null);
   const isStartingRef = useRef(false);
+  const hasStartedRef = useRef(false);
   const localAudio = useRef(null);
   const remoteAudio = useRef(null);
 
@@ -25,6 +26,7 @@ export default function useVoiceWebRTC(sessionId, viewerRole, onCallEnd) {
     
     // Stop any ongoing initialization
     isStartingRef.current = false;
+    hasStartedRef.current = false;
     
     if (localStream) {
       localStream.getTracks().forEach(track => track.stop());
@@ -154,14 +156,15 @@ export default function useVoiceWebRTC(sessionId, viewerRole, onCallEnd) {
   }, [sendSignal]);
 
   const startCall = useCallback(async ({ skipOffer = false } = {}) => {
-    if (isInitializing || peerConnection.current || isStartingRef.current) {
-      console.log('[VoiceWebRTC] Call already initializing or active');
+    if (isInitializing || peerConnection.current || isStartingRef.current || hasStartedRef.current) {
+      console.log('[VoiceWebRTC] Call already initializing, active, or previously started');
       return;
     }
 
     try {
       setIsInitializing(true);
       isStartingRef.current = true;
+      hasStartedRef.current = true;
       setError(null);
       console.log('[VoiceWebRTC] Starting call, viewerRole:', viewerRole, 'sessionId:', sessionId, 'skipOffer:', skipOffer);
       
@@ -326,6 +329,7 @@ export default function useVoiceWebRTC(sessionId, viewerRole, onCallEnd) {
   }, [localStream, isMuted]);
 
   const endCall = useCallback(() => {
+    hasStartedRef.current = false;
     cleanup();
     if (onCallEnd) {
       onCallEnd();
