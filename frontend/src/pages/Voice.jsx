@@ -446,6 +446,15 @@ export default function Voice() {
     }
   }, [handleWebRTCSignal, sessionId]);
 
+  // Ensure WebRTC only starts once the viewer role is known
+  useEffect(() => {
+    if (!viewerRole || !sessionId || !isSessionActive || !isConnected) return;
+    if (webrtcConnected || webrtcInitializing) return;
+
+    console.info('[voice] Viewer role resolved, (re)starting WebRTC', { viewerRole, sessionId });
+    startWebRTCCall();
+  }, [viewerRole, sessionId, isSessionActive, isConnected, webrtcConnected, webrtcInitializing, startWebRTCCall]);
+
   // Remove auto-start WebRTC - require manual initiation
   // WebRTC will only start when user clicks "Avvia chiamata" button
 

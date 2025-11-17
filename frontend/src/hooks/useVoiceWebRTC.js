@@ -166,6 +166,11 @@ export default function useVoiceWebRTC(sessionId, viewerRole, onCallEnd) {
       return;
     }
 
+    if (!viewerRole) {
+      console.warn('[VoiceWebRTC] Cannot start call - viewerRole not resolved yet');
+      return;
+    }
+
     try {
       setIsInitializing(true);
       isStartingRef.current = true;
