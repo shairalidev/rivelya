@@ -186,7 +186,7 @@ export default function Layout() {
                 className="dropdown-link"
                 onMouseDown={handleProfileNavMouseDown('/master/dashboard')}
               >
-                Area master
+                Area Esperti
               </Link>
             )}
             <Link
