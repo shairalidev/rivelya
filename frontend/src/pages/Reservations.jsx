@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import toast from 'react-hot-toast';
 import client from '../api/client.js';
-import { requestReschedule, respondToReschedule } from '../api/dashboard.js';
+import { requestReschedule, respondToReschedule, requestStartNow, respondStartNow } from '../api/dashboard.js';
 import ConfirmModal from '../components/ConfirmModal.jsx';
 
 const statusLabels = {
@@ -84,10 +84,28 @@ export default function Reservations() {
   const handleRescheduleResponse = (reservation, action) => {
     setConfirmModal({
       title: action === 'accept' ? 'Accetta riprogrammazione' : 'Rifiuta riprogrammazione',
-      message: action === 'accept' 
+      message: action === 'accept'
         ? `Confermi di accettare la riprogrammazione per il ${reservation.reschedule_request.new_date}?`
         : 'Confermi di rifiutare la richiesta di riprogrammazione?',
       onConfirm: () => respondReschedule(reservation.id, action)
+    });
+  };
+
+  const handleStartNowRequest = (reservation) => {
+    setConfirmModal({
+      title: 'Richiedi avvio immediato',
+      message: `Vuoi chiedere di iniziare subito la sessione ${reservation.reservation_id}?`,
+      onConfirm: () => sendStartNow(reservation.id)
+    });
+  };
+
+  const handleStartNowResponse = (reservation, action) => {
+    setConfirmModal({
+      title: action === 'accept' ? 'Accetta avvio immediato' : 'Rifiuta avvio immediato',
+      message: action === 'accept'
+        ? 'Confermi di avviare subito la sessione?'
+        : 'Vuoi rifiutare la richiesta di avvio immediato?',
+      onConfirm: () => respondStartNowAction(reservation.id, action)
     });
   };
 
@@ -95,6 +113,28 @@ export default function Reservations() {
     try {
       await respondToReschedule(reservationId, action);
       toast.success(action === 'accept' ? 'Riprogrammazione accettata' : 'Riprogrammazione rifiutata');
+      setConfirmModal(null);
+      loadReservations(pagination.page);
+    } catch (error) {
+      toast.error(error?.response?.data?.message || 'Errore nella risposta');
+    }
+  };
+
+  const sendStartNow = async (reservationId) => {
+    try {
+      await requestStartNow(reservationId);
+      toast.success('Richiesta di avvio immediato inviata');
+      setConfirmModal(null);
+      loadReservations(pagination.page);
+    } catch (error) {
+      toast.error(error?.response?.data?.message || 'Errore nella richiesta');
+    }
+  };
+
+  const respondStartNowAction = async (reservationId, action) => {
+    try {
+      await respondStartNow(reservationId, action);
+      toast.success(action === 'accept' ? 'Avvio immediato accettato' : 'Avvio immediato rifiutato');
       setConfirmModal(null);
       loadReservations(pagination.page);
     } catch (error) {
@@ -165,6 +205,29 @@ export default function Reservations() {
     const timeDiff = Math.abs(now - sessionDateTime) / (1000 * 60);
     
     return timeDiff <= 15; // Can start 15 minutes before/after scheduled time
+  };
+
+  const canRejectBeforeStart = (reservation) => {
+    if (reservation.user_role !== 'master') return false;
+    return !['active', 'completed', 'rejected', 'cancelled'].includes(reservation.status);
+  };
+
+  const myRole = reservation => (reservation.user_role === 'customer' ? 'customer' : 'master');
+
+  const hasIncomingStartNow = (reservation) => {
+    return reservation.start_now_request?.status === 'pending'
+      && reservation.start_now_request.requested_by !== myRole(reservation);
+  };
+
+  const hasOutgoingStartNow = (reservation) => {
+    return reservation.start_now_request?.status === 'pending'
+      && reservation.start_now_request.requested_by === myRole(reservation);
+  };
+
+  const canRequestStartNow = (reservation) => {
+    if (reservation.status !== 'ready_to_start' || !reservation.can_start) return false;
+    if (reservation.status === 'active') return false;
+    return !hasIncomingStartNow(reservation) && !hasOutgoingStartNow(reservation);
   };
 
   const isPendingMyReschedule = (reservation) => {
@@ -247,8 +310,8 @@ export default function Reservations() {
                 {reservation.reschedule_request && (
                   <div className="reschedule-info">
                     <h4>
-                      {reservation.reschedule_request.requested_by === reservation.user_role 
-                        ? 'La tua richiesta di riprogrammazione' 
+                      {reservation.reschedule_request.requested_by === reservation.user_role
+                        ? 'La tua richiesta di riprogrammazione'
                         : `Richiesta di riprogrammazione da ${reservation.reschedule_request.requested_by === 'customer' ? 'Cliente' : 'Master'}`}
                     </h4>
                     <p><strong>Nuova data:</strong> {formatDate(reservation.reschedule_request.new_date)}</p>
@@ -256,6 +319,16 @@ export default function Reservations() {
                     {reservation.reschedule_request.reason && (
                       <p><strong>Motivo:</strong> {reservation.reschedule_request.reason}</p>
                     )}
+                  </div>
+                )}
+
+                {reservation.start_now_request && (
+                  <div className="reschedule-info">
+                    <h4>Avvio immediato</h4>
+                    <p>
+                      Richiesto da {reservation.start_now_request.requested_by === 'customer' ? 'Cliente' : 'Master'} -
+                      Stato: {reservation.start_now_request.status === 'pending' ? 'In attesa' : reservation.start_now_request.status}
+                    </p>
                   </div>
                 )}
 
@@ -268,23 +341,64 @@ export default function Reservations() {
 
               <div className="booking-card__actions">
                 {canStartSession(reservation) && (
-                  <button 
-                    className="btn primary" 
+                  <button
+                    className="btn primary"
                     onClick={() => handleStartSession(reservation)}
                   >
                     Avvia Sessione
                   </button>
                 )}
 
+                {hasIncomingStartNow(reservation) && (
+                  <>
+                    <button
+                      className="btn primary"
+                      onClick={() => handleStartNowResponse(reservation, 'accept')}
+                    >
+                      Accetta avvio immediato
+                    </button>
+                    <button
+                      className="btn outline"
+                      onClick={() => handleStartNowResponse(reservation, 'reject')}
+                    >
+                      Rifiuta avvio immediato
+                    </button>
+                  </>
+                )}
+
+                {hasOutgoingStartNow(reservation) && (
+                  <span className="btn outline" style={{ opacity: 0.6, cursor: 'not-allowed' }}>
+                    In attesa di conferma avvio
+                  </span>
+                )}
+
+                {canRequestStartNow(reservation) && !hasIncomingStartNow(reservation) && !hasOutgoingStartNow(reservation) && (
+                  <button
+                    className="btn outline"
+                    onClick={() => handleStartNowRequest(reservation)}
+                  >
+                    Richiedi avvio immediato
+                  </button>
+                )}
+
                 {canReschedule(reservation) && !isPendingMyReschedule(reservation) && (
-                  <button 
-                    className="btn outline" 
+                  <button
+                    className="btn outline"
                     onClick={() => handleReschedule(reservation)}
                   >
                     {reservation.status === 'reschedule_requested' ? 'Nuova riprogrammazione' : 'Riprogramma'}
                   </button>
                 )}
-                
+
+                {canRejectBeforeStart(reservation) && reservation.status !== 'awaiting_master' && (
+                  <button
+                    className="btn outline"
+                    onClick={() => handleBookingResponse(reservation.id, 'reject')}
+                  >
+                    Rifiuta prenotazione
+                  </button>
+                )}
+
                 {/* Debug info - remove after testing */}
                 <div style={{ fontSize: '0.7rem', color: 'var(--muted)', marginTop: '0.5rem' }}>
                   Status: {reservation.status} | Future: {new Date(reservation.date) > new Date() ? 'Yes' : 'No'} | Can reschedule: {canReschedule(reservation) ? 'Yes' : 'No'}
@@ -426,10 +540,11 @@ export default function Reservations() {
 
       {confirmModal && (
         <ConfirmModal
+          isOpen={!!confirmModal}
           title={confirmModal.title}
           message={confirmModal.message}
           onConfirm={confirmModal.onConfirm}
-          onCancel={() => setConfirmModal(null)}
+          onClose={() => setConfirmModal(null)}
         />
       )}
     </section>
