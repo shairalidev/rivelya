@@ -199,6 +199,7 @@ export default function Voice() {
   const {
     isConnected: webrtcConnected,
     isMuted: webrtcMuted,
+    isInitializing: webrtcInitializing,
     localAudio,
     remoteAudio,
     startCall: startWebRTCCall,
@@ -317,11 +318,8 @@ export default function Voice() {
         setIsConnected(true);
         toast.success('Chiamata avviata dal partner');
         queryClient.invalidateQueries({ queryKey: ['voice', 'session', sessionId] });
-        // Auto-start WebRTC when session starts
-        setTimeout(() => {
-          console.log('[voice] Auto-starting WebRTC after session started');
-          startWebRTCCall();
-        }, 3000);
+        // Session started by partner - they will initiate WebRTC
+        console.log('[voice] Session started by partner, waiting for WebRTC');
       }
       queryClient.invalidateQueries({ queryKey: ['voice', 'sessions'] });
       console.info('[voice] Received voice:session:started', payload);
@@ -420,16 +418,13 @@ export default function Voice() {
     }
   }, [handleWebRTCSignal]);
 
-  // Auto-start WebRTC when session becomes active
+  // Auto-start WebRTC when session becomes active (only once)
   useEffect(() => {
-    if (isSessionActive && !webrtcConnected) {
+    if (isSessionActive && !webrtcConnected && !activeCall) {
       console.log('[voice] Session is active, starting WebRTC automatically');
-      const timer = setTimeout(() => {
-        startWebRTCCall();
-      }, 2000); // Give both users time to join
-      return () => clearTimeout(timer);
+      startWebRTCCall();
     }
-  }, [isSessionActive, webrtcConnected, startWebRTCCall]);
+  }, [isSessionActive]); // Remove dependencies to prevent re-runs
 
   const noteMutation = useMutation({
     mutationFn: note => updateSessionNote(sessionId, note),
@@ -875,7 +870,7 @@ export default function Voice() {
                         ✅ Connessione WebRTC stabilita
                       </span>
                     )}
-                    {isSessionActive && !webrtcConnected && (
+                    {(webrtcInitializing || (isSessionActive && !webrtcConnected)) && (
                       <span className="voice-waiting-status">
                         🔄 Connessione WebRTC in corso...
                       </span>

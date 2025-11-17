@@ -12,22 +12,26 @@ export default function useVoiceWebRTC(sessionId, viewerRole, onCallEnd) {
   const [localStream, setLocalStream] = useState(null);
   const [remoteStream, setRemoteStream] = useState(null);
   const [error, setError] = useState(null);
+  const [isInitializing, setIsInitializing] = useState(false);
   
   const peerConnection = useRef(null);
   const localAudio = useRef(null);
   const remoteAudio = useRef(null);
 
   const cleanup = useCallback(() => {
+    console.log('[VoiceWebRTC] Cleaning up connection');
     if (localStream) {
       localStream.getTracks().forEach(track => track.stop());
     }
     if (peerConnection.current) {
       peerConnection.current.close();
+      peerConnection.current = null;
     }
     setLocalStream(null);
     setRemoteStream(null);
     setIsConnected(false);
     setError(null);
+    setIsInitializing(false);
   }, [localStream]);
 
   const sendSignal = useCallback(async (type, data) => {
@@ -79,7 +83,13 @@ export default function useVoiceWebRTC(sessionId, viewerRole, onCallEnd) {
   }, [sendSignal]);
 
   const startCall = useCallback(async () => {
+    if (isInitializing || peerConnection.current || localStream) {
+      console.log('[VoiceWebRTC] Call already initializing or active');
+      return;
+    }
+
     try {
+      setIsInitializing(true);
       setError(null);
       console.log('[VoiceWebRTC] Starting call, viewerRole:', viewerRole, 'sessionId:', sessionId);
       
@@ -129,8 +139,10 @@ export default function useVoiceWebRTC(sessionId, viewerRole, onCallEnd) {
         setError('Impossibile accedere al microfono');
       }
       cleanup();
+    } finally {
+      setIsInitializing(false);
     }
-  }, [viewerRole, initializePeerConnection, sendSignal, cleanup]);
+  }, [viewerRole, sessionId, isInitializing, peerConnection.current, localStream, initializePeerConnection, sendSignal, cleanup]);
 
   const handleSignal = useCallback(async (signal) => {
     if (!peerConnection.current) return;
@@ -190,6 +202,7 @@ export default function useVoiceWebRTC(sessionId, viewerRole, onCallEnd) {
     localStream,
     remoteStream,
     error,
+    isInitializing,
     localAudio,
     remoteAudio,
     startCall,
