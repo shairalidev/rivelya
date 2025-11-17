@@ -207,11 +207,6 @@ export default function Reservations() {
     return timeDiff <= 15; // Can start 15 minutes before/after scheduled time
   };
 
-  const canRejectBeforeStart = (reservation) => {
-    if (reservation.user_role !== 'master') return false;
-    return !['active', 'completed', 'rejected', 'cancelled'].includes(reservation.status);
-  };
-
   const myRole = reservation => (reservation.user_role === 'customer' ? 'customer' : 'master');
 
   const hasIncomingStartNow = (reservation) => {
