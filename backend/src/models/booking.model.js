@@ -45,12 +45,6 @@ const bookingSchema = new mongoose.Schema({
       end_time: { type: String }
     }, { _id: false }),
     default: {}
-  },
-  start_now_request: {
-    requested_by: { type: String, enum: ['customer', 'master'] },
-    requested_at: { type: Date },
-    status: { type: String, enum: ['pending', 'accepted', 'rejected'] },
-    responded_at: { type: Date }
   }
 }, { timestamps: true });
 
