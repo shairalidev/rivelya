@@ -368,10 +368,11 @@ export default function Dashboard() {
 
       {confirmModal && (
         <ConfirmModal
+          isOpen={!!confirmModal}
           title={confirmModal.title}
           message={confirmModal.message}
           onConfirm={confirmModal.onConfirm}
-          onCancel={() => setConfirmModal(null)}
+          onClose={() => setConfirmModal(null)}
         />
       )}
     </section>
