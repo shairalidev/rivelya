@@ -136,6 +136,11 @@ export default function Catalog() {
               const scheduleSummary = summarizeWorkingHours(master.working_hours);
               const timezoneLabel = resolveTimezoneLabel(master.working_hours);
               const { status: availabilityStatus, label: availabilityLabel } = resolveAvailabilityStatus(master.availability);
+              const sessionChannelLabel = master.active_session_channel === 'voice'
+                ? 'Voce'
+                : master.active_session_channel === 'chat_voice'
+                  ? 'Chat + Voce'
+                  : 'Chat';
               return (
                 <article key={master._id} className="master-card">
                   <div className="master-media">
@@ -144,7 +149,15 @@ export default function Catalog() {
                   </div>
                   <div className="master-content">
                     <div className="master-header">
-                      <h3>{master.display_name || 'Esperti Rivelya'}</h3>
+                      <div className="master-title">
+                        <h3>{master.display_name || 'Esperti Rivelya'}</h3>
+                        {master.active_session && (
+                          <span className="live-indicator">
+                            <span className="live-pulse" aria-hidden="true" />
+                            In sessione{master.active_session_channel ? ` · ${sessionChannelLabel}` : ''}
+                          </span>
+                        )}
+                      </div>
                       <span className="rating">★ {rating}</span>
                     </div>
                     <p className="muted">{master.headline || master.bio || 'Professionista certificato del network Rivelya.'}</p>
