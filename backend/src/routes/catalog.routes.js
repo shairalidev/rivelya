@@ -3,6 +3,7 @@ import Joi from 'joi';
 import { Master } from '../models/master.model.js';
 import { MasterAvailability } from '../models/master-availability.model.js';
 import { Booking } from '../models/booking.model.js';
+import { Session } from '../models/session.model.js';
 import { computeMonthAvailability } from '../utils/availability.js';
 
 const router = Router();
@@ -27,7 +28,26 @@ router.get('/', async (req, res, next) => {
     if (sort === 'rating') cursor = cursor.sort({ 'kpis.avg_rating': -1 });
     if (sort === 'priceAsc') cursor = cursor.sort({ rate_chat_cpm: 1 });
 
-    const list = await cursor.limit(50);
+    const masters = await cursor.limit(50).lean();
+
+    const masterIds = masters.map(master => master._id);
+    const activeSessions = await Session.find({
+      master_id: { $in: masterIds },
+      status: 'active',
+      start_ts: { $ne: null }
+    }).select('master_id channel').lean();
+
+    const sessionsByMaster = new Map();
+    activeSessions.forEach(session => {
+      sessionsByMaster.set(String(session.master_id), session.channel);
+    });
+
+    const list = masters.map(master => ({
+      ...master,
+      active_session: sessionsByMaster.has(String(master._id)),
+      active_session_channel: sessionsByMaster.get(String(master._id)) || null
+    }));
+
     res.json(list);
   } catch (e) { next(e); }
 });

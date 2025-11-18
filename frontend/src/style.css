@@ -1062,6 +1062,29 @@ body.nav-open {
 .master-content { padding: 1.6rem; display: flex; flex-direction: column; gap: 1.1rem; flex: 1; }
 
 .master-header { display: flex; justify-content: space-between; gap: 1rem; align-items: baseline; }
+.master-title { display: flex; align-items: center; gap: 0.55rem; flex-wrap: wrap; }
+.live-indicator {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.45rem;
+  padding: 0.25rem 0.6rem;
+  border-radius: 999px;
+  background: rgba(255, 122, 122, 0.14);
+  color: #ff9b8f;
+  font-size: 0.8rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+}
+
+.live-pulse {
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  background: #ff7262;
+  box-shadow: 0 0 0 6px rgba(255, 114, 98, 0.15);
+  display: inline-block;
+}
 
 .rating { color: #fdd663; font-weight: 700; }
 
