@@ -198,7 +198,7 @@ export default function Dashboard() {
                     <h4>
                       {booking.reschedule_request.requested_by === 'customer' 
                         ? 'La tua richiesta di riprogrammazione' 
-                        : 'Richiesta di riprogrammazione dal Master'}
+                        : 'Richiesta di riprogrammazione dal Esperti'}
                     </h4>
                     <p><strong>Nuova data:</strong> {formatDate(booking.reschedule_request.new_date)}</p>
                     <p><strong>Nuovo orario:</strong> {booking.reschedule_request.new_start_time} - {booking.reschedule_request.new_end_time}</p>

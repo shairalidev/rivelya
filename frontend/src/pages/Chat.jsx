@@ -33,13 +33,13 @@ const resolveName = thread => {
 const channelLabels = {
   chat: 'Sessione chat',
   voice: 'Sessione voce',
-  chat_voice: 'Sessione chat + voce'
+  chat_voice: 'Sessione chat e voce'
 };
 
 const channelShortLabels = {
   chat: 'Chat',
   voice: 'Voce',
-  chat_voice: 'Chat + Voce'
+  chat_voice: 'Chat e Voce'
 };
 
 const normalizeId = value => {

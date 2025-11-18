@@ -57,7 +57,7 @@ export default function Register() {
           <>
             <h1>Crea il tuo account Rivelya</h1>
             <p className="muted">
-              Accedi a una rete selezionata di master certificati. Ricariche veloci, cronologia trasparente e prime consulenze con bonus di benvenuto.
+              Accedi a una rete selezionata di esperti certificati. Ricariche veloci, cronologia trasparente e prime consulenze con bonus di benvenuto.
             </p>
             <form className="form" onSubmit={submit}>
               <fieldset className="form-fieldset">
@@ -83,7 +83,7 @@ export default function Register() {
                   </button>
                 </div>
                 <p className="micro muted">
-                  I master riceveranno un profilo dedicato con orari configurabili dopo la verifica dell'email.
+                  I Esperti riceveranno un profilo dedicato con orari configurabili dopo la verifica dell'email.
                 </p>
               </fieldset>
               <div className="form-grid">
@@ -157,7 +157,7 @@ export default function Register() {
         <ul className="sidecard-list">
           <li>
             <span className="list-icon">✨</span>
-            Profilazione accurata di ogni master con recensioni verificate.
+            Profilazione accurata di ogni Esperti con recensioni verificate.
           </li>
           <li>
             <span className="list-icon">⚡️</span>

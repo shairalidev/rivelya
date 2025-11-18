@@ -148,7 +148,7 @@ export default function Profile() {
       <div className="account-profile__header">
         <p className="eyebrow">Profilo</p>
         <h1>La tua identità su Rivelya</h1>
-        <p className="muted">Aggiorna i dati personali, i contatti e la biografia visibile ai master.</p>
+        <p className="muted">Aggiorna i dati personali, i contatti e la biografia visibile ai Esperti.</p>
       </div>
       <div className="account-profile__grid">
         <div className="account-card account-card--compact">

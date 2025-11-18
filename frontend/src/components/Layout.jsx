@@ -377,7 +377,7 @@ export default function Layout() {
             <div>
               <p className="footer-title">Risorse</p>
               <a href="#" className="footer-link">Supporto</a>
-              <a href="#" className="footer-link">Diventa master</a>
+              <a href="#" className="footer-link">Diventa Esperti</a>
               <a href="#" className="footer-link">Press kit</a>
             </div>
           </div>

@@ -28,15 +28,34 @@ const VoiceGlyph = props => (
   </svg>
 );
 
+const ChatVoiceGlyph = props => (
+  <svg
+    viewBox="0 0 32 32"
+    fill="none"
+    stroke="currentColor"
+    strokeWidth="2.8"
+    strokeLinecap="round"
+    strokeLinejoin="round"
+    aria-hidden="true"
+    {...props}
+  >
+    <path d="M4 10h18a2 2 0 012 2v7a2 2 0 01-2 2h-5.5a1 1 0 00-.7.3L11 25v-2.5H7a2 2 0 01-2-2v-7a2 2 0 012-2z" />
+    <path d="M8 15h10" />
+    <path d="M8 17h7" />
+    <path d="M20 3h2.8a1.5 1.5 0 011.4 1l.9 2.8a1.5 1.5 0 01-.5 1.5l-1.2 1a9 9 0 004.6 4.6l1-1.2a1.5 1.5 0 011.5-.5l2.8.9a1.5 1.5 0 011 1.4v2.8a1.5 1.5 0 01-1.5 1.5 16 16 0 01-7.5-2.6" />
+  </svg>
+);
+
+
 const serviceMeta = {
   chat: { label: 'Solo chat', channel: 'chat', Icon: ChatGlyph },
   voice: { label: 'Solo voce', channel: 'voice', Icon: VoiceGlyph },
-  chatVoice: { label: 'Chat e voce', channel: 'chat_voice', Icon: VoiceGlyph }
+  chatVoice: { label: 'Chat e voce', channel: 'chat_voice', Icon: ChatVoiceGlyph }
 };
 
 const serviceOrder = ['chat', 'voice', 'chatVoice'];
 
-const channelRateLabels = { chat: 'solo chat', voice: 'solo voce', chat_voice: 'chat + voce' };
+const channelRateLabels = { chat: 'solo chat', voice: 'solo voce', chat_voice: 'chat e voce' };
 
 const hasService = (services, service) => {
   if (!services) return service === 'chat';
@@ -508,7 +527,7 @@ export default function MasterProfile() {
           <div className="rate-card">
             <p>Solo Chat</p>
             <h3>{(master.rate_chat_cpm / 100).toFixed(2)} € / min</h3>
-            <p className="muted">Messaggi di testo in tempo reale con il master.</p>
+            <p className="muted">Messaggi di testo in tempo reale con il Esperti.</p>
             <button className="btn outline" onClick={() => startSession('chat')}>
               Avvia Chat
             </button>
@@ -518,7 +537,7 @@ export default function MasterProfile() {
           <div className="rate-card">
             <p>Solo Voce</p>
             <h3>{(master.rate_voice_cpm / 100).toFixed(2)} € / min</h3>
-            <p className="muted">Chiamata vocale diretta con il master.</p>
+            <p className="muted">Chiamata vocale diretta con il Esperti.</p>
             <button className="btn outline" onClick={() => startSession('voice')}>
               Chiama Ora
             </button>
@@ -539,13 +558,13 @@ export default function MasterProfile() {
         <div className="booking-head">
           <h2>Prenota una consulenza</h2>
           <p className="muted">
-            Seleziona giorno e orario tra le disponibilità reali del master. Il credito verrà prenotato e confermato al momento
+            Seleziona giorno e orario tra le disponibilità reali del esperti. Il credito verrà prenotato e confermato al momento
             dell&apos;accettazione.
           </p>
         </div>
         {availabilityLoading && <div className="booking-skeleton" aria-hidden="true" />}
         {!availabilityLoading && availableDays.length === 0 && (
-          <p className="muted">Questo master non ha ancora pubblicato disponibilità per le prossime settimane.</p>
+          <p className="muted">Questo Esperti non ha ancora pubblicato disponibilità per le prossime settimane.</p>
         )}
         {!availabilityLoading && availableDays.length > 0 && (
           <div className="booking-form">
@@ -620,10 +639,10 @@ export default function MasterProfile() {
                 </div>
               </div>
               <p className="booking-summary-note">
-                L&apos;importo viene prenotato dal tuo wallet e addebitato solo dopo la conferma del master.
+                L&apos;importo viene prenotato dal tuo wallet e addebitato solo dopo la conferma del Esperti.
               </p>
               <label className="input-label">
-                Note per il master (opzionale)
+                Note per il Esperti (opzionale)
                 <textarea
                   name="notes"
                   rows="3"
@@ -668,7 +687,7 @@ export default function MasterProfile() {
           </ul>
         ) : (
           <p className="muted">
-            Questo master consente prenotazioni h24 salvo restrizioni inserite nel calendario mensile.
+            Questo Esperti consente prenotazioni h24 salvo restrizioni inserite nel calendario mensile.
           </p>
         )}
         {master.working_hours?.notes && (

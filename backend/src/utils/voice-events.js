@@ -3,7 +3,7 @@ import { createNotification } from './notifications.js';
 
 const channelLabels = {
   voice: 'vocale',
-  chat_voice: 'chat + voce'
+  chat_voice: 'chat e voce'
 };
 
 const resolveDisplayName = user => {

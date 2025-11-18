@@ -6,7 +6,7 @@ import { requestReschedule, respondToReschedule, requestStartNow, respondStartNo
 import ConfirmModal from '../components/ConfirmModal.jsx';
 
 const statusLabels = {
-  awaiting_master: 'In attesa Master',
+  awaiting_master: 'In attesa Esperti',
   ready_to_start: 'Pronta per iniziare',
   active: 'In corso',
   completed: 'Completata',
@@ -250,13 +250,13 @@ export default function Reservations() {
     <section className="container dashboard">
       <div className="dashboard__header">
         <h1>Gestione Prenotazioni</h1>
-        <p className="muted">Gestisci tutte le tue prenotazioni come cliente e master</p>
+        <p className="muted">Gestisci tutte le tue prenotazioni come Cliente e Esperti</p>
       </div>
 
       <div className="dashboard__filters">
         <select value={filter} onChange={(e) => setFilter(e.target.value)}>
           <option value="all">Tutte le prenotazioni</option>
-          <option value="awaiting_master">In attesa Master</option>
+          <option value="awaiting_master">In attesa Esperti</option>
           <option value="ready_to_start">Pronte per iniziare</option>
           <option value="reschedule_requested">Riprogrammazione richiesta</option>
           <option value="active">In corso</option>
@@ -281,7 +281,7 @@ export default function Reservations() {
                     <h3>
                       {reservation.user_role === 'master' 
                         ? `Cliente: ${reservation.customer.name}` 
-                        : `Master: ${reservation.master.name}`}
+                        : `Esperti: ${reservation.master.name}`}
                     </h3>
                     <p className="micro muted">ID: {reservation.reservation_id}</p>
                     <span className={`status status--${reservation.status}`}>
@@ -289,7 +289,7 @@ export default function Reservations() {
                     </span>
                     {reservation.user_role === 'master' && (
                       <span className="badge-soft" style={{ marginLeft: '0.5rem' }}>
-                        Come Master
+                        Come Esperti
                       </span>
                     )}
                   </div>
@@ -312,7 +312,7 @@ export default function Reservations() {
                     <h4>
                       {reservation.reschedule_request.requested_by === reservation.user_role
                         ? 'La tua richiesta di riprogrammazione'
-                        : `Richiesta di riprogrammazione da ${reservation.reschedule_request.requested_by === 'customer' ? 'Cliente' : 'Master'}`}
+                        : `Richiesta di riprogrammazione da ${reservation.reschedule_request.requested_by === 'customer' ? 'Cliente' : 'Esperti'}`}
                     </h4>
                     <p><strong>Nuova data:</strong> {formatDate(reservation.reschedule_request.new_date)}</p>
                     <p><strong>Nuovo orario:</strong> {reservation.reschedule_request.new_start_time} - {reservation.reschedule_request.new_end_time}</p>
@@ -326,7 +326,7 @@ export default function Reservations() {
                   <div className="reschedule-info">
                     <h4>Avvio immediato</h4>
                     <p>
-                      Richiesto da {reservation.start_now_request.requested_by === 'customer' ? 'Cliente' : 'Master'} -
+                      Richiesto da {reservation.start_now_request.requested_by === 'customer' ? 'Cliente' : 'Esperti'} -
                       Stato: {reservation.start_now_request.status === 'pending' ? 'In attesa' : reservation.start_now_request.status}
                     </p>
                   </div>
