@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import toast from 'react-hot-toast';
 import client from '../api/client.js';
@@ -39,15 +39,57 @@ export default function Reservations() {
     reason: ''
   });
   const [confirmModal, setConfirmModal] = useState(null);
+  const reservationsSnapshot = useRef(new Map());
   const navigate = useNavigate();
 
-  const loadReservations = async (page = 1) => {
+  const myRole = (reservation) => (reservation.user_role === 'customer' ? 'customer' : 'master');
+
+  const notifyIncomingUpdates = (nextReservations) => {
+    const nextSnapshot = new Map();
+
+    nextReservations.forEach((reservation) => {
+      const previous = reservationsSnapshot.current.get(reservation.id) || {};
+      const myCurrentRole = myRole(reservation);
+
+      const rescheduleStatus = reservation.reschedule_request?.status || reservation.status;
+      const rescheduleSignature = reservation.reschedule_request
+        ? `${reservation.reschedule_request.requested_by}-${rescheduleStatus}-${reservation.reschedule_request.new_date}-${reservation.reschedule_request.new_start_time}-${reservation.reschedule_request.new_end_time}`
+        : null;
+
+      const startNowSignature = reservation.start_now_request
+        ? `${reservation.start_now_request.requested_by}-${reservation.start_now_request.status}`
+        : null;
+
+      if (
+        reservation.status === 'reschedule_requested' &&
+        reservation.reschedule_request?.requested_by !== myCurrentRole &&
+        rescheduleSignature !== previous.rescheduleSignature
+      ) {
+        toast(`Nuova richiesta di riprogrammazione per ${reservation.reservation_id}`);
+      }
+
+      if (
+        reservation.start_now_request?.status === 'pending' &&
+        reservation.start_now_request.requested_by !== myCurrentRole &&
+        startNowSignature !== previous.startNowSignature
+      ) {
+        toast(`Richiesta di avvio immediato per ${reservation.reservation_id}`);
+      }
+
+      nextSnapshot.set(reservation.id, { rescheduleSignature, startNowSignature });
+    });
+
+    reservationsSnapshot.current = nextSnapshot;
+  };
+
+  const loadReservations = async (page = 1, { showLoader = true } = {}) => {
     try {
-      setLoading(true);
+      if (showLoader) setLoading(true);
       const params = { page, limit: 10 };
       if (filter !== 'all') params.status = filter;
-      
+
       const { data } = await client.get('/bookings/reservations', { params });
+      notifyIncomingUpdates(data.reservations);
       setReservations(data.reservations);
       setPagination(data.pagination);
     } catch (error) {
@@ -57,13 +99,21 @@ export default function Reservations() {
       }
       toast.error('Errore nel caricamento delle prenotazioni');
     } finally {
-      setLoading(false);
+      if (showLoader) setLoading(false);
     }
   };
 
   useEffect(() => {
     loadReservations();
   }, [filter]);
+
+  useEffect(() => {
+    const interval = setInterval(() => {
+      loadReservations(pagination.page, { showLoader: false });
+    }, 15000);
+
+    return () => clearInterval(interval);
+  }, [filter, pagination.page]);
 
   const handleReschedule = (reservation) => {
     setRescheduleModal(reservation);
@@ -90,7 +140,7 @@ export default function Reservations() {
     setConfirmModal({
       title: action === 'accept' ? 'Accetta riprogrammazione' : 'Rifiuta riprogrammazione',
       message: action === 'accept'
-        ? `Confermi di accettare la riprogrammazione per il ${reservation.reschedule_request.new_date}?`
+        ? `Confermi di accettare la riprogrammazione per il ${formatDate(reservation.reschedule_request.new_date)}?`
         : 'Confermi di rifiutare la richiesta di riprogrammazione?',
       onConfirm: () => respondReschedule(reservation.id, action)
     });
@@ -138,10 +188,20 @@ export default function Reservations() {
 
   const respondStartNowAction = async (reservationId, action) => {
     try {
-      await respondStartNow(reservationId, action);
-      toast.success(action === 'accept' ? 'Avvio immediato accettato' : 'Avvio immediato rifiutato');
+      const { data } = await respondStartNow(reservationId, action);
+      const successMessage =
+        action === 'accept'
+          ? 'Avvio immediato accettato: la sessione verrà avviata ora'
+          : 'Avvio immediato rifiutato';
+
+      toast.success(data?.message || successMessage);
       setConfirmModal(null);
-      loadReservations(pagination.page);
+
+      if (action === 'accept') {
+        await startSession(reservationId, { silentReload: true });
+      } else {
+        loadReservations(pagination.page, { showLoader: false });
+      }
     } catch (error) {
       toast.error(error?.response?.data?.message || 'Errore nella risposta');
     }
@@ -165,7 +225,9 @@ export default function Reservations() {
     }
   };
 
-  const startSession = async (reservationId) => {
+  const startSession = async (reservationId, options = {}) => {
+    const { silentReload = false } = options;
+
     try {
       const { data } = await client.post(`/bookings/${reservationId}/start`);
       toast.success(data.message);
@@ -173,19 +235,25 @@ export default function Reservations() {
       if (data.session_url) {
         navigate(data.session_url);
       }
-      loadReservations(pagination.page);
+      loadReservations(pagination.page, { showLoader: !silentReload });
     } catch (error) {
       toast.error(error?.response?.data?.message || 'Errore nell\'avvio della sessione');
     }
   };
 
   const formatDate = (dateStr) => {
-    return new Date(dateStr).toLocaleDateString('it-IT', {
+    if (!dateStr) return '-';
+    const parsed = new Date(dateStr);
+    if (Number.isNaN(parsed.getTime())) return '-';
+
+    return parsed.toLocaleDateString('it-IT', {
       day: '2-digit',
       month: '2-digit',
       year: 'numeric'
     });
   };
+
+  const formatTime = (timeStr) => timeStr || '-';
 
   const formatAmount = (cents) => {
     return (cents / 100).toFixed(2);
@@ -197,22 +265,41 @@ export default function Reservations() {
     return futureDate && validStatus;
   };
 
+  const startNowStatusLabel = (request) => {
+    if (!request) return '';
+
+    switch (request.status) {
+      case 'pending':
+        return 'In attesa di risposta';
+      case 'accepted':
+        return 'Accettata - puoi avviare subito la sessione';
+      case 'rejected':
+        return 'Rifiutata';
+      default:
+        return request.status;
+    }
+  };
+
   const canRespondToReschedule = (reservation) => {
     return reservation.status === 'reschedule_requested' &&
            reservation.reschedule_request?.requested_by !== (reservation.user_role === 'customer' ? 'customer' : 'master');
   };
 
   const canStartSession = (reservation) => {
-    if (reservation.status !== 'ready_to_start' || !reservation.can_start) return false;
-    
+    const startNowAccepted = reservation.start_now_request?.status === 'accepted';
+
+    if (['completed', 'cancelled', 'rejected'].includes(reservation.status)) return false;
+    if (reservation.status === 'active') return true;
+    if (!reservation.can_start && !startNowAccepted) return false;
+    if (startNowAccepted) return true;
+    if (reservation.status !== 'ready_to_start') return false;
+
     const now = new Date();
     const sessionDateTime = new Date(`${reservation.date}T${reservation.start}:00`);
     const timeDiff = Math.abs(now - sessionDateTime) / (1000 * 60);
-    
+
     return timeDiff <= 15; // Can start 15 minutes before/after scheduled time
   };
-
-  const myRole = reservation => (reservation.user_role === 'customer' ? 'customer' : 'master');
 
   const hasIncomingStartNow = (reservation) => {
     return reservation.start_now_request?.status === 'pending'
@@ -315,7 +402,7 @@ export default function Reservations() {
                         : `Richiesta di riprogrammazione da ${reservation.reschedule_request.requested_by === 'customer' ? 'Cliente' : 'Esperti'}`}
                     </h4>
                     <p><strong>Nuova data:</strong> {formatDate(reservation.reschedule_request.new_date)}</p>
-                    <p><strong>Nuovo orario:</strong> {reservation.reschedule_request.new_start_time} - {reservation.reschedule_request.new_end_time}</p>
+                    <p><strong>Nuovo orario:</strong> {formatTime(reservation.reschedule_request.new_start_time)} - {formatTime(reservation.reschedule_request.new_end_time)}</p>
                     {reservation.reschedule_request.reason && (
                       <p><strong>Motivo:</strong> {reservation.reschedule_request.reason}</p>
                     )}
@@ -326,9 +413,12 @@ export default function Reservations() {
                   <div className="reschedule-info">
                     <h4>Avvio immediato</h4>
                     <p>
-                      Richiesto da {reservation.start_now_request.requested_by === 'customer' ? 'Cliente' : 'Esperti'} -
-                      Stato: {reservation.start_now_request.status === 'pending' ? 'In attesa' : reservation.start_now_request.status}
+                      Richiesto da {reservation.start_now_request.requested_by === 'customer' ? 'Cliente' : 'Esperti'}
                     </p>
+                    <p><strong>Stato:</strong> {startNowStatusLabel(reservation.start_now_request)}</p>
+                    {reservation.start_now_request.status === 'accepted' && (
+                      <p className="micro muted">Puoi avviare la sessione senza attendere l'orario programmato.</p>
+                    )}
                   </div>
                 )}
 
@@ -399,11 +489,6 @@ export default function Reservations() {
                   </button>
                 )}
 
-                {/* Debug info - remove after testing */}
-                <div style={{ fontSize: '0.7rem', color: 'var(--muted)', marginTop: '0.5rem' }}>
-                  Status: {reservation.status} | Future: {new Date(reservation.date) > new Date() ? 'Yes' : 'No'} | Can reschedule: {canReschedule(reservation) ? 'Yes' : 'No'}
-                </div>
-                
                 {isPendingMyReschedule(reservation) && (
                   <span className="btn outline" style={{ opacity: 0.6, cursor: 'not-allowed' }}>
                     In attesa di risposta
