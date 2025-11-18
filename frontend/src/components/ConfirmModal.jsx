@@ -1,4 +1,15 @@
-export default function ConfirmModal({ isOpen, onClose, onConfirm, title, message, confirmText = "Conferma", cancelText = "Annulla", type = "default" }) {
+export default function ConfirmModal({
+  isOpen,
+  onClose,
+  onConfirm,
+  onSecondary,
+  title,
+  message,
+  confirmText = "Conferma",
+  cancelText = "Annulla",
+  secondaryText = "Rifiuta",
+  type = "default"
+}) {
   if (!isOpen) return null;
 
   const handleBackdropClick = (e) => {
@@ -25,15 +36,24 @@ export default function ConfirmModal({ isOpen, onClose, onConfirm, title, messag
           <p>{message}</p>
         </div>
         <div className="modal-actions">
-          <button 
-            type="button" 
-            className="btn outline" 
+          <button
+            type="button"
+            className="btn outline"
             onClick={onClose}
           >
             {cancelText}
           </button>
-          <button 
-            type="button" 
+          {onSecondary && (
+            <button
+              type="button"
+              className="btn danger"
+              onClick={onSecondary}
+            >
+              {secondaryText}
+            </button>
+          )}
+          <button
+            type="button"
             className={`btn ${type === 'danger' ? 'danger' : 'primary'}`}
             onClick={onConfirm}
           >
