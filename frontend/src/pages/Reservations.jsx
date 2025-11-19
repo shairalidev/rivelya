@@ -1,9 +1,10 @@
-import { useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import toast from 'react-hot-toast';
 import client from '../api/client.js';
 import { requestReschedule, respondToReschedule, requestStartNow, respondStartNow } from '../api/dashboard.js';
 import ConfirmModal from '../components/ConfirmModal.jsx';
+import useSocket from '../hooks/useSocket.js';
 
 const statusLabels = {
   awaiting_master: 'In attesa Esperti',
@@ -39,10 +40,15 @@ export default function Reservations() {
     reason: ''
   });
   const [confirmModal, setConfirmModal] = useState(null);
+  const [incomingStartNow, setIncomingStartNow] = useState(null);
   const reservationsSnapshot = useRef(new Map());
   const navigate = useNavigate();
+  const socket = useSocket();
 
-  const myRole = (reservation) => (reservation.user_role === 'customer' ? 'customer' : 'master');
+  const myRole = useCallback(
+    (reservation) => (reservation.user_role === 'customer' ? 'customer' : 'master'),
+    []
+  );
 
   const notifyIncomingUpdates = (nextReservations) => {
     const nextSnapshot = new Map();
@@ -82,7 +88,7 @@ export default function Reservations() {
     reservationsSnapshot.current = nextSnapshot;
   };
 
-  const loadReservations = async (page = 1, { showLoader = true } = {}) => {
+  const loadReservations = useCallback(async (page = 1, { showLoader = true } = {}) => {
     try {
       if (showLoader) setLoading(true);
       const params = { page, limit: 10 };
@@ -101,11 +107,11 @@ export default function Reservations() {
     } finally {
       if (showLoader) setLoading(false);
     }
-  };
+  }, [filter, navigate]);
 
   useEffect(() => {
     loadReservations();
-  }, [filter]);
+  }, [filter, loadReservations]);
 
   useEffect(() => {
     const interval = setInterval(() => {
@@ -113,7 +119,37 @@ export default function Reservations() {
     }, 15000);
 
     return () => clearInterval(interval);
-  }, [filter, pagination.page]);
+  }, [filter, loadReservations, pagination.page]);
+
+  useEffect(() => {
+    if (!socket) return undefined;
+
+    const handleStartNowSocket = (payload) => {
+      if (payload?.action === 'request') {
+        toast(`Richiesta di avvio immediato per ${payload.reservationId}`);
+        setIncomingStartNow(payload);
+      }
+
+      if (payload?.action === 'response') {
+        if (payload.status === 'accepted') {
+          toast.success('Avvio immediato accettato: la sessione parte ora');
+          if (payload.sessionUrl) {
+            navigate(payload.sessionUrl);
+          }
+        } else if (payload.status === 'rejected') {
+          toast.error('Richiesta di avvio immediato rifiutata');
+        }
+      }
+
+      loadReservations(pagination.page, { showLoader: false });
+    };
+
+    socket.on('booking:start_now', handleStartNowSocket);
+
+    return () => {
+      socket.off('booking:start_now', handleStartNowSocket);
+    };
+  }, [loadReservations, navigate, pagination.page, socket]);
 
   const handleReschedule = (reservation) => {
     setRescheduleModal(reservation);
@@ -186,7 +222,7 @@ export default function Reservations() {
     }
   };
 
-  const respondStartNowAction = async (reservationId, action) => {
+  const respondStartNowAction = useCallback(async (reservationId, action) => {
     try {
       const { data } = await respondStartNow(reservationId, action);
       const successMessage =
@@ -198,14 +234,41 @@ export default function Reservations() {
       setConfirmModal(null);
 
       if (action === 'accept') {
-        await startSession(reservationId, { silentReload: true });
+        if (data?.session_url) {
+          navigate(data.session_url);
+        }
+        loadReservations(pagination.page, { showLoader: false });
       } else {
         loadReservations(pagination.page, { showLoader: false });
       }
     } catch (error) {
       toast.error(error?.response?.data?.message || 'Errore nella risposta');
     }
-  };
+  }, [loadReservations, navigate, pagination.page]);
+
+  useEffect(() => {
+    if (!incomingStartNow) return;
+    const reservation = reservations.find((item) => item.id === incomingStartNow.bookingId);
+    if (!reservation) return;
+
+    const myCurrentRole = myRole(reservation);
+    if (incomingStartNow.requestedBy === myCurrentRole) {
+      setIncomingStartNow(null);
+      return;
+    }
+
+    setConfirmModal({
+      title: 'Avvio immediato richiesto',
+      message: `${incomingStartNow.requestedBy === 'customer' ? 'Il cliente' : 'L\'esperto'} vuole iniziare subito la sessione ${reservation.reservation_id}.`,
+      confirmText: 'Accetta e avvia ora',
+      cancelText: 'Decidi dopo',
+      secondaryText: 'Rifiuta richiesta',
+      onConfirm: () => respondStartNowAction(reservation.id, 'accept'),
+      onSecondary: () => respondStartNowAction(reservation.id, 'reject')
+    });
+
+    setIncomingStartNow(null);
+  }, [incomingStartNow, myRole, reservations, respondStartNowAction]);
 
   const handleStartSession = (reservation) => {
     setConfirmModal({

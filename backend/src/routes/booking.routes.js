@@ -100,6 +100,21 @@ const startBookingSession = async ({ booking, starterRole, starterName, targetUs
   });
 };
 
+const emitStartNowEvent = (booking, payload) => {
+  if (!booking) return;
+  const participants = [booking.customer_id?._id, booking.master_id?.user_id]
+    .map(userId => userId?.toString())
+    .filter(Boolean);
+
+  participants.forEach(userId => {
+    emitToUser(userId, 'booking:start_now', {
+      bookingId: booking._id.toString(),
+      reservationId: booking.reservation_id,
+      ...payload
+    });
+  });
+};
+
 router.post('/', requireAuth, async (req, res, next) => {
   try {
     const payload = await bookingSchema.validateAsync(req.body);
@@ -715,6 +730,13 @@ router.post('/:bookingId/start-now/request', requireAuth, async (req, res, next)
       meta: { bookingId: booking._id, reservationId: booking.reservation_id }
     });
 
+    emitStartNowEvent(booking, {
+      action: 'request',
+      status: 'pending',
+      requestedBy: booking.start_now_request.requested_by,
+      requestedAt: booking.start_now_request.requested_at
+    });
+
     res.json({ message: 'Richiesta di avvio immediato inviata.' });
   } catch (error) {
     next(error);
@@ -763,11 +785,19 @@ router.post('/:bookingId/start-now/respond', requireAuth, async (req, res, next)
         meta: { bookingId: booking._id, reservationId: booking.reservation_id }
       });
 
+      emitStartNowEvent(booking, {
+        action: 'response',
+        status: 'rejected',
+        requestedBy: requesterRole,
+        respondedAt: booking.start_now_request.responded_at
+      });
+
       return res.json({ message: 'Richiesta di avvio immediato rifiutata.' });
     }
 
     booking.start_now_request.status = 'accepted';
     booking.start_now_request.responded_at = new Date();
+    const respondedAt = booking.start_now_request.responded_at;
 
     const starterName = requesterRole === 'customer'
       ? (booking.customer_id.display_name || 'Cliente')
@@ -783,6 +813,16 @@ router.post('/:bookingId/start-now/respond', requireAuth, async (req, res, next)
       targetUserId
     });
 
+    const sessionUrl = booking.channel === 'voice' ? `/voice/${booking._id}` : `/chat/${booking._id}`;
+
+    emitStartNowEvent(booking, {
+      action: 'response',
+      status: 'accepted',
+      requestedBy: requesterRole,
+      respondedAt,
+      sessionUrl
+    });
+
     await createNotification({
       userId: requesterId,
       type: 'booking:start_now_accepted',
@@ -791,7 +831,11 @@ router.post('/:bookingId/start-now/respond', requireAuth, async (req, res, next)
       meta: { bookingId: booking._id, reservationId: booking.reservation_id }
     });
 
-    res.json({ message: 'Sessione avviata con successo.' });
+    res.json({
+      message: 'Sessione avviata con successo.',
+      session_url: sessionUrl,
+      reservation_id: booking.reservation_id
+    });
   } catch (error) {
     if (error.isJoi) {
       return res.status(400).json({ message: 'Richiesta non valida.' });
