@@ -343,6 +343,12 @@ router.post('/session/:id/end', requireAuth, async (req, res, next) => {
     }
     await session.save();
 
+    // Update booking status to completed if this session is linked to a booking
+    if (session.booking_id) {
+      const { Booking } = await import('../models/booking.model.js');
+      await Booking.findByIdAndUpdate(session.booking_id, { status: 'completed' });
+    }
+
     // Emit WebRTC call end events
     const { emitToUser } = await import('../lib/socket.js');
     const endData = {

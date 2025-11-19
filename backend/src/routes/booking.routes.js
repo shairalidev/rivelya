@@ -84,9 +84,29 @@ const serializeMasterRequest = booking => ({
 });
 
 const startBookingSession = async ({ booking, starterRole, starterName, targetUserId }) => {
+  const now = new Date();
+  
+  // Store original booking details if not already stored
+  if (!booking.original_booking || !booking.original_booking.date) {
+    booking.original_booking = {
+      date: booking.date,
+      start_time: booking.start_time,
+      end_time: booking.end_time
+    };
+  }
+  
+  // Update booking with actual session times
+  const actualStartTime = now.toTimeString().slice(0, 5); // HH:MM format
+  const actualEndTime = new Date(now.getTime() + booking.duration_minutes * 60000).toTimeString().slice(0, 5);
+  const actualDate = now.toISOString().split('T')[0]; // YYYY-MM-DD format
+  
   booking.status = 'active';
   booking.started_by = starterRole;
-  booking.started_at = new Date();
+  booking.started_at = now;
+  booking.actual_started_at = now;
+  booking.date = actualDate;
+  booking.start_time = actualStartTime;
+  booking.end_time = actualEndTime;
   booking.can_start = false;
   booking.start_now_request = undefined;
   await booking.save();
@@ -901,6 +921,8 @@ router.get('/reservations', requireAuth, async (req, res, next) => {
         status: booking.status,
         can_start: booking.can_start,
         started_by: booking.started_by,
+        started_at: booking.started_at,
+        actual_started_at: booking.actual_started_at,
         start_now_request: booking.start_now_request,
         amount_cents: booking.amount_cents,
         duration_minutes: booking.duration_minutes,
@@ -943,12 +965,13 @@ router.post('/:bookingId/start', requireAuth, async (req, res, next) => {
       return res.status(400).json({ message: 'La sessione non può essere avviata ora.' });
     }
 
-    // Check if session is scheduled for now (within 15 minutes)
+    // Check if session is scheduled for now (within 15 minutes) or if start_now was accepted
     const now = new Date();
     const sessionDateTime = new Date(`${booking.date}T${booking.start_time}:00`);
     const timeDiff = Math.abs(now - sessionDateTime) / (1000 * 60); // minutes
+    const startNowAccepted = booking.start_now_request?.status === 'accepted';
     
-    if (timeDiff > 15) {
+    if (timeDiff > 15 && !startNowAccepted) {
       return res.status(400).json({ message: 'Puoi avviare la sessione solo 15 minuti prima dell\'orario previsto.' });
     }
 
@@ -969,6 +992,77 @@ router.post('/:bookingId/start', requireAuth, async (req, res, next) => {
       session_url: booking.channel === 'voice' ? `/voice/${booking._id}` : `/chat/${booking._id}`,
       reservation_id: booking.reservation_id
     });
+  } catch (error) {
+    next(error);
+  }
+});
+
+// Check and update booking status based on session status
+router.post('/:bookingId/check-session-status', requireAuth, async (req, res, next) => {
+  try {
+    const booking = await Booking.findById(req.params.bookingId)
+      .populate('master_id', 'user_id')
+      .populate('customer_id', '_id');
+
+    if (!booking) return res.status(404).json({ message: 'Prenotazione non trovata.' });
+    
+    const isCustomer = booking.customer_id._id.toString() === req.user._id.toString();
+    const isMaster = booking.master_id.user_id.toString() === req.user._id.toString();
+    
+    if (!isCustomer && !isMaster) {
+      return res.status(403).json({ message: 'Non autorizzato.' });
+    }
+
+    // Check if there's an associated session
+    const session = await Session.findOne({ booking_id: booking._id });
+    if (session && session.status === 'ended' && booking.status === 'active') {
+      booking.status = 'completed';
+      await booking.save();
+    }
+
+    // Check if there's an associated chat thread
+    const { ChatThread } = await import('../models/chat-thread.model.js');
+    const thread = await ChatThread.findOne({ booking_id: booking._id });
+    if (thread && thread.status === 'expired' && booking.status === 'active') {
+      booking.status = 'completed';
+      await booking.save();
+    }
+
+    res.json({ status: booking.status });
+  } catch (error) {
+    next(error);
+  }
+});
+
+// Get session URL for a booking
+router.get('/:bookingId/session-url', requireAuth, async (req, res, next) => {
+  try {
+    const booking = await Booking.findById(req.params.bookingId)
+      .populate('master_id', 'user_id')
+      .populate('customer_id', '_id');
+
+    if (!booking) return res.status(404).json({ message: 'Prenotazione non trovata.' });
+    
+    const isCustomer = booking.customer_id._id.toString() === req.user._id.toString();
+    const isMaster = booking.master_id.user_id.toString() === req.user._id.toString();
+    
+    if (!isCustomer && !isMaster) {
+      return res.status(403).json({ message: 'Non autorizzato.' });
+    }
+
+    if (booking.channel === 'voice') {
+      return res.json({ session_url: `/voice/${booking._id}` });
+    }
+
+    // For chat channels, find the thread ID
+    const { ChatThread } = await import('../models/chat-thread.model.js');
+    const thread = await ChatThread.findOne({ booking_id: booking._id });
+    
+    if (!thread) {
+      return res.status(404).json({ message: 'Thread di chat non trovato.' });
+    }
+
+    res.json({ session_url: `/chat/${thread._id}` });
   } catch (error) {
     next(error);
   }

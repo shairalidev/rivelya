@@ -9,7 +9,7 @@ import useSocket from '../hooks/useSocket.js';
 const statusLabels = {
   awaiting_master: 'In attesa Esperti',
   ready_to_start: 'Pronta per iniziare',
-  active: 'In corso',
+  active: 'Sessione in corso',
   completed: 'Completata',
   rejected: 'Rifiutata',
   cancelled: 'Annullata',
@@ -25,6 +25,18 @@ const channelLabels = {
 const canRejectBeforeStart = (reservation) => {
   if (reservation.user_role !== 'master') return false;
   return !['active', 'completed', 'rejected', 'cancelled'].includes(reservation.status);
+};
+
+const isSessionStarted = (reservation) => {
+  return reservation.actual_started_at || reservation.status === 'active';
+};
+
+const isSessionCompleted = (reservation) => {
+  return ['completed', 'cancelled', 'rejected'].includes(reservation.status);
+};
+
+const canShowActions = (reservation) => {
+  return !isSessionStarted(reservation) && !isSessionCompleted(reservation);
 };
 
 export default function Reservations() {
@@ -88,6 +100,21 @@ export default function Reservations() {
     reservationsSnapshot.current = nextSnapshot;
   };
 
+  const checkActiveBookingsStatus = useCallback(async (reservations) => {
+    const activeBookings = reservations.filter(r => r.status === 'active');
+    if (activeBookings.length === 0) return;
+
+    try {
+      await Promise.all(
+        activeBookings.map(booking => 
+          client.post(`/bookings/${booking.id}/check-session-status`)
+        )
+      );
+    } catch (error) {
+      // Silent fail - status will be updated on next refresh
+    }
+  }, []);
+
   const loadReservations = useCallback(async (page = 1, { showLoader = true } = {}) => {
     try {
       if (showLoader) setLoading(true);
@@ -98,6 +125,9 @@ export default function Reservations() {
       notifyIncomingUpdates(data.reservations);
       setReservations(data.reservations);
       setPagination(data.pagination);
+      
+      // Check status of active bookings
+      await checkActiveBookingsStatus(data.reservations);
     } catch (error) {
       if (error?.response?.status === 401) {
         navigate('/login');
@@ -107,7 +137,7 @@ export default function Reservations() {
     } finally {
       if (showLoader) setLoading(false);
     }
-  }, [filter, navigate]);
+  }, [filter, navigate, checkActiveBookingsStatus]);
 
   useEffect(() => {
     loadReservations();
@@ -116,7 +146,7 @@ export default function Reservations() {
   useEffect(() => {
     const interval = setInterval(() => {
       loadReservations(pagination.page, { showLoader: false });
-    }, 15000);
+    }, 5000); // Check every 5 seconds for real-time updates
 
     return () => clearInterval(interval);
   }, [filter, loadReservations, pagination.page]);
@@ -144,10 +174,19 @@ export default function Reservations() {
       loadReservations(pagination.page, { showLoader: false });
     };
 
+    const handleSessionStatus = (payload) => {
+      if (payload?.status === 'expired' || payload?.status === 'ended') {
+        // Session ended, refresh reservations to show updated status
+        loadReservations(pagination.page, { showLoader: false });
+      }
+    };
+
     socket.on('booking:start_now', handleStartNowSocket);
+    socket.on('session:status', handleSessionStatus);
 
     return () => {
       socket.off('booking:start_now', handleStartNowSocket);
+      socket.off('session:status', handleSessionStatus);
     };
   }, [loadReservations, navigate, pagination.page, socket]);
 
@@ -411,6 +450,8 @@ export default function Reservations() {
           <option value="reschedule_requested">Riprogrammazione richiesta</option>
           <option value="active">In corso</option>
           <option value="completed">Completate</option>
+          <option value="rejected">Rifiutate</option>
+          <option value="cancelled">Annullate</option>
         </select>
       </div>
 
@@ -452,7 +493,14 @@ export default function Reservations() {
               <div className="booking-card__details">
                 <div className="booking-info">
                   <p><strong>Data:</strong> {formatDate(reservation.date)}</p>
-                  <p><strong>Orario:</strong> {reservation.start} - {reservation.end}</p>
+                  <p><strong>Orario programmato:</strong></p>
+                  <p style={{ marginLeft: '1rem', marginTop: '0.25rem' }}>{reservation.start} - {reservation.end}</p>
+                  {reservation.actual_started_at && (
+                    <>
+                      <p><strong>Avviata alle:</strong></p>
+                      <p style={{ marginLeft: '1rem', marginTop: '0.25rem' }}>{new Date(reservation.actual_started_at).toLocaleTimeString('it-IT', { hour: '2-digit', minute: '2-digit' })}</p>
+                    </>
+                  )}
                   <p><strong>Tipo:</strong> {channelLabels[reservation.channel]}</p>
                   <p><strong>Durata:</strong> {reservation.duration_minutes} minuti</p>
                 </div>
@@ -493,112 +541,149 @@ export default function Reservations() {
               </div>
 
               <div className="booking-card__actions">
-                {canStartSession(reservation) && (
-                  <button
-                    className="btn primary"
-                    onClick={() => handleStartSession(reservation)}
-                  >
-                    Avvia Sessione
-                  </button>
-                )}
-
-                {hasIncomingStartNow(reservation) && (
-                  <>
-                    <button
-                      className="btn primary"
-                      onClick={() => handleStartNowResponse(reservation, 'accept')}
-                    >
-                      Accetta avvio immediato
-                    </button>
-                    <button
-                      className="btn outline"
-                      onClick={() => handleStartNowResponse(reservation, 'reject')}
-                    >
-                      Rifiuta avvio immediato
-                    </button>
-                  </>
-                )}
-
-                {hasOutgoingStartNow(reservation) && (
-                  <span className="btn outline" style={{ opacity: 0.6, cursor: 'not-allowed' }}>
-                    In attesa di conferma avvio
-                  </span>
-                )}
-
-                {canRequestStartNow(reservation) && !hasIncomingStartNow(reservation) && !hasOutgoingStartNow(reservation) && (
-                  <button
-                    className="btn outline"
-                    onClick={() => handleStartNowRequest(reservation)}
-                  >
-                    Richiedi avvio immediato
-                  </button>
-                )}
-
-                {canReschedule(reservation) && !isPendingMyReschedule(reservation) && (
-                  <button
-                    className="btn outline"
-                    onClick={() => handleReschedule(reservation)}
-                  >
-                    {reservation.status === 'reschedule_requested' ? 'Nuova riprogrammazione' : 'Riprogramma'}
-                  </button>
-                )}
-
-                {canRejectBeforeStart(reservation) && reservation.status !== 'awaiting_master' && (
-                  <button
-                    className="btn outline"
-                    onClick={() => handleBookingResponse(reservation.id, 'reject')}
-                  >
-                    Rifiuta prenotazione
-                  </button>
-                )}
-
-                {isPendingMyReschedule(reservation) && (
-                  <span className="btn outline" style={{ opacity: 0.6, cursor: 'not-allowed' }}>
-                    In attesa di risposta
-                  </span>
-                )}
-                
-                {reservation.status === 'awaiting_master' && reservation.user_role === 'master' && (
-                  <>
-                    <button 
-                      className="btn primary" 
-                      onClick={() => handleBookingResponse(reservation.id, 'accept')}
-                    >
-                      Accetta prenotazione
-                    </button>
-                    <button 
-                      className="btn outline" 
-                      onClick={() => handleBookingResponse(reservation.id, 'reject')}
-                    >
-                      Rifiuta prenotazione
-                    </button>
-                  </>
-                )}
-
-                {canRespondToReschedule(reservation) && (
-                  <>
-                    <button 
-                      className="btn primary" 
-                      onClick={() => handleRescheduleResponse(reservation, 'accept')}
-                    >
-                      Accetta riprogrammazione
-                    </button>
-                    <button 
-                      className="btn outline" 
-                      onClick={() => handleRescheduleResponse(reservation, 'reject')}
-                    >
-                      Rifiuta riprogrammazione
-                    </button>
-                  </>
-                )}
-
+                {/* Show session running status */}
                 {reservation.status === 'active' && (
-                  <button 
-                    className="btn primary"
-                    onClick={() => navigate(reservation.channel === 'voice' ? `/voice/${reservation.id}` : `/chat/${reservation.id}`)}
-                  >
-                    Unisciti alla sessione
-                  </button>
+                  <>
+                    <div className="session-status">
+                      <span className="status status--active">Sessione in corso</span>
+                      {reservation.actual_started_at && (
+                        <span className="micro muted" style={{ marginLeft: '0.5rem' }}>
+                          Iniziata alle {new Date(reservation.actual_started_at).toLocaleTimeString('it-IT', { hour: '2-digit', minute: '2-digit' })}
+                        </span>
+                      )}
+                    </div>
+                    <button 
+                      className="btn primary"
+                      onClick={async () => {
+                        try {
+                          const { data } = await client.get(`/bookings/${reservation.id}/session-url`);
+                          navigate(data.session_url);
+                        } catch (error) {
+                          toast.error('Impossibile accedere alla sessione');
+                        }
+                      }}
+                    >
+                      Unisciti alla sessione
+                    </button>
+                  </>
+                )}
+
+                {/* Show completed status */}
+                {isSessionCompleted(reservation) && (
+                  <div className="session-status">
+                    <span className={`status status--${reservation.status}`}>
+                      {statusLabels[reservation.status]}
+                    </span>
+                    {reservation.actual_started_at && (
+                      <span className="micro muted" style={{ marginLeft: '0.5rem' }}>
+                        Iniziata alle {new Date(reservation.actual_started_at).toLocaleTimeString('it-IT', { hour: '2-digit', minute: '2-digit' })}
+                      </span>
+                    )}
+                  </div>
+                )}
+
+                {/* Show action buttons only if session hasn't started and isn't completed */}
+                {canShowActions(reservation) && (
+                  <>
+                    {canStartSession(reservation) && (
+                      <button
+                        className="btn primary"
+                        onClick={() => handleStartSession(reservation)}
+                      >
+                        Avvia Sessione
+                      </button>
+                    )}
+
+                    {hasIncomingStartNow(reservation) && (
+                      <>
+                        <button
+                          className="btn primary"
+                          onClick={() => handleStartNowResponse(reservation, 'accept')}
+                        >
+                          Accetta avvio immediato
+                        </button>
+                        <button
+                          className="btn outline"
+                          onClick={() => handleStartNowResponse(reservation, 'reject')}
+                        >
+                          Rifiuta avvio immediato
+                        </button>
+                      </>
+                    )}
+
+                    {hasOutgoingStartNow(reservation) && (
+                      <span className="btn outline" style={{ opacity: 0.6, cursor: 'not-allowed' }}>
+                        In attesa di conferma avvio
+                      </span>
+                    )}
+
+                    {canRequestStartNow(reservation) && !hasIncomingStartNow(reservation) && !hasOutgoingStartNow(reservation) && (
+                      <button
+                        className="btn outline"
+                        onClick={() => handleStartNowRequest(reservation)}
+                      >
+                        Richiedi avvio immediato
+                      </button>
+                    )}
+
+                    {canReschedule(reservation) && !isPendingMyReschedule(reservation) && (
+                      <button
+                        className="btn outline"
+                        onClick={() => handleReschedule(reservation)}
+                      >
+                        {reservation.status === 'reschedule_requested' ? 'Nuova riprogrammazione' : 'Riprogramma'}
+                      </button>
+                    )}
+
+                    {canRejectBeforeStart(reservation) && reservation.status !== 'awaiting_master' && (
+                      <button
+                        className="btn outline"
+                        onClick={() => handleBookingResponse(reservation.id, 'reject')}
+                      >
+                        Rifiuta prenotazione
+                      </button>
+                    )}
+
+                    {isPendingMyReschedule(reservation) && (
+                      <span className="btn outline" style={{ opacity: 0.6, cursor: 'not-allowed' }}>
+                        In attesa di risposta
+                      </span>
+                    )}
+                    
+                    {reservation.status === 'awaiting_master' && reservation.user_role === 'master' && (
+                      <>
+                        <button 
+                          className="btn primary" 
+                          onClick={() => handleBookingResponse(reservation.id, 'accept')}
+                        >
+                          Accetta prenotazione
+                        </button>
+                        <button 
+                          className="btn outline" 
+                          onClick={() => handleBookingResponse(reservation.id, 'reject')}
+                        >
+                          Rifiuta prenotazione
+                        </button>
+                      </>
+                    )}
+
+                    {canRespondToReschedule(reservation) && (
+                      <>
+                        <button 
+                          className="btn primary" 
+                          onClick={() => handleRescheduleResponse(reservation, 'accept')}
+                        >
+                          Accetta riprogrammazione
+                        </button>
+                        <button 
+                          className="btn outline" 
+                          onClick={() => handleRescheduleResponse(reservation, 'reject')}
+                        >
+                          Rifiuta riprogrammazione
+                        </button>
+                      </>
+                    )}
+                  </>
                 )}
               </div>
             </div>
@@ -608,15 +693,23 @@ export default function Reservations() {
 
       {pagination.pages > 1 && (
         <div className="pagination">
-          {Array.from({ length: pagination.pages }, (_, i) => i + 1).map(page => (
-            <button
-              key={page}
-              className={`btn ${page === pagination.page ? 'primary' : 'outline'}`}
-              onClick={() => loadReservations(page)}
-            >
-              {page}
-            </button>
-          ))}
+          <button
+            className="btn outline"
+            onClick={() => loadReservations(pagination.page - 1)}
+            disabled={pagination.page === 1}
+          >
+            ‹ Precedente
+          </button>
+          <span className="pagination-info">
+            Pagina {pagination.page} di {pagination.pages}
+          </span>
+          <button
+            className="btn outline"
+            onClick={() => loadReservations(pagination.page + 1)}
+            disabled={pagination.page === pagination.pages}
+          >
+            Successiva ›
+          </button>
         </div>
       )}
 

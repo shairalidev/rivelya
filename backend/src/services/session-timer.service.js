@@ -22,6 +22,12 @@ export const startSessionTimer = () => {
         }
         await session.save();
 
+        // Update booking status to completed if this session is linked to a booking
+        if (session.booking_id) {
+          const { Booking } = await import('../models/booking.model.js');
+          await Booking.findByIdAndUpdate(session.booking_id, { status: 'completed' });
+        }
+
         // Notify both participants
         const { emitToSession } = await import('./socket.service.js');
         emitToSession(session._id, 'voice:session:expired', { sessionId: session._id });

@@ -121,6 +121,7 @@ export default function Layout() {
   }, [location.pathname, location.search]);
 
   const isCatalog = location.pathname.startsWith('/catalog');
+  const isChat = location.pathname.startsWith('/chat') || location.pathname.startsWith('/voice');
 
   const isChipActive = item => {
     if (!isCatalog) return false;
@@ -348,7 +349,7 @@ export default function Layout() {
 
       </header>
 
-      <main className="main">
+      <main className={`main${isChat ? ' chat-main' : ''}`}>
         <Outlet />
       </main>
 

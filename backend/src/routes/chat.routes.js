@@ -186,6 +186,12 @@ router.get('/threads/:threadId', requireAuth, async (req, res, next) => {
     if (thread.expires_at && thread.expires_at <= now && thread.status !== 'expired') {
       thread.status = 'expired';
       await thread.save();
+      
+      // Update booking status to completed when chat thread expires
+      if (thread.booking_id) {
+        const { Booking } = await import('../models/booking.model.js');
+        await Booking.findByIdAndUpdate(thread.booking_id, { status: 'completed' });
+      }
     }
 
     const messages = await ChatMessage.find({ thread_id: thread._id })
@@ -265,6 +271,12 @@ router.post('/threads/:threadId/messages', requireAuth, async (req, res, next) =
       if (thread.status !== 'expired') {
         thread.status = 'expired';
         await thread.save();
+        
+        // Update booking status to completed when chat thread expires
+        if (thread.booking_id) {
+          const { Booking } = await import('../models/booking.model.js');
+          await Booking.findByIdAndUpdate(thread.booking_id, { status: 'completed' });
+        }
       }
       return res.status(403).json({ message: 'Il tempo a disposizione per la chat è terminato.' });
     }
@@ -336,6 +348,16 @@ router.post('/threads/:threadId/call/start', requireAuth, async (req, res, next)
 
     const now = new Date();
     if (thread.expires_at && thread.expires_at <= now) {
+      if (thread.status !== 'expired') {
+        thread.status = 'expired';
+        await thread.save();
+        
+        // Update booking status to completed when chat thread expires
+        if (thread.booking_id) {
+          const { Booking } = await import('../models/booking.model.js');
+          await Booking.findByIdAndUpdate(thread.booking_id, { status: 'completed' });
+        }
+      }
       return res.status(403).json({ message: 'Il tempo a disposizione per la chat è terminato.' });
     }
 

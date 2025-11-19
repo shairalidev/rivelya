@@ -31,7 +31,9 @@ const baseStyles = {
     background: 'rgba(12, 19, 30, 0.96)',
     borderRadius: 16,
     overflow: 'hidden',
-    boxShadow: '0 28px 60px -30px rgba(12, 18, 27, 0.9)'
+    boxShadow: '0 28px 60px -30px rgba(12, 18, 27, 0.9)',
+    border: '1px solid rgba(138, 153, 198, 0.24)',
+    zIndex: 9999
   }),
   option: (provided, state) => ({
     ...provided,
@@ -71,7 +73,6 @@ export default function FancySelect({ name, value, options, onChange, placeholde
       isDisabled={isDisabled}
       onChange={handleChange}
       styles={baseStyles}
-      menuPortalTarget={typeof document !== 'undefined' ? document.body : null}
       menuPlacement="auto"
     />
   );

@@ -27,6 +27,7 @@ const bookingSchema = new mongoose.Schema({
   can_start: { type: Boolean, default: false },
   started_by: { type: String, enum: ['customer', 'master'] },
   started_at: { type: Date },
+  actual_started_at: { type: Date },
   start_now_request: {
     requested_by: { type: String, enum: ['customer', 'master'] },
     requested_at: { type: Date },

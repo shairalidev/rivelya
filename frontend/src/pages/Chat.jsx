@@ -114,6 +114,9 @@ export default function Chat() {
   const signalHandlerRef = useRef(null);
   const activeCallRef = useRef(null);
   const viewerId = useMemo(() => decodeTokenSub(token), [token]);
+  const [swipedThread, setSwipedThread] = useState(null);
+  const [touchStart, setTouchStart] = useState(null);
+  const [touchEnd, setTouchEnd] = useState(null);
 
   useEffect(() => {
     const sync = () => {
@@ -471,47 +474,108 @@ export default function Chat() {
                   ? formatDuration(thread.remainingSeconds)
                   : null;
 
+              const handleTouchStart = (e) => {
+                setTouchEnd(null);
+                setTouchStart(e.targetTouches[0].clientX);
+              };
+
+              const handleTouchMove = (e) => {
+                setTouchEnd(e.targetTouches[0].clientX);
+              };
+
+              const handleTouchEnd = () => {
+                if (!touchStart || !touchEnd) return;
+                const distance = touchStart - touchEnd;
+                const isLeftSwipe = distance > 50;
+                const isRightSwipe = distance < -50;
+
+                if (isLeftSwipe || isRightSwipe) {
+                  setSwipedThread(thread.id);
+                  setTimeout(() => setSwipedThread(null), 3000);
+                } else {
+                  setSwipedThread(null);
+                }
+              };
+
+              const handleArchive = (e) => {
+                e.stopPropagation();
+                // Add archive functionality here
+                console.log('Archive thread:', thread.id);
+                setSwipedThread(null);
+              };
+
+              const handleMarkRead = (e) => {
+                e.stopPropagation();
+                // Add mark as read functionality here
+                console.log('Mark as read:', thread.id);
+                setSwipedThread(null);
+              };
+
+              const swipeClass = swipedThread === thread.id ? ' swipe-left' : '';
+
               return (
-                <button
-                  key={thread.id}
-                  type="button"
-                  className={`chat-thread${isActive ? ' active' : ''}`}
-                  onClick={() => navigate(`/chat/${thread.id}`)}
-                >
-                  <div className="chat-thread-header">
-                    <div className="chat-thread-main">
-                      <span className="chat-thread-name">{resolveName(thread)}</span>
-                      {threadChannel && (
-                        <span className={`chat-thread-channel ${threadChannel}`}>
-                          <span className="icon-wrapper" aria-hidden="true">
-                            <ChannelGlyph channel={threadChannel} />
+                <div key={thread.id} className="chat-thread-container">
+                  <button
+                    type="button"
+                    className={`chat-thread${isActive ? ' active' : ''}${swipeClass}`}
+                    onClick={() => navigate(`/chat/${thread.id}`)}
+                    onTouchStart={handleTouchStart}
+                    onTouchMove={handleTouchMove}
+                    onTouchEnd={handleTouchEnd}
+                  >
+                    <div className="chat-thread-header">
+                      <div className="chat-thread-main">
+                        <span className="chat-thread-name">{resolveName(thread)}</span>
+                        {threadChannel && (
+                          <span className={`chat-thread-channel ${threadChannel}`}>
+                            <span className="icon-wrapper" aria-hidden="true">
+                              <ChannelGlyph channel={threadChannel} />
+                            </span>
+                            {shortLabel}
                           </span>
-                          {shortLabel}
+                        )}
+                      </div>
+                      {thread.unreadCount > 0 && <span className="chat-thread-badge">{thread.unreadCount}</span>}
+                    </div>
+                    <p className="chat-thread-preview">{buildPreview(thread.lastMessage)}</p>
+                    <div className="chat-thread-footer">
+                      {thread.booking ? (
+                        <span className="chat-thread-slot">
+                          {dayjs(thread.booking.date).format('DD MMM')} · {thread.booking.start} - {thread.booking.end}
                         </span>
+                      ) : (
+                        <span className="chat-thread-slot">Sessione aperta</span>
+                      )}
+                      {hasTimer ? (
+                        countdown ? (
+                          <span className="chat-thread-timer">{countdown}</span>
+                        ) : (
+                          <span className="chat-thread-timer expired">Scaduta</span>
+                        )
+                      ) : (
+                        <span className="chat-thread-timer idle">Senza limite</span>
                       )}
                     </div>
-                    {thread.unreadCount > 0 && <span className="chat-thread-badge">{thread.unreadCount}</span>}
-                  </div>
-                  <p className="chat-thread-preview">{buildPreview(thread.lastMessage)}</p>
-                  <div className="chat-thread-footer">
-                    {thread.booking ? (
-                      <span className="chat-thread-slot">
-                        {dayjs(thread.booking.date).format('DD MMM')} · {thread.booking.start} - {thread.booking.end}
-                      </span>
-                    ) : (
-                      <span className="chat-thread-slot">Sessione aperta</span>
-                    )}
-                    {hasTimer ? (
-                      countdown ? (
-                        <span className="chat-thread-timer">{countdown}</span>
-                      ) : (
-                        <span className="chat-thread-timer expired">Scaduta</span>
-                      )
-                    ) : (
-                      <span className="chat-thread-timer idle">Senza limite</span>
-                    )}
-                  </div>
-                </button>
+                    <div className="chat-thread-actions">
+                      <button 
+                        className="chat-thread-action-btn" 
+                        onClick={handleArchive}
+                        title="Archivia"
+                      >
+                        🗂️
+                      </button>
+                    </div>
+                    <div className="chat-thread-left-actions">
+                      <button 
+                        className="chat-thread-action-btn" 
+                        onClick={handleMarkRead}
+                        title="Segna come letto"
+                      >
+                        ✓
+                      </button>
+                    </div>
+                  </button>
+                </div>
               );
             })}
           </div>
@@ -536,25 +600,18 @@ export default function Chat() {
           {threadId && activeThread && (
             <div className="chat-room">
               <header className="chat-room-header">
-                <div className="chat-room-heading">
-                  <h2>{resolveName(activeThread)}</h2>
-                  <div className="chat-room-meta">
-                    {sessionChannel && (
-                      <div className={`chat-session-pill ${sessionChannel}`}>
-                        <span className="icon-wrapper" aria-hidden="true">
-                          <ChannelGlyph channel={sessionChannel} />
-                        </span>
-                        <div className="chat-session-copy">
-                          <span className="channel-label">{channelLabel}</span>
-                          {sessionRateLabel && <span className="channel-rate">{sessionRateLabel}</span>}
-                        </div>
-                      </div>
-                    )}
-                    {bookingWindowLabel && <span className="chat-session-slot">{bookingWindowLabel}</span>}
-                    {allowedMinutes ? (
-                      <span className="chat-session-slot">Pacchetto: {allowedMinutes} min</span>
-                    ) : null}
-                  </div>
+                <div className="chat-room-meta">
+                  {sessionChannel && (
+                    <div className={`chat-session-pill ${sessionChannel}`}>
+                      <span className="icon-wrapper" aria-hidden="true">
+                        <ChannelGlyph channel={sessionChannel} />
+                      </span>
+                      <span className="channel-label">{channelLabel}</span>
+                      {sessionRateLabel && <span className="channel-rate">{sessionRateLabel}</span>}
+                    </div>
+                  )}
+                  {bookingWindowLabel && <span className="chat-session-slot">{bookingWindowLabel}</span>}
+                  {allowedMinutes && <span className="chat-session-slot">Pacchetto: {allowedMinutes} min</span>}
                 </div>
                 <div className="chat-room-actions">
                   {canPost && sessionChannel === 'chat_voice' && (
@@ -603,28 +660,29 @@ export default function Chat() {
                 <div ref={messageEndRef} />
               </div>
               <form className="chat-composer" onSubmit={handleSubmit}>
-                <textarea
-                  className="chat-input"
-                  value={draft}
+                <div className="chat-input-wrapper">
+                  <textarea
+                    className="chat-input"
+                    value={draft}
                   onChange={event => setDraft(event.target.value)}
                   placeholder={canPost ? 'Scrivi un messaggio…' : 'Tempo esaurito'}
                   disabled={!canPost || sendMutation.isPending}
-                  rows={3}
-                />
-                <div className="chat-composer-actions">
-                  {!canPost && (
-                    <span className="chat-expired-hint">
-                      Il tempo per questa sessione è terminato. Puoi rileggere i messaggi ma non inviarne di nuovi.
-                    </span>
-                  )}
+                    rows={1}
+                  />
                   <button
                     type="submit"
-                    className="btn primary"
+                    className="chat-send-btn"
                     disabled={!canPost || sendMutation.isPending || !draft.trim()}
+                    title="Invia messaggio"
                   >
-                    Invia
+                    ➤
                   </button>
                 </div>
+                {!canPost && (
+                  <span className="chat-expired-hint">
+                    Il tempo per questa sessione è terminato. Puoi rileggere i messaggi ma non inviarne di nuovi.
+                  </span>
+                )}
               </form>
             </div>
           )}
