@@ -627,7 +627,7 @@ export default function Voice() {
   const actuallyMuted = webrtcConnected ? webrtcMuted : isMuted;
 
   return (
-    <section className="container voice-page">
+    <section className="voice-page">
       <div className="voice-layout">
         <aside className="voice-sidebar">
           <div className="voice-sidebar-header">
@@ -810,32 +810,32 @@ export default function Voice() {
           )}
           {sessionId && activeSession && (
             <div className="voice-room">
-              <div className="voice-room-main">
-                <header className="voice-room-header">
-                  <div className="voice-room-heading">
-                    <h2>{resolveName(activeSession)}</h2>
-                    <div className="voice-room-meta">
-                      <div className="voice-session-pill voice">
-                        <span className="icon-wrapper" aria-hidden="true">
-                          <PhoneIcon />
+              <header className="voice-room-header">
+                <div className="voice-room-heading">
+                  <h2>{resolveName(activeSession)}</h2>
+                  <div className="voice-room-meta">
+                    <div className="voice-session-pill voice">
+                      <span className="icon-wrapper" aria-hidden="true">
+                        <PhoneIcon />
+                      </span>
+                      <div className="voice-session-copy">
+                        <span className="channel-label">Sessione vocale</span>
+                        <span className="channel-rate">
+                          {activeSession.rate ? `${(activeSession.rate / 100).toFixed(2)} €/min` : '—'}
                         </span>
-                        <div className="voice-session-copy">
-                          <span className="channel-label">Sessione vocale</span>
-                          <span className="channel-rate">
-                            {activeSession.rate ? `${(activeSession.rate / 100).toFixed(2)} €/min` : '—'}
-                          </span>
-                        </div>
                       </div>
                     </div>
                   </div>
-                  <div className="voice-room-timer">
-                    <span>Tempo residuo</span>
-                    <strong className={canCall && !isSessionEnded ? '' : 'expired'}>
-                      {isSessionEnded ? '00:00' : formatDuration(remainingSeconds)}
-                    </strong>
-                  </div>
-                </header>
-                
+                </div>
+                <div className="voice-room-timer">
+                  <span>Tempo residuo</span>
+                  <strong className={canCall && !isSessionEnded ? '' : 'expired'}>
+                    {isSessionEnded ? '00:00' : formatDuration(remainingSeconds)}
+                  </strong>
+                </div>
+              </header>
+
+              <div className="voice-room-main">
                 <div className="voice-call-area">
                   <div className="voice-participants">
                     <VoiceParticipant
@@ -976,12 +976,18 @@ export default function Voice() {
                   )}
                 </div>
               </div>
-              
-              <aside className="voice-notes">
-                <div className="voice-notes-header">
-                  <h3>Note personali</h3>
-                  <p>Queste note sono private e visibili solo a te. L'altro partecipante non può vederle.</p>
-                </div>
+            </div>
+          )}
+        </section>
+
+        <aside className="voice-sidebar-panel">
+          <div className="voice-notes">
+            <div className="voice-notes-header">
+              <h3>Note personali</h3>
+              <p>Queste note sono private e visibili solo a te. L'altro partecipante non può vederle.</p>
+            </div>
+            <div className="voice-notes-body">
+              {sessionId && activeSession ? (
                 <textarea
                   className="voice-notes-input"
                   value={noteDraft}
@@ -990,31 +996,37 @@ export default function Voice() {
                   rows={8}
                   disabled={noteMutation.isPending}
                 />
-                <div className="voice-notes-footer">
-                  <div className="voice-notes-status">
-                    {noteMutation.isPending ? (
-                      <span>Salvataggio…</span>
-                    ) : noteUpdatedAt ? (
-                      <span>
-                        Ultimo salvataggio {dayjs(noteUpdatedAt).format('DD MMM YYYY · HH:mm')}
-                      </span>
-                    ) : (
-                      <span>Le note non sono ancora state salvate.</span>
-                    )}
-                  </div>
-                  <button
-                    type="button"
-                    className="btn secondary"
-                    onClick={handleNoteSave}
-                    disabled={!isNoteDirty || noteMutation.isPending}
-                  >
-                    Salva note
-                  </button>
+              ) : (
+                <div className="voice-notes-empty">
+                  <p>Seleziona una sessione vocale per aggiungere note personali.</p>
                 </div>
-              </aside>
+              )}
             </div>
-          )}
-        </section>
+            {sessionId && activeSession && (
+              <div className="voice-notes-footer">
+                <div className="voice-notes-status">
+                  {noteMutation.isPending ? (
+                    <span>Salvataggio…</span>
+                  ) : noteUpdatedAt ? (
+                    <span>
+                      Ultimo salvataggio {dayjs(noteUpdatedAt).format('DD MMM YYYY · HH:mm')}
+                    </span>
+                  ) : (
+                    <span>Le note non sono ancora state salvate.</span>
+                  )}
+                </div>
+                <button
+                  type="button"
+                  className="btn secondary"
+                  onClick={handleNoteSave}
+                  disabled={!isNoteDirty || noteMutation.isPending}
+                >
+                  Salva note
+                </button>
+              </div>
+            )}
+          </div>
+        </aside>
       </div>
       
       <ConfirmModal
