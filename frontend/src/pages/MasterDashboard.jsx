@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import toast from 'react-hot-toast';
 import {
@@ -39,7 +39,6 @@ const initialProfileForm = {
   displayName: '',
   headline: '',
   bio: '',
-  avatarUrl: '',
   introVideoUrl: '',
   languages: '',
   specialties: '',
@@ -134,6 +133,7 @@ const mapWorkingHoursToForm = workingHours => {
 
 export default function MasterDashboard() {
   const navigate = useNavigate();
+  const avatarInputRef = useRef(null);
   const [user, setUser] = useState(() => getStoredUser());
   const [monthCursor, setMonthCursor] = useState(() => {
     const now = new Date();
@@ -161,7 +161,6 @@ export default function MasterDashboard() {
     displayName: data?.displayName || '',
     headline: data?.headline || '',
     bio: data?.bio || '',
-    avatarUrl: data?.media?.avatarUrl || '',
     introVideoUrl: data?.media?.introVideoUrl || '',
     languages: (data?.languages || []).join(', '),
     specialties: (data?.specialties || []).join(', '),
@@ -430,7 +429,6 @@ export default function MasterDashboard() {
         displayName: profileForm.displayName.trim(),
         headline: profileForm.headline.trim(),
         bio: profileForm.bio.trim(),
-        avatarUrl: profileForm.avatarUrl.trim() || null,
         introVideoUrl: profileForm.introVideoUrl.trim() || null,
         experienceYears: profileForm.experienceYears ? Number(profileForm.experienceYears) : 0,
         languages: parseListInput(profileForm.languages),
@@ -462,6 +460,45 @@ export default function MasterDashboard() {
       toast.error('Errore aggiornamento profilo.');
     } finally {
       setProfileSaving(false);
+    }
+  };
+
+  const handleAvatarUpload = async (event) => {
+    const file = event.target.files?.[0];
+    if (!file) return;
+
+    if (!file.type.startsWith('image/')) {
+      toast.error('Seleziona un file immagine valido');
+      return;
+    }
+
+    try {
+      setProfileSaving(true);
+      const formData = new FormData();
+      formData.append('avatar', file);
+
+      const response = await client.post('/api/master/me/avatar', formData, {
+        headers: { 'Content-Type': 'multipart/form-data' }
+      });
+
+      const updatedProfile = response.data.master;
+      setProfile(updatedProfile);
+      setProfileForm(buildProfileForm(updatedProfile));
+      toast.success('Foto profilo aggiornata');
+      
+      // Force image refresh by adding timestamp
+      const avatarImg = document.querySelector('.avatar-preview img');
+      if (avatarImg && updatedProfile.media?.avatarUrl) {
+        avatarImg.src = updatedProfile.media.avatarUrl + '?t=' + Date.now();
+      }
+    } catch (err) {
+      const msg = err?.response?.data?.message || 'Errore durante il caricamento';
+      toast.error(msg);
+    } finally {
+      setProfileSaving(false);
+      if (avatarInputRef.current) {
+        avatarInputRef.current.value = '';
+      }
     }
   };
 
@@ -558,29 +595,32 @@ export default function MasterDashboard() {
                 <div className="avatar-preview">
                   <img
                     src={
-                      profileForm.avatarUrl ||
+                      profile?.media?.avatarUrl ||
                       user?.avatarUrl ||
                       'https://placehold.co/300x300'
                     }
                     alt="Avatar"
+                    onError={(e) => {
+                      e.target.src = 'https://placehold.co/300x300';
+                    }}
                   />
                 </div>
+                <input
+                  type="file"
+                  accept="image/*"
+                  onChange={handleAvatarUpload}
+                  style={{ display: 'none' }}
+                  ref={avatarInputRef}
+                />
+                <button
+                  type="button"
+                  className="btn outline small"
+                  onClick={() => avatarInputRef.current?.click()}
+                  disabled={profileSaving}
+                >
+                  Carica foto
+                </button>
               </div>
-
-              <div className="profile-section media">
-                <span className="section-title">Media &amp; link</span>
-                <label className="input-label">
-                  URL foto profilo
-                  <input
-                    type="url"
-                    name="avatarUrl"
-                    value={profileForm.avatarUrl}
-                    onChange={updateProfileField}
-                    placeholder="https://"
-                  />
-                </label>
-
-                </div>
 
               <div className={`visibility-toggle${profileForm.acceptingRequests ? ' active' : ''}`}>
                 <div className="visibility-header">

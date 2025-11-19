@@ -1,10 +1,14 @@
 import { Router } from 'express';
 import Joi from 'joi';
+import multer from 'multer';
+import { randomUUID } from 'crypto';
 import { requireAuth, requireRole } from '../middleware/auth.js';
 import { Master } from '../models/master.model.js';
+import { deleteFromS3, uploadToS3 } from '../lib/s3.js';
 import { timeToMinutes } from '../utils/availability.js';
 
 const router = Router();
+const upload = multer({ storage: multer.memoryStorage(), limits: { fileSize: 5 * 1024 * 1024 } });
 
 const serializeMaster = master => ({
   id: master._id,
@@ -86,6 +90,38 @@ router.get('/me', requireAuth, requireRole('master'), async (req, res, next) => 
     res.json({ master: serializeMaster(master) });
   } catch (error) {
     next(error);
+  }
+});
+
+router.post('/me/avatar', requireAuth, requireRole('master'), upload.single('avatar'), async (req, res, next) => {
+  try {
+    if (!req.file) return res.status(400).json({ message: 'Nessun file caricato' });
+    if (!/^image\//.test(req.file.mimetype)) {
+      return res.status(400).json({ message: 'Formato immagine non supportato' });
+    }
+
+    const master = await ensureMasterAccount(req.user._id);
+    if (!master) return res.status(404).json({ message: 'Profilo master non trovato.' });
+
+    const key = `masters/${master._id}/${Date.now()}-${randomUUID()}`;
+    const { url } = await uploadToS3({
+      key,
+      body: req.file.buffer,
+      contentType: req.file.mimetype
+    });
+
+    if (master.media?.avatar_key && master.media.avatar_key !== key) {
+      await deleteFromS3(master.media.avatar_key);
+    }
+
+    master.media = master.media || {};
+    master.media.avatar_key = key;
+    master.media.avatar_url = url;
+    await master.save();
+
+    res.json({ master: serializeMaster(master) });
+  } catch (e) {
+    next(e);
   }
 });
 

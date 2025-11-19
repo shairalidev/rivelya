@@ -20,6 +20,7 @@ import chatRoutes from './routes/chat.routes.js';
 import voiceRoutes from './routes/voice.routes.js';
 import notificationRoutes from './routes/notification.routes.js';
 import masterRoutes from './routes/master.routes.js';
+import mediaRoutes from './routes/media.routes.js';
 
 import { notFound, errorHandler } from './middleware/error.js';
 
@@ -83,6 +84,7 @@ app.use('/chat', chatRoutes);
 app.use('/voice', voiceRoutes);
 app.use('/notifications', notificationRoutes);
 app.use('/master', masterRoutes);
+app.use('/media', mediaRoutes);
 
 app.use(notFound);
 app.use(errorHandler);

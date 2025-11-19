@@ -6,6 +6,7 @@ import { requireAuth } from '../middleware/auth.js';
 import { User } from '../models/user.model.js';
 import { Master } from '../models/master.model.js';
 import { deleteFromS3, uploadToS3 } from '../lib/s3.js';
+import { cacheMediaBuffer, purgeCachedMedia } from '../lib/media-cache.js';
 
 const router = Router();
 const upload = multer({ storage: multer.memoryStorage(), limits: { fileSize: 5 * 1024 * 1024 } });
@@ -98,8 +99,11 @@ router.post('/me/avatar', requireAuth, upload.single('avatar'), async (req, res,
       contentType: req.file.mimetype
     });
 
+    await cacheMediaBuffer(key, req.file.buffer);
+
     if (user.avatar_key && user.avatar_key !== key) {
       await deleteFromS3(user.avatar_key);
+      await purgeCachedMedia(user.avatar_key);
     }
 
     user.avatar_key = key;
@@ -118,6 +122,7 @@ router.delete('/me/avatar', requireAuth, async (req, res, next) => {
     if (!user) return res.status(404).json({ message: 'Utente non trovato' });
     if (user.avatar_key) {
       await deleteFromS3(user.avatar_key);
+      await purgeCachedMedia(user.avatar_key);
       user.avatar_key = undefined;
       user.avatar_url = undefined;
       await user.save();

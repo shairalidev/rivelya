@@ -96,6 +96,7 @@ pids/
 backend/uploads/
 backend/storage/
 backend/public/uploads/
+backend/media-cache/
 backend/.pm2/
 pm2.log
 *.pem
