@@ -746,6 +746,9 @@ body.nav-open {
 
 .main.chat-main {
   padding-top: 0;
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
 }
 
 
@@ -1780,7 +1783,10 @@ body.nav-open {
 }
 
 .chat-page {
-  height: 100vh;
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
   overflow: hidden;
   padding: 0;
   margin: 0;
@@ -1788,8 +1794,9 @@ body.nav-open {
 
 .chat-layout {
   display: grid;
-  grid-template-columns: 260px 1fr 240px;
-  height: 100vh;
+  grid-template-columns: 260px minmax(0, 1fr) 240px;
+  flex: 1;
+  min-height: 0;
   gap: 0;
 }
 
@@ -1798,7 +1805,8 @@ body.nav-open {
   border-right: 1px solid rgba(255, 255, 255, 0.08);
   display: flex;
   flex-direction: column;
-  height: 100vh;
+  height: 100%;
+  min-height: 0;
   overflow: hidden;
   position: relative;
 }
@@ -1827,16 +1835,17 @@ body.nav-open {
   flex: 1;
   overflow-y: auto;
   overflow-x: hidden;
-  padding: 8px 12px;
+  padding: 8px 12px 16px;
   display: flex;
   flex-direction: column;
   gap: 4px;
   position: relative;
-  max-height: calc(100vh - 120px);
+  scrollbar-gutter: stable;
+  overscroll-behavior-y: contain;
 }
 
 .chat-thread-list::-webkit-scrollbar {
-  width: 8px;
+  width: 10px;
 }
 
 .chat-thread-list::-webkit-scrollbar-track {
@@ -1846,8 +1855,8 @@ body.nav-open {
 }
 
 .chat-thread-list::-webkit-scrollbar-thumb {
-  background: rgba(109, 91, 255, 0.5);
-  border-radius: 4px;
+  background: rgba(109, 91, 255, 0.55);
+  border-radius: 999px;
   transition: background 0.2s ease;
   border: 1px solid rgba(8, 12, 24, 0.2);
 }
@@ -1862,7 +1871,7 @@ body.nav-open {
 
 .chat-thread-list {
   scrollbar-width: thin;
-  scrollbar-color: rgba(109, 91, 255, 0.5) rgba(8, 12, 24, 0.4);
+  scrollbar-color: rgba(109, 91, 255, 0.6) rgba(8, 12, 24, 0.35);
 }
 
 .chat-thread {
@@ -2104,7 +2113,8 @@ body.nav-open {
   background: rgba(4, 6, 18, 0.95);
   display: flex;
   flex-direction: column;
-  height: 100vh;
+  height: 100%;
+  min-height: 0;
   overflow: hidden;
 }
 
@@ -2125,7 +2135,8 @@ body.nav-open {
 .chat-room {
   display: flex;
   flex-direction: column;
-  height: 100vh;
+  height: 100%;
+  min-height: 0;
   overflow: hidden;
   position: relative;
 }
@@ -2135,7 +2146,8 @@ body.nav-open {
   display: flex;
   flex-direction: column;
   min-width: 0;
-  height: 100vh;
+  height: 100%;
+  min-height: 0;
 }
 
 .chat-room-header {
@@ -2226,6 +2238,7 @@ body.nav-open {
   flex-direction: column;
   min-height: 0;
   overflow: hidden;
+  position: relative;
 }
 
 .chat-messages {
@@ -2236,6 +2249,8 @@ body.nav-open {
   flex-direction: column;
   gap: 12px;
   min-height: 0;
+  scrollbar-gutter: stable;
+  overscroll-behavior-y: contain;
 }
 
 .chat-message {
@@ -2325,6 +2340,10 @@ body.nav-open {
   flex-direction: column;
   gap: 8px;
   flex-shrink: 0;
+  position: sticky;
+  bottom: 0;
+  left: 0;
+  right: 0;
 }
 
 .chat-notes {
@@ -2339,7 +2358,8 @@ body.nav-open {
 .chat-sidebar-panel {
   display: flex;
   flex-direction: column;
-  height: 100vh;
+  height: 100%;
+  min-height: 0;
   overflow: hidden;
   background: rgba(6, 10, 20, 0.95);
   border-left: 1px solid rgba(255, 255, 255, 0.08);
