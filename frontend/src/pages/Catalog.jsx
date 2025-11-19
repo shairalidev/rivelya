@@ -59,13 +59,11 @@ export default function Catalog() {
     socket.on('voice:session:started', handleSessionUpdate);
     socket.on('voice:session:ended', handleSessionUpdate);
     socket.on('voice:session:expired', handleSessionUpdate);
-    socket.on('session:status', handleSessionUpdate);
 
     return () => {
       socket.off('voice:session:started', handleSessionUpdate);
       socket.off('voice:session:ended', handleSessionUpdate);
       socket.off('voice:session:expired', handleSessionUpdate);
-      socket.off('session:status', handleSessionUpdate);
     };
   }, [loadCatalog, socket]);
 
