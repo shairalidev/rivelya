@@ -1847,10 +1847,11 @@ body.nav-open {
   padding: 8px 12px 16px;
   display: flex;
   flex-direction: column;
-  gap: 4px;
+  gap: 6px;
   position: relative;
   scrollbar-gutter: stable;
   overscroll-behavior-y: contain;
+  max-height: calc(100vh - 120px);
 }
 
 .chat-thread-list::-webkit-scrollbar {
@@ -1976,7 +1977,7 @@ body.nav-open {
 
 .chat-thread-container {
   position: relative;
-  overflow: hidden;
+  overflow: visible;
   width: 100%;
 }
 
@@ -2502,7 +2503,7 @@ body.nav-open {
   border-radius: 12px;
   background: rgba(4, 6, 18, 0.8);
   padding: 12px 16px;
-  padding-right: 60px;
+  padding-right: 50px;
   color: var(--text);
   resize: none;
   min-height: 44px;
@@ -2511,6 +2512,7 @@ body.nav-open {
   font-size: 14px;
   line-height: 1.4;
   transition: border-color 0.2s ease, box-shadow 0.2s ease;
+  box-sizing: border-box;
 }
 
 .chat-input:focus {
@@ -2536,13 +2538,20 @@ body.nav-open {
   font-weight: 600;
 }
 
+.chat-input-container {
+  position: relative;
+  width: 100%;
+  display: flex;
+  align-items: flex-end;
+}
+
 .chat-send-btn {
   position: absolute;
-  right: 6px;
+  right: 8px;
   top: 50%;
   transform: translateY(-50%);
-  width: 36px;
-  height: 36px;
+  width: 32px;
+  height: 32px;
   border: none;
   border-radius: 50%;
   background: var(--brand);
@@ -2552,14 +2561,14 @@ body.nav-open {
   justify-content: center;
   cursor: pointer;
   transition: all 0.2s ease;
-  font-size: 16px;
+  font-size: 14px;
   box-shadow: 0 2px 8px rgba(109, 91, 255, 0.3);
-  z-index: 1;
+  z-index: 2;
 }
 
 .chat-send-btn:hover {
   background: var(--brand-strong);
-  transform: scale(1.05);
+  transform: translateY(-50%) scale(1.05);
   box-shadow: 0 4px 12px rgba(109, 91, 255, 0.4);
 }
 
@@ -2567,7 +2576,7 @@ body.nav-open {
   background: rgba(255, 255, 255, 0.1);
   color: var(--muted);
   cursor: not-allowed;
-  transform: none;
+  transform: translateY(-50%);
   box-shadow: none;
 }
 

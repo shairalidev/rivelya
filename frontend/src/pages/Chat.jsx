@@ -632,6 +632,7 @@ export default function Chat() {
                 </div>
               </header>
               <div className="chat-messages-container">
+                
                 <div className="chat-messages" role="log" aria-live="polite">
                   {messages.map(message => {
                     const isMaster = message.senderRole === 'master';
@@ -662,6 +663,7 @@ export default function Chat() {
                 </div>
                 <form className="chat-input-form" onSubmit={handleSubmit}>
                   <div className="chat-input-wrapper">
+                    <div class="chat-input-container">
                     <textarea
                       className="chat-input"
                       value={draft}
@@ -686,6 +688,7 @@ export default function Chat() {
                     >
                       ➤
                     </button>
+                    </div>
                   </div>
                   {!canPost && (
                     <span className="chat-expired-hint">
