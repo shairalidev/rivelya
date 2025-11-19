@@ -631,59 +631,69 @@ export default function Chat() {
                   </div>
                 </div>
               </header>
-              <div className="chat-messages" role="log" aria-live="polite">
-                {messages.map(message => {
-                  const isMaster = message.senderRole === 'master';
-                  const senderName = isMaster ? masterName : customerName;
-                  const senderAvatar = isMaster ? masterAvatar : customerAvatar;
-                  const senderInitial = isMaster ? masterInitial : customerInitial;
-                  const isOwn = viewerMessageRole ? message.senderRole === viewerMessageRole : false;
-                  return (
-                    <div key={message.id} className={`chat-message ${isOwn ? 'outgoing' : 'incoming'}`}>
-                      <div className="chat-message-avatar">
-                        {senderAvatar ? (
-                          <img src={senderAvatar} alt={senderName} />
-                        ) : (
-                          <span>{senderInitial}</span>
-                        )}
-                      </div>
-                      <div className="chat-message-body">
-                        <div className="chat-message-meta">
-                          <span>{isOwn ? 'Tu' : senderName}</span>
-                          <time dateTime={message.createdAt}>{dayjs(message.createdAt).format('HH:mm')}</time>
+              <div className="chat-messages-container">
+                <div className="chat-messages" role="log" aria-live="polite">
+                  {messages.map(message => {
+                    const isMaster = message.senderRole === 'master';
+                    const senderName = isMaster ? masterName : customerName;
+                    const senderAvatar = isMaster ? masterAvatar : customerAvatar;
+                    const senderInitial = isMaster ? masterInitial : customerInitial;
+                    const isOwn = viewerMessageRole ? message.senderRole === viewerMessageRole : false;
+                    return (
+                      <div key={message.id} className={`chat-message ${isOwn ? 'outgoing' : 'incoming'}`}>
+                        <div className="chat-message-avatar">
+                          {senderAvatar ? (
+                            <img src={senderAvatar} alt={senderName} />
+                          ) : (
+                            <span>{senderInitial}</span>
+                          )}
                         </div>
-                        <p>{message.body}</p>
+                        <div className="chat-message-body">
+                          <div className="chat-message-meta">
+                            <span>{isOwn ? 'Tu' : senderName}</span>
+                            <time dateTime={message.createdAt}>{dayjs(message.createdAt).format('HH:mm')}</time>
+                          </div>
+                          <p>{message.body}</p>
+                        </div>
                       </div>
-                    </div>
-                  );
-                })}
-                <div ref={messageEndRef} />
-              </div>
-              <form className="chat-composer" onSubmit={handleSubmit}>
-                <div className="chat-input-wrapper">
-                  <textarea
-                    className="chat-input"
-                    value={draft}
-                  onChange={event => setDraft(event.target.value)}
-                  placeholder={canPost ? 'Scrivi un messaggio…' : 'Tempo esaurito'}
-                  disabled={!canPost || sendMutation.isPending}
-                    rows={1}
-                  />
-                  <button
-                    type="submit"
-                    className="chat-send-btn"
-                    disabled={!canPost || sendMutation.isPending || !draft.trim()}
-                    title="Invia messaggio"
-                  >
-                    ➤
-                  </button>
+                    );
+                  })}
+                  <div ref={messageEndRef} />
                 </div>
-                {!canPost && (
-                  <span className="chat-expired-hint">
-                    Il tempo per questa sessione è terminato. Puoi rileggere i messaggi ma non inviarne di nuovi.
-                  </span>
-                )}
-              </form>
+                <form className="chat-input-form" onSubmit={handleSubmit}>
+                  <div className="chat-input-wrapper">
+                    <textarea
+                      className="chat-input"
+                      value={draft}
+                      onChange={event => setDraft(event.target.value)}
+                      onKeyDown={event => {
+                        if (event.key === 'Enter' && !event.shiftKey) {
+                          event.preventDefault();
+                          if (canPost && !sendMutation.isPending && draft.trim()) {
+                            handleSubmit(event);
+                          }
+                        }
+                      }}
+                      placeholder={canPost ? 'Scrivi un messaggio…' : 'Tempo esaurito'}
+                      disabled={!canPost || sendMutation.isPending}
+                      rows={1}
+                    />
+                    <button
+                      type="submit"
+                      className="chat-send-btn"
+                      disabled={!canPost || sendMutation.isPending || !draft.trim()}
+                      title="Invia messaggio"
+                    >
+                      ➤
+                    </button>
+                  </div>
+                  {!canPost && (
+                    <span className="chat-expired-hint">
+                      Il tempo per questa sessione è terminato. Puoi rileggere i messaggi ma non inviarne di nuovi.
+                    </span>
+                  )}
+                </form>
+              </div>
             </div>
           )}
         </section>

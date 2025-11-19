@@ -353,7 +353,7 @@ export default function Layout() {
         <Outlet />
       </main>
 
-      <footer className="footer">
+      {!isChat && <footer className="footer">
         <div className="container footer-top">
           <div className="footer-brand">
             <p className="brand-mark">Rivelya</p>
@@ -391,7 +391,7 @@ export default function Layout() {
             <a href="#" className="footer-link">Termini</a>
           </div>
         </div>
-      </footer>
+      </footer>}
     </div>
   );
 }
