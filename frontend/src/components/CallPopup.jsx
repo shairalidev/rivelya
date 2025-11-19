@@ -44,6 +44,7 @@ export default function CallPopup({
   onEnd,
   onSignal,
   partnerName,
+  partnerAvatar,
   variant = 'floating'
 }) {
   const [callDuration, setCallDuration] = useState(0);
@@ -155,7 +156,11 @@ export default function CallPopup({
       <div className="call-popup-content">
         <div className="call-info">
           <div className="call-avatar">
-            <span>{partnerName?.charAt(0)?.toUpperCase() || 'U'}</span>
+            {partnerAvatar ? (
+              <img src={partnerAvatar} alt={partnerName || 'Utente'} />
+            ) : (
+              <span>{partnerName?.charAt(0)?.toUpperCase() || 'U'}</span>
+            )}
           </div>
           <div className="call-details">
             <h3>{partnerName || 'Utente'}</h3>

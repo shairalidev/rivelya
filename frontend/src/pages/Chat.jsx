@@ -420,6 +420,11 @@ export default function Chat() {
       ? activeCall.callerName
       : resolveName(activeCallThread)
     : null;
+  const callPartnerAvatar = activeCall
+    ? activeCall.isIncoming
+      ? activeCall.callerAvatar
+      : (viewerRole === 'master' ? customerAvatar : masterAvatar)
+    : null;
   const sessionChannel = activeThread?.channel || activeThread?.booking?.channel;
   const channelLabel = sessionChannel ? channelLabels[sessionChannel] || 'Sessione' : null;
   const sessionRateLabel = sessionChannel
@@ -672,6 +677,7 @@ export default function Chat() {
                 onEnd={endCall}
                 onSignal={setSignalHandler}
                 partnerName={callPartnerName}
+                partnerAvatar={callPartnerAvatar}
                 variant="sidebar"
               />
             </div>
