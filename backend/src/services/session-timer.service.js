@@ -1,5 +1,6 @@
 import { Session } from '../models/session.model.js';
 import { emitToUser } from './socket.service.js';
+import { emitSessionStatus } from '../utils/session-events.js';
 
 export const startSessionTimer = () => {
   // Check for expired sessions every 30 seconds
@@ -26,6 +27,14 @@ export const startSessionTimer = () => {
         emitToSession(session._id, 'voice:session:expired', { sessionId: session._id });
         emitToUser(session.user_id._id, 'voice:session:expired', { sessionId: session._id });
         emitToUser(session.master_id.user_id, 'voice:session:expired', { sessionId: session._id });
+
+        emitSessionStatus({
+          sessionId: session._id,
+          channel: session.channel,
+          status: 'expired',
+          userId: session.user_id._id,
+          masterUserId: session.master_id.user_id
+        });
       }
 
       if (expiredSessions.length > 0) {

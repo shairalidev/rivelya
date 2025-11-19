@@ -4,6 +4,7 @@ import { Session } from '../models/session.model.js';
 import { Master } from '../models/master.model.js';
 import { billing } from '../services/billing.service.js';
 import { notifyVoiceSessionCreated } from '../utils/voice-events.js';
+import { emitSessionStatus } from '../utils/session-events.js';
 
 const router = Router();
 
@@ -133,6 +134,14 @@ router.post('/chat', requireAuth, async (req, res, next) => {
       price_cpm: priceCpm,
       status: 'active',
       start_ts: new Date()
+    });
+
+    emitSessionStatus({
+      sessionId: sess._id,
+      channel: sess.channel,
+      status: 'started',
+      userId: req.user._id,
+      masterUserId: master.user_id
     });
 
     res.json({ session_id: sess._id, ws_url: '/ws/chat', price_cpm: priceCpm });

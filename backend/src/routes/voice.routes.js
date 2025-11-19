@@ -3,6 +3,7 @@ import { requireAuth } from '../middleware/auth.js';
 import { Session } from '../models/session.model.js';
 import { Master } from '../models/master.model.js';
 import { notifyVoiceSessionEnded, notifyVoiceSessionStarted } from '../utils/voice-events.js';
+import { emitSessionStatus } from '../utils/session-events.js';
 
 const router = Router();
 
@@ -227,6 +228,14 @@ router.post('/session/:id/start', requireAuth, async (req, res, next) => {
     
     emitToUser(session.user_id._id, 'voice:session:started', sessionData);
     emitToUser(session.master_id.user_id, 'voice:session:started', sessionData);
+
+    emitSessionStatus({
+      sessionId: session._id,
+      channel: session.channel,
+      status: 'started',
+      userId: session.user_id._id,
+      masterUserId: session.master_id.user_id
+    });
 
     await notifyVoiceSessionStarted({ session, startedBy: req.user._id });
 
