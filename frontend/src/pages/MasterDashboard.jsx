@@ -477,7 +477,7 @@ export default function MasterDashboard() {
       const formData = new FormData();
       formData.append('avatar', file);
 
-      const response = await client.post('/api/master/me/avatar', formData, {
+      const response = await client.post('/master/me/avatar', formData, {
         headers: { 'Content-Type': 'multipart/form-data' }
       });
 
