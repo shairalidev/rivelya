@@ -692,6 +692,11 @@ export default function Reservations() {
           title={confirmModal.title}
           message={confirmModal.message}
           onConfirm={confirmModal.onConfirm}
+          onSecondary={confirmModal.onSecondary}
+          confirmText={confirmModal.confirmText}
+          cancelText={confirmModal.cancelText}
+          secondaryText={confirmModal.secondaryText}
+          type={confirmModal.type}
           onClose={() => setConfirmModal(null)}
         />
       )}
