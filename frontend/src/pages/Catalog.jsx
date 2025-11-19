@@ -1,9 +1,10 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useState, useCallback } from 'react';
 import { useSearchParams, Link } from 'react-router-dom';
 import client from '../api/client.js';
 import { summarizeWorkingHours, resolveTimezoneLabel } from '../utils/schedule.js';
 import { resolveAvailabilityStatus } from '../utils/availability.js';
 import FancySelect from '../components/FancySelect.jsx';
+import useSocket from '../hooks/useSocket.js';
 
 const categories = [
   { value: 'all', label: 'Tutte le categorie' },
@@ -22,26 +23,51 @@ export default function Catalog() {
   const [masters, setMasters] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
+  const socket = useSocket();
 
   const category = params.get('category') || 'all';
   const sort = params.get('sort') || 'rating';
   const availability = params.get('availability') || 'all';
 
-  useEffect(() => {
+  const loadCatalog = useCallback(async ({ showLoader = true } = {}) => {
     const query = { sort };
     if (category !== 'all') query.category = category;
     if (availability === 'online') query.online = true;
 
-    setLoading(true);
+    if (showLoader) setLoading(true);
     setError('');
-    client.get('/catalog', { params: query })
-      .then(res => setMasters(res.data))
-      .catch(() => {
-        setMasters([]);
-        setError('Impossibile caricare il catalogo. Riprova più tardi.');
-      })
-      .finally(() => setLoading(false));
-  }, [category, sort, availability]);
+    try {
+      const res = await client.get('/catalog', { params: query });
+      setMasters(res.data);
+    } catch (err) {
+      setMasters([]);
+      setError('Impossibile caricare il catalogo. Riprova più tardi.');
+    } finally {
+      if (showLoader) setLoading(false);
+    }
+  }, [availability, category, sort]);
+
+  useEffect(() => {
+    loadCatalog();
+  }, [loadCatalog]);
+
+  useEffect(() => {
+    if (!socket) return undefined;
+
+    const handleSessionUpdate = () => loadCatalog({ showLoader: false });
+
+    socket.on('voice:session:started', handleSessionUpdate);
+    socket.on('voice:session:ended', handleSessionUpdate);
+    socket.on('voice:session:expired', handleSessionUpdate);
+    socket.on('session:status', handleSessionUpdate);
+
+    return () => {
+      socket.off('voice:session:started', handleSessionUpdate);
+      socket.off('voice:session:ended', handleSessionUpdate);
+      socket.off('voice:session:expired', handleSessionUpdate);
+      socket.off('session:status', handleSessionUpdate);
+    };
+  }, [loadCatalog, socket]);
 
   const setFilter = (key, value) => {
     const next = new URLSearchParams(params);

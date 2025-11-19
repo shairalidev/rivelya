@@ -2,6 +2,7 @@ import twilio from 'twilio';
 import { Session } from '../models/session.model.js';
 import { Wallet } from '../models/wallet.model.js';
 import { emitToSession } from './socket.service.js';
+import { emitSessionStatus } from '../utils/session-events.js';
 
 const client = twilio(process.env.TWILIO_ACCOUNT_SID, process.env.TWILIO_AUTH_TOKEN);
 
@@ -176,6 +177,14 @@ export const telephony = {
           sessionId,
           duration: durationSec,
           cost: sess.cost_cents
+        });
+
+        emitSessionStatus({
+          sessionId,
+          channel: sess.channel,
+          status: 'ended',
+          userId: sess.user_id,
+          masterUserId: sess.master_id?.user_id || sess.master_id
         });
       }
       res.json({ ok: true });
