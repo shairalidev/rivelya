@@ -265,7 +265,7 @@ export default function Layout() {
   );
 
   return (
-    <div className="app-shell">
+    <div className={`app-shell${isChat ? ' chat-shell' : ''}`}>
       <div className="app-glow" aria-hidden="true" />
       <header className="site-header">
         <div className="container header-bar">
