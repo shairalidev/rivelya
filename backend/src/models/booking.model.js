@@ -12,7 +12,16 @@ const bookingSchema = new mongoose.Schema({
   duration_minutes: { type: Number, required: true, min: 1 },
   status: {
     type: String,
-    enum: ['awaiting_master', 'confirmed', 'rejected', 'cancelled', 'completed', 'reschedule_requested', 'ready_to_start'],
+    enum: [
+      'awaiting_master',
+      'confirmed',
+      'ready_to_start',
+      'active',
+      'rejected',
+      'cancelled',
+      'completed',
+      'reschedule_requested'
+    ],
     default: 'awaiting_master'
   },
   can_start: { type: Boolean, default: false },
