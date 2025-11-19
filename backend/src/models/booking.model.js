@@ -18,6 +18,12 @@ const bookingSchema = new mongoose.Schema({
   can_start: { type: Boolean, default: false },
   started_by: { type: String, enum: ['customer', 'master'] },
   started_at: { type: Date },
+  start_now_request: {
+    requested_by: { type: String, enum: ['customer', 'master'] },
+    requested_at: { type: Date },
+    responded_at: { type: Date },
+    status: { type: String, enum: ['pending', 'accepted', 'rejected'] }
+  },
   wallet_txn_id: { type: mongoose.Schema.Types.ObjectId, ref: 'Transaction' },
   notes: { type: String, maxlength: 600 },
   reschedule_request: {
