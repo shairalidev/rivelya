@@ -37,6 +37,7 @@ const bookingSchema = new mongoose.Schema({
   master_response: {
     action: { type: String, enum: ['accept', 'reject'] },
     note: { type: String, maxlength: 600 },
+    proposed_time: { type: String, maxlength: 120 },
     responded_at: { type: Date }
   },
   wallet_txn_id: { type: mongoose.Schema.Types.ObjectId, ref: 'Transaction' },

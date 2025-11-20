@@ -26,7 +26,8 @@ const bookingSchema = Joi.object({
 
 const respondSchema = Joi.object({
   action: Joi.string().valid('accept', 'reject').required(),
-  note: Joi.string().max(600).allow('', null)
+  note: Joi.string().max(600).allow('', null),
+  proposed_time: Joi.string().max(120).allow('', null)
 });
 
 const rescheduleSchema = Joi.object({
@@ -299,8 +300,8 @@ router.post('/:bookingId/respond', requireAuth, requireRole('master'), async (re
     if (!booking) return res.status(404).json({ message: 'Prenotazione non trovata.' });
     const rejectNotAllowed = ['active', 'completed', 'cancelled', 'rejected'];
 
-    if (payload.action === 'reject' && !payload.note?.trim()) {
-      return res.status(400).json({ message: 'Inserisci una nota per rifiutare.' });
+    if (payload.action === 'reject' && (!payload.note?.trim() || !payload.proposed_time?.trim())) {
+      return res.status(400).json({ message: 'Inserisci una nota e una proposta alternativa per rifiutare.' });
     }
 
     if (payload.action === 'accept') {
@@ -312,6 +313,7 @@ router.post('/:bookingId/respond', requireAuth, requireRole('master'), async (re
       booking.master_response = {
         action: 'accept',
         note: payload.note?.trim() || '',
+        proposed_time: payload.proposed_time?.trim() || '',
         responded_at: new Date()
       };
       await booking.save();
@@ -365,6 +367,7 @@ router.post('/:bookingId/respond', requireAuth, requireRole('master'), async (re
     booking.master_response = {
       action: 'reject',
       note: payload.note?.trim() || '',
+      proposed_time: payload.proposed_time?.trim() || '',
       responded_at: new Date()
     };
     await booking.save();
