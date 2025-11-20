@@ -8,8 +8,8 @@ export const createBooking = payload => client.post('/bookings', payload).then(r
 export const fetchMasterRequests = params =>
   client.get('/bookings/master/requests', { params }).then(res => res.data.requests);
 
-export const respondToBooking = (bookingId, action) =>
-  client.post(`/bookings/${bookingId}/respond`, { action }).then(res => res.data.booking);
+export const respondToBooking = (bookingId, payload) =>
+  client.post(`/bookings/${bookingId}/respond`, payload).then(res => res.data.booking);
 
 export const fetchAvailabilityMonthForMaster = ({ year, month }) =>
   client.get('/availability/month', { params: { year, month } }).then(res => res.data);
