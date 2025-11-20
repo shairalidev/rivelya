@@ -187,12 +187,37 @@ export default function Reservations() {
       }
     };
 
+    const handleSessionStarted = (payload) => {
+      if (!payload) return;
+
+      toast.success(`Sessione ${payload.reservationId || ''} avviata`);
+      setConfirmModal({
+        title: 'Sessione attiva',
+        message: payload.reservationId
+          ? `La sessione ${payload.reservationId} è stata avviata. Vuoi aprirla ora?`
+          : 'Una delle tue sessioni è stata avviata. Vuoi aprirla ora?',
+        confirmText: 'Apri sessione',
+        cancelText: 'Chiudi',
+        onConfirm: () => {
+          if (payload.sessionUrl) {
+            navigate(payload.sessionUrl);
+          }
+          setConfirmModal(null);
+        },
+        onClose: () => setConfirmModal(null)
+      });
+
+      loadReservations(pagination.page, { showLoader: false });
+    };
+
     socket.on('booking:start_now', handleStartNowSocket);
     socket.on('session:status', handleSessionStatus);
+    socket.on('booking:session_started', handleSessionStarted);
 
     return () => {
       socket.off('booking:start_now', handleStartNowSocket);
       socket.off('session:status', handleSessionStatus);
+      socket.off('booking:session_started', handleSessionStarted);
     };
   }, [loadReservations, navigate, pagination.page, socket]);
 
@@ -385,11 +410,15 @@ export default function Reservations() {
   };
 
   const canReschedule = (reservation) => {
-    const futureDate = new Date(reservation.date) > new Date();
+    const sessionStart = reservation.start
+      ? new Date(`${reservation.date}T${reservation.start}:00`)
+      : new Date(reservation.date);
+    const isFutureSession = !Number.isNaN(sessionStart.getTime()) && sessionStart > new Date();
     const validStatus = reservation.status === 'ready_to_start';
     const isCustomer = reservation.user_role === 'customer';
     const hasPendingRequest = Boolean(reservation.reschedule_request);
-    return futureDate && validStatus && isCustomer && !hasPendingRequest;
+
+    return isFutureSession && validStatus && isCustomer && !hasPendingRequest;
   };
 
   const startNowStatusLabel = (request) => {

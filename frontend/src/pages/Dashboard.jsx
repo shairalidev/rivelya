@@ -116,8 +116,13 @@ export default function Dashboard() {
   };
 
   const canReschedule = (booking) => {
+    const sessionStart = booking.start
+      ? new Date(`${booking.date}T${booking.start}:00`)
+      : new Date(booking.date);
+    const isFutureSession = !Number.isNaN(sessionStart.getTime()) && sessionStart > new Date();
+
     return booking.status === 'ready_to_start'
-      && new Date(booking.date) > new Date()
+      && isFutureSession
       && !booking.reschedule_request;
   };
 
