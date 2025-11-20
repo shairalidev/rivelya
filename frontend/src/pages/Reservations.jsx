@@ -52,7 +52,7 @@ export default function Reservations() {
     reason: ''
   });
   const [responseModal, setResponseModal] = useState(null);
-  const [responseForm, setResponseForm] = useState({ note: '', proposed_time: '' });
+  const [responseForm, setResponseForm] = useState({ note: '' });
   const [responseLoading, setResponseLoading] = useState(false);
   const [confirmModal, setConfirmModal] = useState(null);
   const [incomingStartNow, setIncomingStartNow] = useState(null);
@@ -327,7 +327,7 @@ export default function Reservations() {
       toast.success(payload.action === 'accept' ? 'Prenotazione accettata' : 'Prenotazione rifiutata');
       setResponseModal(null);
       loadReservations(pagination.page);
-      setResponseForm({ note: '', proposed_time: '' });
+      setResponseForm({ note: '' });
     } catch (error) {
       toast.error(error?.response?.data?.message || 'Errore nella risposta');
     } finally {
@@ -353,15 +353,14 @@ export default function Reservations() {
 
   const openResponseModal = (reservation, action) => {
     setResponseModal({ reservation, action });
-    setResponseForm({ note: '', proposed_time: '' });
+    setResponseForm({ note: '' });
   };
 
   const submitResponseModal = () => {
     if (!responseModal) return;
     handleBookingResponse(responseModal.reservation.id, {
       action: responseModal.action,
-      note: responseForm.note,
-      proposed_time: responseForm.proposed_time
+      note: responseForm.note
     });
   };
 
@@ -821,7 +820,7 @@ export default function Reservations() {
               <p className="micro muted" style={{ marginBottom: '1rem' }}>
                 {responseModal.action === 'accept'
                   ? 'Puoi aggiungere una nota per il cliente quando accetti la prenotazione.'
-                  : 'Spiega il motivo del rifiuto e proponi un orario alternativo. Sarà il cliente a riprogrammare.'}
+                  : 'Spiega il motivo del rifiuto. Sarà il cliente a riprogrammare.'}
               </p>
 
               <label className="input-label">
@@ -836,19 +835,6 @@ export default function Reservations() {
                   disabled={responseLoading}
                 />
               </label>
-
-              {responseModal.action === 'reject' && (
-                <label className="input-label">
-                  Proposta di nuovo orario
-                  <input
-                    type="text"
-                    value={responseForm.proposed_time}
-                    onChange={(e) => setResponseForm(prev => ({ ...prev, proposed_time: e.target.value }))}
-                    placeholder="Es. Domani alle 18:30 o venerdì mattina"
-                    disabled={responseLoading}
-                  />
-                </label>
-              )}
             </div>
             <div className="modal__actions">
               <button className="btn outline" onClick={() => setResponseModal(null)} disabled={responseLoading}>
@@ -857,7 +843,7 @@ export default function Reservations() {
               <button
                 className="btn primary"
                 onClick={submitResponseModal}
-                disabled={responseLoading || (responseModal.action === 'reject' && (!responseForm.note.trim() || !responseForm.proposed_time.trim()))}
+                disabled={responseLoading || (responseModal.action === 'reject' && !responseForm.note.trim())}
               >
                 {responseLoading ? 'Invio in corso...' : 'Invia risposta'}
               </button>
