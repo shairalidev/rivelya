@@ -51,8 +51,11 @@ export default function Reservations() {
     newEnd: '',
     reason: ''
   });
+  const [rescheduleResponseModal, setRescheduleResponseModal] = useState(null);
+  const [rescheduleResponseForm, setRescheduleResponseForm] = useState({ note: '' });
+  const [rescheduleResponseLoading, setRescheduleResponseLoading] = useState(false);
   const [responseModal, setResponseModal] = useState(null);
-  const [responseForm, setResponseForm] = useState({ note: '', proposed_time: '' });
+  const [responseForm, setResponseForm] = useState({ note: '' });
   const [responseLoading, setResponseLoading] = useState(false);
   const [confirmModal, setConfirmModal] = useState(null);
   const [incomingStartNow, setIncomingStartNow] = useState(null);
@@ -215,13 +218,8 @@ export default function Reservations() {
   };
 
   const handleRescheduleResponse = (reservation, action) => {
-    setConfirmModal({
-      title: action === 'accept' ? 'Accetta riprogrammazione' : 'Rifiuta riprogrammazione',
-      message: action === 'accept'
-        ? `Confermi di accettare la riprogrammazione per il ${formatDate(reservation.reschedule_request.new_date)}?`
-        : 'Confermi di rifiutare la richiesta di riprogrammazione?',
-      onConfirm: () => respondReschedule(reservation.id, action)
-    });
+    setRescheduleResponseModal({ reservation, action });
+    setRescheduleResponseForm({ note: '' });
   };
 
   const handleStartNowRequest = (reservation) => {
@@ -242,14 +240,18 @@ export default function Reservations() {
     });
   };
 
-  const respondReschedule = async (reservationId, action) => {
+  const respondReschedule = async (reservationId, action, note) => {
     try {
-      await respondToReschedule(reservationId, action);
+      setRescheduleResponseLoading(true);
+      await respondToReschedule(reservationId, { action, note });
       toast.success(action === 'accept' ? 'Riprogrammazione accettata' : 'Riprogrammazione rifiutata');
-      setConfirmModal(null);
+      setRescheduleResponseModal(null);
+      setRescheduleResponseForm({ note: '' });
       loadReservations(pagination.page);
     } catch (error) {
       toast.error(error?.response?.data?.message || 'Errore nella risposta');
+    } finally {
+      setRescheduleResponseLoading(false);
     }
   };
 
@@ -327,7 +329,7 @@ export default function Reservations() {
       toast.success(payload.action === 'accept' ? 'Prenotazione accettata' : 'Prenotazione rifiutata');
       setResponseModal(null);
       loadReservations(pagination.page);
-      setResponseForm({ note: '', proposed_time: '' });
+      setResponseForm({ note: '' });
     } catch (error) {
       toast.error(error?.response?.data?.message || 'Errore nella risposta');
     } finally {
@@ -353,15 +355,14 @@ export default function Reservations() {
 
   const openResponseModal = (reservation, action) => {
     setResponseModal({ reservation, action });
-    setResponseForm({ note: '', proposed_time: '' });
+    setResponseForm({ note: '' });
   };
 
   const submitResponseModal = () => {
     if (!responseModal) return;
     handleBookingResponse(responseModal.reservation.id, {
       action: responseModal.action,
-      note: responseForm.note,
-      proposed_time: responseForm.proposed_time
+      note: responseForm.note
     });
   };
 
@@ -385,8 +386,10 @@ export default function Reservations() {
 
   const canReschedule = (reservation) => {
     const futureDate = new Date(reservation.date) > new Date();
-    const validStatus = ['ready_to_start', 'awaiting_master', 'reschedule_requested'].includes(reservation.status);
-    return futureDate && validStatus;
+    const validStatus = reservation.status === 'ready_to_start';
+    const isCustomer = reservation.user_role === 'customer';
+    const hasPendingRequest = Boolean(reservation.reschedule_request);
+    return futureDate && validStatus && isCustomer && !hasPendingRequest;
   };
 
   const startNowStatusLabel = (request) => {
@@ -405,8 +408,9 @@ export default function Reservations() {
   };
 
   const canRespondToReschedule = (reservation) => {
-    return reservation.status === 'reschedule_requested' &&
-           reservation.reschedule_request?.requested_by !== (reservation.user_role === 'customer' ? 'customer' : 'master');
+    return reservation.status === 'reschedule_requested'
+      && reservation.user_role === 'master'
+      && reservation.reschedule_request?.requested_by === 'customer';
   };
 
   const canStartSession = (reservation) => {
@@ -442,8 +446,9 @@ export default function Reservations() {
   };
 
   const isPendingMyReschedule = (reservation) => {
-    return reservation.status === 'reschedule_requested' &&
-           reservation.reschedule_request?.requested_by === (reservation.user_role === 'customer' ? 'customer' : 'master');
+    return reservation.status === 'reschedule_requested'
+      && reservation.reschedule_request?.requested_by === 'customer'
+      && reservation.user_role === 'customer';
   };
 
   if (loading && reservations.length === 0) {
@@ -486,8 +491,11 @@ export default function Reservations() {
             </button>
           </div>
         ) : (
-          reservations.map(reservation => (
-            <div key={reservation.id} className="booking-card">
+          reservations.map(reservation => {
+            const latestReschedule = reservation.reschedule_history?.[reservation.reschedule_history.length - 1];
+
+            return (
+              <div key={reservation.id} className="booking-card">
               <div className="booking-card__header">
                 <div className="booking-master">
                   <div>
@@ -537,7 +545,23 @@ export default function Reservations() {
                     <p><strong>Nuova data:</strong> {formatDate(reservation.reschedule_request.new_date)}</p>
                     <p><strong>Nuovo orario:</strong> {formatTime(reservation.reschedule_request.new_start_time)} - {formatTime(reservation.reschedule_request.new_end_time)}</p>
                     {reservation.reschedule_request.reason && (
-                      <p><strong>Motivo:</strong> {reservation.reschedule_request.reason}</p>
+                      <p><strong>Nota cliente:</strong> {reservation.reschedule_request.reason}</p>
+                    )}
+                  </div>
+                )}
+
+                {latestReschedule && (
+                  <div className="reschedule-info">
+                    <h4>Ultima riprogrammazione</h4>
+                    <p><strong>Richiesta da:</strong> {latestReschedule.requested_by === 'customer' ? 'Cliente' : 'Esperti'}</p>
+                    <p><strong>Nuova data:</strong> {formatDate(latestReschedule.new_date)}</p>
+                    <p><strong>Nuovo orario:</strong> {formatTime(latestReschedule.new_start_time)} - {formatTime(latestReschedule.new_end_time)}</p>
+                    {latestReschedule.reason && (
+                      <p><strong>Nota cliente:</strong> {latestReschedule.reason}</p>
+                    )}
+                    <p><strong>Esito:</strong> {latestReschedule.response === 'accepted' ? 'Accettata' : latestReschedule.response === 'rejected' ? 'Rifiutata' : 'Sostituita'}</p>
+                    {latestReschedule.response_note && (
+                      <p><strong>Nota del master:</strong> {latestReschedule.response_note}</p>
                     )}
                   </div>
                 )}
@@ -718,7 +742,8 @@ export default function Reservations() {
                 )}
               </div>
             </div>
-          ))
+            );
+          })
         )}
       </div>
 
@@ -784,11 +809,11 @@ export default function Reservations() {
                 </label>
                 
                 <label className="input-label" data-span="3">
-                  Motivo (opzionale)
+                  Motivo (obbligatorio)
                   <textarea
                     value={rescheduleForm.reason}
                     onChange={(e) => setRescheduleForm(prev => ({ ...prev, reason: e.target.value }))}
-                    placeholder="Spiega il motivo della riprogrammazione"
+                    placeholder="Spiega il motivo della riprogrammazione e proponi un orario alternativo"
                     rows={3}
                   />
                 </label>
@@ -799,11 +824,56 @@ export default function Reservations() {
                 Annulla
               </button>
               <button 
-                className="btn primary" 
+                className="btn primary"
                 onClick={submitReschedule}
-                disabled={!rescheduleForm.newDate || !rescheduleForm.newStart || !rescheduleForm.newEnd}
+                disabled={!rescheduleForm.newDate || !rescheduleForm.newStart || !rescheduleForm.newEnd || !rescheduleForm.reason.trim()}
               >
                 Invia richiesta
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {rescheduleResponseModal && (
+        <div className="modal-overlay" onClick={() => !rescheduleResponseLoading && setRescheduleResponseModal(null)}>
+          <div className="modal" onClick={(e) => e.stopPropagation()}>
+            <div className="modal__header">
+              <h2>{rescheduleResponseModal.action === 'accept' ? 'Accetta riprogrammazione' : 'Rifiuta riprogrammazione'}</h2>
+              <button onClick={() => !rescheduleResponseLoading && setRescheduleResponseModal(null)}>×</button>
+            </div>
+            <div className="modal__body">
+              <p className="micro muted" style={{ marginBottom: '1rem' }}>
+                {rescheduleResponseModal.action === 'accept'
+                  ? 'Conferma la nuova data proposta dal cliente e aggiungi un breve messaggio.'
+                  : 'Spiega il motivo del rifiuto e proponi eventualmente un orario alternativo nella nota.'}
+              </p>
+
+              <p className="micro muted" style={{ marginBottom: '0.75rem' }}>
+                Nuovo orario proposto: {formatDate(rescheduleResponseModal.reservation.reschedule_request.new_date)} dalle {formatTime(rescheduleResponseModal.reservation.reschedule_request.new_start_time)} alle {formatTime(rescheduleResponseModal.reservation.reschedule_request.new_end_time)}
+              </p>
+
+              <label className="input-label">
+                Nota per il cliente
+                <textarea
+                  value={rescheduleResponseForm.note}
+                  onChange={(e) => setRescheduleResponseForm(prev => ({ ...prev, note: e.target.value }))}
+                  placeholder="Scrivi un breve messaggio per il cliente"
+                  rows={4}
+                  disabled={rescheduleResponseLoading}
+                />
+              </label>
+            </div>
+            <div className="modal__actions">
+              <button className="btn outline" onClick={() => setRescheduleResponseModal(null)} disabled={rescheduleResponseLoading}>
+                Annulla
+              </button>
+              <button
+                className="btn primary"
+                onClick={() => respondReschedule(rescheduleResponseModal.reservation.id, rescheduleResponseModal.action, rescheduleResponseForm.note)}
+                disabled={rescheduleResponseLoading || (rescheduleResponseModal.action === 'reject' && !rescheduleResponseForm.note.trim())}
+              >
+                {rescheduleResponseLoading ? 'Invio in corso...' : 'Invia risposta'}
               </button>
             </div>
           </div>
@@ -821,7 +891,7 @@ export default function Reservations() {
               <p className="micro muted" style={{ marginBottom: '1rem' }}>
                 {responseModal.action === 'accept'
                   ? 'Puoi aggiungere una nota per il cliente quando accetti la prenotazione.'
-                  : 'Spiega il motivo del rifiuto e proponi un orario alternativo. Sarà il cliente a riprogrammare.'}
+                  : 'Spiega il motivo del rifiuto. Sarà il cliente a riprogrammare.'}
               </p>
 
               <label className="input-label">
@@ -836,19 +906,6 @@ export default function Reservations() {
                   disabled={responseLoading}
                 />
               </label>
-
-              {responseModal.action === 'reject' && (
-                <label className="input-label">
-                  Proposta di nuovo orario
-                  <input
-                    type="text"
-                    value={responseForm.proposed_time}
-                    onChange={(e) => setResponseForm(prev => ({ ...prev, proposed_time: e.target.value }))}
-                    placeholder="Es. Domani alle 18:30 o venerdì mattina"
-                    disabled={responseLoading}
-                  />
-                </label>
-              )}
             </div>
             <div className="modal__actions">
               <button className="btn outline" onClick={() => setResponseModal(null)} disabled={responseLoading}>
@@ -857,7 +914,7 @@ export default function Reservations() {
               <button
                 className="btn primary"
                 onClick={submitResponseModal}
-                disabled={responseLoading || (responseModal.action === 'reject' && (!responseForm.note.trim() || !responseForm.proposed_time.trim()))}
+                disabled={responseLoading || (responseModal.action === 'reject' && !responseForm.note.trim())}
               >
                 {responseLoading ? 'Invio in corso...' : 'Invia risposta'}
               </button>

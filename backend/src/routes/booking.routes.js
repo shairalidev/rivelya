@@ -26,19 +26,19 @@ const bookingSchema = Joi.object({
 
 const respondSchema = Joi.object({
   action: Joi.string().valid('accept', 'reject').required(),
-  note: Joi.string().max(600).allow('', null),
-  proposed_time: Joi.string().max(120).allow('', null)
+  note: Joi.string().max(600).allow('', null)
 });
 
 const rescheduleSchema = Joi.object({
   newDate: Joi.string().pattern(/^\d{4}-\d{2}-\d{2}$/).required(),
   newStart: Joi.string().pattern(/^\d{2}:\d{2}$/).required(),
   newEnd: Joi.string().pattern(/^\d{2}:\d{2}$/).required(),
-  reason: Joi.string().max(300).allow('', null)
+  reason: Joi.string().trim().min(1).max(300).required()
 });
 
 const rescheduleResponseSchema = Joi.object({
-  action: Joi.string().valid('accept', 'reject').required()
+  action: Joi.string().valid('accept', 'reject').required(),
+  note: Joi.string().trim().max(600).allow('', null)
 });
 
 const startNowResponseSchema = Joi.object({
@@ -57,7 +57,7 @@ const loadDayContext = async ({ masterId, date }) => {
   const bookings = await Booking.find({
     master_id: masterId,
     date,
-    status: { $in: ['awaiting_master', 'confirmed'] }
+    status: { $in: ['awaiting_master', 'confirmed', 'ready_to_start', 'reschedule_requested'] }
   });
   return { blocks: dayBlocks, bookings };
 };
@@ -300,8 +300,8 @@ router.post('/:bookingId/respond', requireAuth, requireRole('master'), async (re
     if (!booking) return res.status(404).json({ message: 'Prenotazione non trovata.' });
     const rejectNotAllowed = ['active', 'completed', 'cancelled', 'rejected'];
 
-    if (payload.action === 'reject' && (!payload.note?.trim() || !payload.proposed_time?.trim())) {
-      return res.status(400).json({ message: 'Inserisci una nota e una proposta alternativa per rifiutare.' });
+    if (payload.action === 'reject' && !payload.note?.trim()) {
+      return res.status(400).json({ message: 'Inserisci una nota per rifiutare.' });
     }
 
     if (payload.action === 'accept') {
@@ -313,7 +313,6 @@ router.post('/:bookingId/respond', requireAuth, requireRole('master'), async (re
       booking.master_response = {
         action: 'accept',
         note: payload.note?.trim() || '',
-        proposed_time: payload.proposed_time?.trim() || '',
         responded_at: new Date()
       };
       await booking.save();
@@ -367,7 +366,6 @@ router.post('/:bookingId/respond', requireAuth, requireRole('master'), async (re
     booking.master_response = {
       action: 'reject',
       note: payload.note?.trim() || '',
-      proposed_time: payload.proposed_time?.trim() || '',
       responded_at: new Date()
     };
     await booking.save();
@@ -417,7 +415,6 @@ router.post('/:bookingId/start-voice', requireAuth, async (req, res, next) => {
     if (booking.channel !== 'voice') return res.status(400).json({ message: 'Non è una prenotazione vocale.' });
     if (booking.status !== 'confirmed') return res.status(400).json({ message: 'Prenotazione non confermata.' });
     
-    const isCustomer = booking.customer_id._id.toString() === req.user._id.toString();
     const isMaster = booking.master_id.user_id.toString() === req.user._id.toString();
     
     if (!isCustomer && !isMaster) {
@@ -525,24 +522,17 @@ router.post('/:bookingId/reschedule', requireAuth, async (req, res, next) => {
     if (!booking) return res.status(404).json({ message: 'Prenotazione non trovata.' });
     
     const isCustomer = booking.customer_id._id.toString() === req.user._id.toString();
-    const isMaster = booking.master_id.user_id.toString() === req.user._id.toString();
-    
-    if (!isCustomer && !isMaster) {
-      return res.status(403).json({ message: 'Non autorizzato.' });
+
+    if (!isCustomer) {
+      return res.status(403).json({ message: 'Solo il cliente può richiedere una riprogrammazione.' });
     }
 
-    if (!['confirmed', 'awaiting_master', 'reschedule_requested'].includes(booking.status)) {
-      return res.status(400).json({ message: 'Impossibile riprogrammare questa prenotazione.' });
+    if (booking.status !== 'ready_to_start') {
+      return res.status(400).json({ message: 'Puoi riprogrammare solo dopo che il master ha accettato.' });
     }
 
-    // If there's already a pending reschedule request, move it to history
     if (booking.reschedule_request) {
-      if (!booking.reschedule_history) booking.reschedule_history = [];
-      booking.reschedule_history.push({
-        ...booking.reschedule_request,
-        response: 'superseded',
-        responded_at: new Date()
-      });
+      return res.status(409).json({ message: 'Esiste già una richiesta di riprogrammazione in attesa.' });
     }
 
     // Validate new time slot
@@ -576,27 +566,27 @@ router.post('/:bookingId/reschedule', requireAuth, async (req, res, next) => {
     }
 
     booking.reschedule_request = {
-      requested_by: isCustomer ? 'customer' : 'master',
+      requested_by: 'customer',
       new_date: payload.newDate,
       new_start_time: payload.newStart,
       new_end_time: payload.newEnd,
-      reason: payload.reason || '',
+      reason: payload.reason?.trim() || '',
       requested_at: new Date()
     };
     booking.status = 'reschedule_requested';
+    booking.can_start = false;
+    booking.start_now_request = undefined;
     await booking.save();
 
-    const targetUserId = isCustomer ? booking.master_id.user_id : booking.customer_id._id;
-    const requesterName = isCustomer ? 
-      (booking.customer_id.display_name || 'Cliente') : 
-      (booking.master_id.display_name || 'Master');
+    const targetUserId = booking.master_id.user_id;
+    const requesterName = booking.customer_id.display_name || 'Cliente';
 
     await createNotification({
       userId: targetUserId,
       type: 'booking:reschedule_requested',
       title: 'Richiesta di riprogrammazione',
-      body: `${requesterName} ha richiesto di riprogrammare la sessione del ${booking.date} per il ${payload.newDate}.`,
-      meta: { bookingId: booking._id }
+      body: `${requesterName} ha richiesto di riprogrammare la sessione del ${booking.date} per il ${payload.newDate}. Nota: ${payload.reason.trim()}`,
+      meta: { bookingId: booking._id, reason: payload.reason.trim() }
     });
 
     res.json({ message: 'Richiesta di riprogrammazione inviata.' });
@@ -611,7 +601,7 @@ router.post('/:bookingId/reschedule', requireAuth, async (req, res, next) => {
 // Respond to reschedule request
 router.post('/:bookingId/reschedule/respond', requireAuth, async (req, res, next) => {
   try {
-    const { action } = await rescheduleResponseSchema.validateAsync(req.body);
+    const { action, note } = await rescheduleResponseSchema.validateAsync(req.body);
     const booking = await Booking.findById(req.params.bookingId)
       .populate('master_id', 'user_id display_name working_hours')
       .populate('customer_id', '_id display_name');
@@ -623,17 +613,17 @@ router.post('/:bookingId/reschedule/respond', requireAuth, async (req, res, next
 
     const isCustomer = booking.customer_id._id.toString() === req.user._id.toString();
     const isMaster = booking.master_id.user_id.toString() === req.user._id.toString();
-    
-    if (!isCustomer && !isMaster) {
-      return res.status(403).json({ message: 'Non autorizzato.' });
+
+    if (!isMaster) {
+      return res.status(403).json({ message: 'Solo il master può rispondere alla riprogrammazione.' });
     }
 
-    // Check if user is the one who should respond (opposite of who requested)
-    const shouldRespond = (booking.reschedule_request.requested_by === 'customer' && isMaster) ||
-                         (booking.reschedule_request.requested_by === 'master' && isCustomer);
-    
-    if (!shouldRespond) {
-      return res.status(403).json({ message: 'Non puoi rispondere alla tua stessa richiesta.' });
+    if (booking.reschedule_request.requested_by !== 'customer') {
+      return res.status(400).json({ message: 'La richiesta non proviene dal cliente.' });
+    }
+
+    if (action === 'reject' && !note?.trim()) {
+      return res.status(400).json({ message: 'Inserisci una nota per rifiutare la riprogrammazione.' });
     }
 
     // Store current reschedule request for history
@@ -671,9 +661,10 @@ router.post('/:bookingId/reschedule/respond', requireAuth, async (req, res, next
       booking.reschedule_history.push({
         ...currentRequest,
         response: 'accepted',
+        response_note: note?.trim() || '',
         responded_at: new Date()
       });
-      
+
       booking.reschedule_request = undefined;
       await booking.save();
 
@@ -684,20 +675,21 @@ router.post('/:bookingId/reschedule/respond', requireAuth, async (req, res, next
         userId: targetUserId,
         type: 'booking:reschedule_accepted',
         title: 'Riprogrammazione accettata',
-        body: `La tua richiesta di riprogrammazione è stata accettata. Nuovo orario: ${booking.date} dalle ${booking.start_time} alle ${booking.end_time}.`,
-        meta: { bookingId: booking._id }
+        body: `La tua richiesta di riprogrammazione è stata accettata. Nuovo orario: ${booking.date} dalle ${booking.start_time} alle ${booking.end_time}. ${note?.trim() ? `Nota del master: ${note.trim()}` : ''}`,
+        meta: { bookingId: booking._id, note: note?.trim() || '' }
       });
 
       res.json({ message: 'Riprogrammazione accettata.' });
     } else {
       booking.status = 'ready_to_start';
       booking.can_start = true;
-      
+
       // Add to history
       if (!booking.reschedule_history) booking.reschedule_history = [];
       booking.reschedule_history.push({
         ...currentRequest,
         response: 'rejected',
+        response_note: note?.trim() || '',
         responded_at: new Date()
       });
       
@@ -711,8 +703,8 @@ router.post('/:bookingId/reschedule/respond', requireAuth, async (req, res, next
         userId: targetUserId,
         type: 'booking:reschedule_rejected',
         title: 'Riprogrammazione rifiutata',
-        body: 'La tua richiesta di riprogrammazione è stata rifiutata. La prenotazione originale rimane confermata.',
-        meta: { bookingId: booking._id }
+        body: `La tua richiesta di riprogrammazione è stata rifiutata. La prenotazione originale rimane confermata. Nota del master: ${note?.trim() || 'Nessuna nota fornita.'}`,
+        meta: { bookingId: booking._id, note: note?.trim() || '' }
       });
 
       res.json({ message: 'Riprogrammazione rifiutata.' });

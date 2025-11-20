@@ -10,8 +10,8 @@ export const requestReschedule = async (bookingId, rescheduleData) => {
   return data;
 };
 
-export const respondToReschedule = async (bookingId, action) => {
-  const { data } = await client.post(`/bookings/${bookingId}/reschedule/respond`, { action });
+export const respondToReschedule = async (bookingId, payload) => {
+  const { data } = await client.post(`/bookings/${bookingId}/reschedule/respond`, payload);
   return data;
 };
 
