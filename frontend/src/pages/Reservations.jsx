@@ -51,6 +51,9 @@ export default function Reservations() {
     newEnd: '',
     reason: ''
   });
+  const [responseModal, setResponseModal] = useState(null);
+  const [responseForm, setResponseForm] = useState({ note: '' });
+  const [responseLoading, setResponseLoading] = useState(false);
   const [confirmModal, setConfirmModal] = useState(null);
   const [incomingStartNow, setIncomingStartNow] = useState(null);
   const reservationsSnapshot = useRef(new Map());
@@ -317,13 +320,18 @@ export default function Reservations() {
     });
   };
 
-  const handleBookingResponse = async (reservationId, action) => {
+  const handleBookingResponse = async (reservationId, payload) => {
+    setResponseLoading(true);
     try {
-      const { data } = await client.post(`/bookings/${reservationId}/respond`, { action });
-      toast.success(action === 'accept' ? 'Prenotazione accettata' : 'Prenotazione rifiutata');
+      const { data } = await client.post(`/bookings/${reservationId}/respond`, payload);
+      toast.success(payload.action === 'accept' ? 'Prenotazione accettata' : 'Prenotazione rifiutata');
+      setResponseModal(null);
       loadReservations(pagination.page);
+      setResponseForm({ note: '' });
     } catch (error) {
       toast.error(error?.response?.data?.message || 'Errore nella risposta');
+    } finally {
+      setResponseLoading(false);
     }
   };
 
@@ -341,6 +349,19 @@ export default function Reservations() {
     } catch (error) {
       toast.error(error?.response?.data?.message || 'Errore nell\'avvio della sessione');
     }
+  };
+
+  const openResponseModal = (reservation, action) => {
+    setResponseModal({ reservation, action });
+    setResponseForm({ note: '' });
+  };
+
+  const submitResponseModal = () => {
+    if (!responseModal) return;
+    handleBookingResponse(responseModal.reservation.id, {
+      action: responseModal.action,
+      note: responseForm.note
+    });
   };
 
   const formatDate = (dateStr) => {
@@ -538,6 +559,12 @@ export default function Reservations() {
                     <p><strong>Note:</strong> {reservation.notes}</p>
                   </div>
                 )}
+
+                {reservation.master_response?.note && (
+                  <div className="booking-notes">
+                    <p><strong>Nota esperti:</strong> {reservation.master_response.note}</p>
+                  </div>
+                )}
               </div>
 
               <div className="booking-card__actions">
@@ -638,7 +665,7 @@ export default function Reservations() {
                     {canRejectBeforeStart(reservation) && reservation.status !== 'awaiting_master' && (
                       <button
                         className="btn outline"
-                        onClick={() => handleBookingResponse(reservation.id, 'reject')}
+                        onClick={() => openResponseModal(reservation, 'reject')}
                       >
                         Rifiuta prenotazione
                       </button>
@@ -652,15 +679,15 @@ export default function Reservations() {
                     
                     {reservation.status === 'awaiting_master' && reservation.user_role === 'master' && (
                       <>
-                        <button 
-                          className="btn primary" 
-                          onClick={() => handleBookingResponse(reservation.id, 'accept')}
+                        <button
+                          className="btn primary"
+                          onClick={() => openResponseModal(reservation, 'accept')}
                         >
                           Accetta prenotazione
                         </button>
-                        <button 
-                          className="btn outline" 
-                          onClick={() => handleBookingResponse(reservation.id, 'reject')}
+                        <button
+                          className="btn outline"
+                          onClick={() => openResponseModal(reservation, 'reject')}
                         >
                           Rifiuta prenotazione
                         </button>
@@ -773,6 +800,50 @@ export default function Reservations() {
                 disabled={!rescheduleForm.newDate || !rescheduleForm.newStart || !rescheduleForm.newEnd}
               >
                 Invia richiesta
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {responseModal && (
+        <div className="modal-overlay" onClick={() => !responseLoading && setResponseModal(null)}>
+          <div className="modal" onClick={(e) => e.stopPropagation()}>
+            <div className="modal__header">
+              <h2>{responseModal.action === 'accept' ? 'Accetta prenotazione' : 'Rifiuta prenotazione'}</h2>
+              <button onClick={() => !responseLoading && setResponseModal(null)}>×</button>
+            </div>
+            <div className="modal__body">
+              <p className="micro muted" style={{ marginBottom: '1rem' }}>
+                {responseModal.action === 'accept'
+                  ? 'Puoi aggiungere una nota per il cliente quando accetti la prenotazione.'
+                  : 'Spiega il motivo del rifiuto. Sarà il cliente a riprogrammare la sessione se necessario.'}
+              </p>
+
+              <label className="input-label">
+                Nota
+                <textarea
+                  value={responseForm.note}
+                  onChange={(e) => setResponseForm(prev => ({ ...prev, note: e.target.value }))}
+                  placeholder={responseModal.action === 'accept'
+                    ? 'Aggiungi informazioni utili per la sessione.'
+                    : 'Motiva il rifiuto e fornisci indicazioni per riprogrammare.'}
+                  rows={4}
+                  disabled={responseLoading}
+                />
+              </label>
+
+            </div>
+            <div className="modal__actions">
+              <button className="btn outline" onClick={() => setResponseModal(null)} disabled={responseLoading}>
+                Annulla
+              </button>
+              <button
+                className="btn primary"
+                onClick={submitResponseModal}
+                disabled={responseLoading || (responseModal.action === 'reject' && !responseForm.note.trim())}
+              >
+                {responseLoading ? 'Invio in corso...' : 'Invia risposta'}
               </button>
             </div>
           </div>

@@ -34,6 +34,11 @@ const bookingSchema = new mongoose.Schema({
     responded_at: { type: Date },
     status: { type: String, enum: ['pending', 'accepted', 'rejected'] }
   },
+  master_response: {
+    action: { type: String, enum: ['accept', 'reject'] },
+    note: { type: String, maxlength: 600 },
+    responded_at: { type: Date }
+  },
   wallet_txn_id: { type: mongoose.Schema.Types.ObjectId, ref: 'Transaction' },
   notes: { type: String, maxlength: 600 },
   reschedule_request: {
