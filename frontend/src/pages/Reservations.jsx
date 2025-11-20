@@ -187,12 +187,37 @@ export default function Reservations() {
       }
     };
 
+    const handleSessionStarted = (payload) => {
+      if (!payload) return;
+
+      toast.success(`Sessione ${payload.reservationId || ''} avviata`);
+      setConfirmModal({
+        title: 'Sessione attiva',
+        message: payload.reservationId
+          ? `La sessione ${payload.reservationId} è stata avviata. Vuoi aprirla ora?`
+          : 'Una delle tue sessioni è stata avviata. Vuoi aprirla ora?',
+        confirmText: 'Apri sessione',
+        cancelText: 'Chiudi',
+        onConfirm: () => {
+          if (payload.sessionUrl) {
+            navigate(payload.sessionUrl);
+          }
+          setConfirmModal(null);
+        },
+        onClose: () => setConfirmModal(null)
+      });
+
+      loadReservations(pagination.page, { showLoader: false });
+    };
+
     socket.on('booking:start_now', handleStartNowSocket);
     socket.on('session:status', handleSessionStatus);
+    socket.on('booking:session_started', handleSessionStarted);
 
     return () => {
       socket.off('booking:start_now', handleStartNowSocket);
       socket.off('session:status', handleSessionStatus);
+      socket.off('booking:session_started', handleSessionStarted);
     };
   }, [loadReservations, navigate, pagination.page, socket]);
 

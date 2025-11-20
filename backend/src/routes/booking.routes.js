@@ -88,7 +88,7 @@ const serializeMasterRequest = booking => ({
 
 const startBookingSession = async ({ booking, starterRole, starterName, targetUserId }) => {
   const now = new Date();
-  
+
   // Store original booking details if not already stored
   if (!booking.original_booking || !booking.original_booking.date) {
     booking.original_booking = {
@@ -97,12 +97,12 @@ const startBookingSession = async ({ booking, starterRole, starterName, targetUs
       end_time: booking.end_time
     };
   }
-  
+
   // Update booking with actual session times
   const actualStartTime = now.toTimeString().slice(0, 5); // HH:MM format
   const actualEndTime = new Date(now.getTime() + booking.duration_minutes * 60000).toTimeString().slice(0, 5);
   const actualDate = now.toISOString().split('T')[0]; // YYYY-MM-DD format
-  
+
   booking.status = 'active';
   booking.started_by = starterRole;
   booking.started_at = now;
@@ -114,13 +114,78 @@ const startBookingSession = async ({ booking, starterRole, starterName, targetUs
   booking.start_now_request = undefined;
   await booking.save();
 
-  await createNotification({
-    userId: targetUserId,
-    type: 'session:started',
-    title: 'Sessione avviata',
-    body: `${starterName} ha avviato la sessione ${booking.reservation_id}. Unisciti ora!`,
-    meta: { bookingId: booking._id, reservationId: booking.reservation_id }
+  const starterUserId = starterRole === 'customer'
+    ? booking.customer_id?._id
+    : booking.master_id?.user_id;
+
+  const durationMs = (booking.duration_minutes || 0) * 60 * 1000;
+  const expiresAt = new Date(now.getTime() + durationMs);
+  const priceCpm = booking.duration_minutes
+    ? Math.round(booking.amount_cents / booking.duration_minutes)
+    : booking.amount_cents;
+
+  // Ensure chat thread exists and session record is linked to the booking
+  const thread = booking.channel === 'voice'
+    ? null
+    : await ChatThread.findOneAndUpdate(
+        { booking_id: booking._id },
+        {
+          booking_id: booking._id,
+          master_id: booking.master_id?._id,
+          master_user_id: booking.master_id?.user_id,
+          customer_id: booking.customer_id?._id,
+          channel: booking.channel,
+          allowed_seconds: Math.max(60, (booking.duration_minutes || 0) * 60),
+          started_at: now,
+          expires_at: expiresAt,
+          status: 'open'
+        },
+        { upsert: true, new: true, setDefaultsOnInsert: true }
+      );
+
+  const session = await Session.findOneAndUpdate(
+    { booking_id: booking._id },
+    {
+      user_id: booking.customer_id?._id,
+      master_id: booking.master_id?._id,
+      channel: booking.channel,
+      start_ts: now,
+      end_ts: expiresAt,
+      price_cpm: priceCpm,
+      status: 'active'
+    },
+    { upsert: true, new: true, setDefaultsOnInsert: true }
+  );
+
+  const sessionUrl = booking.channel === 'voice'
+    ? `/voice/${session._id}`
+    : `/chat/${thread?._id || booking._id}`;
+
+  const participants = [starterUserId, targetUserId]
+    .map(id => (id ? id.toString() : null))
+    .filter(Boolean);
+
+  await Promise.all([
+    ...participants.map(userId => createNotification({
+      userId,
+      type: 'session:started',
+      title: 'Sessione avviata',
+      body: `${starterName} ha avviato la sessione ${booking.reservation_id}. Unisciti ora!`,
+      meta: { bookingId: booking._id, reservationId: booking.reservation_id }
+    })),
+    Promise.resolve()
+  ]);
+
+  participants.forEach(userId => {
+    emitToUser(userId, 'booking:session_started', {
+      bookingId: booking._id.toString(),
+      reservationId: booking.reservation_id,
+      sessionUrl,
+      sessionId: session?._id?.toString()
+    });
   });
+
+  return { sessionUrl, sessionId: session?._id };
 };
 
 const emitStartNowEvent = (booking, payload) => {
@@ -838,21 +903,20 @@ router.post('/:bookingId/start-now/respond', requireAuth, async (req, res, next)
     const targetUserId = requesterRole === 'customer' ? booking.master_id.user_id : booking.customer_id._id;
     const requesterId = requesterRole === 'customer' ? booking.customer_id._id : booking.master_id.user_id;
 
-    await startBookingSession({
+    const { sessionUrl, sessionId } = await startBookingSession({
       booking,
       starterRole: requesterRole,
       starterName,
       targetUserId
     });
 
-    const sessionUrl = booking.channel === 'voice' ? `/voice/${booking._id}` : `/chat/${booking._id}`;
-
     emitStartNowEvent(booking, {
       action: 'response',
       status: 'accepted',
       requestedBy: requesterRole,
       respondedAt,
-      sessionUrl
+      sessionUrl,
+      sessionId
     });
 
     await createNotification({
@@ -993,16 +1057,16 @@ router.post('/:bookingId/start', requireAuth, async (req, res, next) => {
       (booking.customer_id.display_name || 'Cliente') :
       (booking.master_id.display_name || 'Master');
 
-    await startBookingSession({
+    const { sessionUrl } = await startBookingSession({
       booking,
       starterRole: isCustomer ? 'customer' : 'master',
       starterName,
       targetUserId
     });
 
-    res.json({ 
+    res.json({
       message: 'Sessione avviata con successo.',
-      session_url: booking.channel === 'voice' ? `/voice/${booking._id}` : `/chat/${booking._id}`,
+      session_url: sessionUrl,
       reservation_id: booking.reservation_id
     });
   } catch (error) {
