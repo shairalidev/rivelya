@@ -25,7 +25,9 @@ const bookingSchema = Joi.object({
 });
 
 const respondSchema = Joi.object({
-  action: Joi.string().valid('accept', 'reject').required()
+  action: Joi.string().valid('accept', 'reject').required(),
+  note: Joi.string().max(600).allow('', null),
+  proposed_time: Joi.string().max(120).allow('', null)
 });
 
 const rescheduleSchema = Joi.object({
@@ -70,6 +72,7 @@ const serializeMasterRequest = booking => ({
   amount_cents: booking.amount_cents,
   duration_minutes: booking.duration_minutes,
   notes: booking.notes || '',
+  master_response: booking.master_response || null,
   customer: booking.customer_id
     ? {
         id: booking.customer_id._id,
@@ -288,7 +291,7 @@ router.get('/master/requests', requireAuth, requireRole('master'), async (req, r
 
 router.post('/:bookingId/respond', requireAuth, requireRole('master'), async (req, res, next) => {
   try {
-    const { action } = await respondSchema.validateAsync(req.body);
+    const payload = await respondSchema.validateAsync(req.body);
     const master = await ensureMaster(req.user._id);
     if (!master) return res.status(404).json({ message: 'Profilo master non trovato.' });
 
@@ -297,12 +300,22 @@ router.post('/:bookingId/respond', requireAuth, requireRole('master'), async (re
     if (!booking) return res.status(404).json({ message: 'Prenotazione non trovata.' });
     const rejectNotAllowed = ['active', 'completed', 'cancelled', 'rejected'];
 
-    if (action === 'accept') {
+    if (payload.action === 'reject' && (!payload.note?.trim() || !payload.proposed_time?.trim())) {
+      return res.status(400).json({ message: 'Inserisci una nota e una proposta alternativa per rifiutare.' });
+    }
+
+    if (payload.action === 'accept') {
       if (booking.status !== 'awaiting_master') {
         return res.status(400).json({ message: 'La prenotazione è già stata gestita.' });
       }
       booking.status = 'ready_to_start';
       booking.can_start = true;
+      booking.master_response = {
+        action: 'accept',
+        note: payload.note?.trim() || '',
+        proposed_time: payload.proposed_time?.trim() || '',
+        responded_at: new Date()
+      };
       await booking.save();
 
       if (booking.channel === 'chat' || booking.channel === 'chat_voice') {
@@ -351,6 +364,12 @@ router.post('/:bookingId/respond', requireAuth, requireRole('master'), async (re
     booking.can_start = false;
     booking.start_now_request = undefined;
     booking.reschedule_request = undefined;
+    booking.master_response = {
+      action: 'reject',
+      note: payload.note?.trim() || '',
+      proposed_time: payload.proposed_time?.trim() || '',
+      responded_at: new Date()
+    };
     await booking.save();
 
     if (booking.wallet_txn_id && booking.amount_cents > 0 && booking.customer_id?.wallet_id) {
@@ -477,6 +496,7 @@ router.get('/customer/history', requireAuth, async (req, res, next) => {
         amount_cents: booking.amount_cents,
         duration_minutes: booking.duration_minutes,
         notes: booking.notes,
+        master_response: booking.master_response,
         reschedule_request: booking.reschedule_request,
         reschedule_history: booking.reschedule_history || [],
         original_booking: booking.original_booking,
@@ -927,6 +947,7 @@ router.get('/reservations', requireAuth, async (req, res, next) => {
         amount_cents: booking.amount_cents,
         duration_minutes: booking.duration_minutes,
         notes: booking.notes,
+        master_response: booking.master_response,
         reschedule_request: booking.reschedule_request,
         reschedule_history: booking.reschedule_history || [],
         original_booking: booking.original_booking,
