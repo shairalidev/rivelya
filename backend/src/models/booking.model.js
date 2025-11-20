@@ -58,6 +58,7 @@ const bookingSchema = new mongoose.Schema({
     reason: { type: String, maxlength: 300 },
     requested_at: { type: Date },
     response: { type: String, enum: ['accepted', 'rejected', 'superseded'] },
+    response_note: { type: String, maxlength: 600 },
     responded_at: { type: Date }
   }],
   original_booking: {

@@ -7,6 +7,8 @@ import ConfirmModal from '../components/ConfirmModal.jsx';
 const statusLabels = {
   awaiting_master: 'In attesa',
   confirmed: 'Confermata',
+  ready_to_start: 'Pronta per iniziare',
+  active: 'Sessione in corso',
   rejected: 'Rifiutata',
   cancelled: 'Annullata',
   completed: 'Completata',
@@ -62,7 +64,7 @@ export default function Dashboard() {
   const handleReschedule = (booking) => {
     setRescheduleModal(booking);
     setRescheduleForm({
-      newDate: '',
+      newDate: booking.date,
       newStart: booking.start,
       newEnd: booking.end,
       reason: ''
@@ -83,7 +85,7 @@ export default function Dashboard() {
   const handleRescheduleResponse = (booking, action) => {
     setConfirmModal({
       title: action === 'accept' ? 'Accetta riprogrammazione' : 'Rifiuta riprogrammazione',
-      message: action === 'accept' 
+      message: action === 'accept'
         ? `Confermi di accettare la riprogrammazione per il ${booking.reschedule_request.new_date}?`
         : 'Confermi di rifiutare la richiesta di riprogrammazione?',
       onConfirm: () => respondReschedule(booking.id, action)
@@ -92,7 +94,7 @@ export default function Dashboard() {
 
   const respondReschedule = async (bookingId, action) => {
     try {
-      await respondToReschedule(bookingId, action);
+      await respondToReschedule(bookingId, { action, note: action === 'reject' ? 'Preferisco un orario differente' : '' });
       toast.success(action === 'accept' ? 'Riprogrammazione accettata' : 'Riprogrammazione rifiutata');
       setConfirmModal(null);
       loadBookings(pagination.page);
@@ -114,13 +116,13 @@ export default function Dashboard() {
   };
 
   const canReschedule = (booking) => {
-    return ['confirmed', 'awaiting_master', 'reschedule_requested'].includes(booking.status) && 
-           new Date(booking.date) > new Date();
+    return booking.status === 'ready_to_start'
+      && new Date(booking.date) > new Date()
+      && !booking.reschedule_request;
   };
 
   const canRespondToReschedule = (booking) => {
-    return booking.status === 'reschedule_requested' &&
-           booking.reschedule_request?.requested_by === 'master';
+    return false;
   };
 
   const isPendingMyReschedule = (booking) => {
@@ -150,7 +152,7 @@ export default function Dashboard() {
         <select value={filter} onChange={(e) => setFilter(e.target.value)}>
           <option value="all">Tutte le prenotazioni</option>
           <option value="awaiting_master">In attesa</option>
-          <option value="confirmed">Confermate</option>
+          <option value="ready_to_start">Pronte per iniziare</option>
           <option value="reschedule_requested">Riprogrammazione richiesta</option>
           <option value="completed">Completate</option>
           <option value="cancelled">Annullate</option>
@@ -203,7 +205,7 @@ export default function Dashboard() {
                     <p><strong>Nuova data:</strong> {formatDate(booking.reschedule_request.new_date)}</p>
                     <p><strong>Nuovo orario:</strong> {booking.reschedule_request.new_start_time} - {booking.reschedule_request.new_end_time}</p>
                     {booking.reschedule_request.reason && (
-                      <p><strong>Motivo:</strong> {booking.reschedule_request.reason}</p>
+                      <p><strong>Nota cliente:</strong> {booking.reschedule_request.reason}</p>
                     )}
                     <p><strong>Stato:</strong> {booking.reschedule_request.requested_by === 'customer' ? 'In attesa di risposta' : 'In attesa della tua risposta'}</p>
                   </div>
@@ -214,10 +216,13 @@ export default function Dashboard() {
                     <h4 style={{ margin: '0 0 0.5rem 0', fontSize: '0.9rem', color: 'var(--muted)' }}>Cronologia riprogrammazioni</h4>
                     {booking.reschedule_history.slice(-2).map((history, index) => (
                       <div key={index} style={{ fontSize: '0.8rem', marginBottom: '0.25rem', color: 'var(--muted)' }}>
-                        {history.requested_by === 'customer' ? 'Tu' : 'Master'} ha richiesto {history.new_date} {history.new_start_time}-{history.new_end_time} - 
+                        {history.requested_by === 'customer' ? 'Tu' : 'Master'} ha richiesto {history.new_date} {history.new_start_time}-{history.new_end_time} -
                         <span style={{ color: history.response === 'accepted' ? '#3dd8b6' : '#ff7b7b', fontWeight: '500' }}>
                           {history.response === 'accepted' ? 'Accettata' : 'Rifiutata'}
                         </span>
+                        {history.response_note && (
+                          <span style={{ display: 'block', marginTop: '0.25rem' }}>Nota master: {history.response_note}</span>
+                        )}
                       </div>
                     ))}
                   </div>
@@ -338,13 +343,13 @@ export default function Dashboard() {
                     onChange={(e) => setRescheduleForm(prev => ({ ...prev, newEnd: e.target.value }))}
                   />
                 </label>
-                
+
                 <label className="input-label" data-span="3">
-                  Motivo (opzionale)
+                  Motivo (obbligatorio)
                   <textarea
                     value={rescheduleForm.reason}
                     onChange={(e) => setRescheduleForm(prev => ({ ...prev, reason: e.target.value }))}
-                    placeholder="Spiega il motivo della riprogrammazione"
+                    placeholder="Spiega il motivo della riprogrammazione e proponi un orario alternativo"
                     rows={3}
                   />
                 </label>
@@ -354,10 +359,10 @@ export default function Dashboard() {
               <button className="btn outline" onClick={() => setRescheduleModal(null)}>
                 Annulla
               </button>
-              <button 
-                className="btn primary" 
+              <button
+                className="btn primary"
                 onClick={submitReschedule}
-                disabled={!rescheduleForm.newDate || !rescheduleForm.newStart || !rescheduleForm.newEnd}
+                disabled={!rescheduleForm.newDate || !rescheduleForm.newStart || !rescheduleForm.newEnd || !rescheduleForm.reason.trim()}
               >
                 Invia richiesta
               </button>
