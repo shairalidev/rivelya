@@ -592,7 +592,9 @@ router.post('/:bookingId/reschedule', requireAuth, async (req, res, next) => {
       return res.status(403).json({ message: 'Solo il cliente può richiedere una riprogrammazione.' });
     }
 
-    if (booking.status !== 'ready_to_start') {
+    const allowedStatuses = ['awaiting_master', 'confirmed', 'ready_to_start'];
+
+    if (!allowedStatuses.includes(booking.status)) {
       return res.status(400).json({ message: 'Puoi riprogrammare solo dopo che il master ha accettato.' });
     }
 
