@@ -9,6 +9,7 @@ import useCountdown from '../hooks/useCountdown.js';
 import { getToken, subscribeAuthChange } from '../lib/auth.js';
 import client from '../api/client.js';
 import ConfirmModal from '../components/ConfirmModal.jsx';
+import ReviewModal from '../components/ReviewModal.jsx';
 import useAudioLevel from '../hooks/useAudioLevel.js';
 import useSimulatedVoiceActivity from '../hooks/useSimulatedVoiceActivity.js';
 import useVoiceWebRTC from '../hooks/useVoiceWebRTC.js';
@@ -125,6 +126,8 @@ export default function Voice() {
   const [isConnected, setIsConnected] = useState(false);
   const [showStartModal, setShowStartModal] = useState(false);
   const [showEndModal, setShowEndModal] = useState(false);
+  const [showReviewModal, setShowReviewModal] = useState(false);
+  const [reviewData, setReviewData] = useState(null);
   const [micPermission, setMicPermission] = useState(null);
   const [audioStream, setAudioStream] = useState(null);
   const [activeCall, setActiveCall] = useState(null);
@@ -192,6 +195,17 @@ export default function Voice() {
   const activeSession = sessionQuery.data?.session;
   const remainingSeconds = useCountdown(activeSession?.expiresAt);
   const canCall = sessionQuery.data?.canCall && (remainingSeconds == null || remainingSeconds > 0);
+
+  // Sync timer with backend every 30 seconds for active sessions
+  useEffect(() => {
+    if (!sessionId || !activeSession || activeSession.status !== 'active') return;
+    
+    const syncTimer = setInterval(() => {
+      sessionQuery.refetch();
+    }, 30000); // Sync every 30 seconds
+    
+    return () => clearInterval(syncTimer);
+  }, [sessionId, activeSession?.status, sessionQuery]);
   const isNoteDirty = noteDraft !== noteBaseline;
   const isSessionActive = activeSession?.status === 'active';
   const isSessionEnded = activeSession?.status === 'ended';
@@ -303,6 +317,13 @@ export default function Voice() {
       console.info('[voice] Received voice:session:updated', payload);
     };
 
+    const handleSessionSync = payload => {
+      if (payload.sessionId === sessionId) {
+        queryClient.invalidateQueries({ queryKey: ['voice', 'session', sessionId] });
+      }
+      console.info('[voice] Received voice:session:sync', payload);
+    };
+
     const handleSessionCreated = payload => {
       queryClient.invalidateQueries({ queryKey: ['voice', 'sessions'] });
       if (payload?.sessionId && payload.sessionId === sessionId) {
@@ -410,6 +431,16 @@ export default function Voice() {
         // Handle connection status updates if needed
       }
     };
+
+    const handleReviewPrompt = payload => {
+      console.log('[voice] Review prompt received:', payload);
+      setReviewData({
+        sessionId: payload.sessionId,
+        partnerName: payload.partnerName,
+        partnerType: payload.partnerType
+      });
+      setShowReviewModal(true);
+    };
     
     socket.on('voice:session:updated', handleSessionUpdate);
     socket.on('voice:session:started', handleSessionStarted);
@@ -422,6 +453,8 @@ export default function Voice() {
     socket.on('voice:call:ended', handleCallEnded);
     socket.on('voice:webrtc:signal', handleWebRTCSignal);
     socket.on('voice:session:connection:status', handleConnectionStatus);
+    socket.on('voice:session:sync', handleSessionSync);
+    socket.on('session:review:prompt', handleReviewPrompt);
 
     return () => {
       socket.off('voice:session:updated', handleSessionUpdate);
@@ -435,6 +468,8 @@ export default function Voice() {
       socket.off('voice:call:ended', handleCallEnded);
       socket.off('voice:webrtc:signal', handleWebRTCSignal);
       socket.off('voice:session:connection:status', handleConnectionStatus);
+      socket.off('voice:session:sync', handleSessionSync);
+      socket.off('session:review:prompt', handleReviewPrompt);
     };
   }, [socket, queryClient, sessionId, activeSession, viewerId, signalHandler]);
 
@@ -765,6 +800,7 @@ export default function Voice() {
                         ) : (
                           <span className="voice-session-timer idle">Senza limite</span>
                         )}
+
                       </div>
                     </button>
                   );
@@ -1048,6 +1084,17 @@ export default function Voice() {
         confirmText="Termina Chiamata"
         cancelText="Continua Chiamata"
         type="danger"
+      />
+      
+      <ReviewModal
+        isOpen={showReviewModal}
+        onClose={() => {
+          setShowReviewModal(false);
+          setReviewData(null);
+        }}
+        sessionId={reviewData?.sessionId}
+        partnerName={reviewData?.partnerName}
+        partnerType={reviewData?.partnerType}
       />
     </section>
   );

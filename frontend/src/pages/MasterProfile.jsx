@@ -8,6 +8,7 @@ import 'react-day-picker/dist/style.css';
 import client from '../api/client.js';
 import FancySelect from '../components/FancySelect.jsx';
 import Avatar from '../components/Avatar.jsx';
+import ReviewsList from '../components/ReviewsList.jsx';
 import { buildDailySchedule, resolveTimezoneLabel } from '../utils/schedule.js';
 import { resolveAvailabilityStatus } from '../utils/availability.js';
 import { createBooking, fetchMasterMonthAvailability } from '../api/booking.js';
@@ -85,6 +86,8 @@ export default function MasterProfile() {
     client.get(`/catalog/${id}`)
       .then(res => {
         setMaster(res.data);
+        // Track profile view
+        client.post(`/catalog/${id}/view`).catch(() => {});
       })
       .catch(() => {
         setMaster(null);
@@ -169,6 +172,8 @@ export default function MasterProfile() {
       setAvailabilityLoading(false);
     }
   };
+
+
 
   useEffect(() => {
     if (master?._id) {
@@ -458,15 +463,14 @@ export default function MasterProfile() {
     );
   }
 
-  const ratingValue = master.kpis?.avg_rating;
-  const rating = typeof ratingValue === 'number' ? ratingValue.toFixed(1) : '—';
+  const rating = master.reviews?.avg_rating ? master.reviews.avg_rating.toFixed(1) : '—';
   const dailySchedule = buildDailySchedule(master.working_hours);
   const hasCustomSchedule = (master.working_hours?.slots || []).length > 0;
   const timezoneLabel = resolveTimezoneLabel(master.working_hours);
   const { status: availabilityStatus, label: availabilityLabel } = resolveAvailabilityStatus(master.availability);
   
   const currentUser = getUser();
-  const isMaster = currentUser?.role === 'master';
+  const isMaster = Boolean(currentUser?.roles?.includes('master'));
 
   return (
     <section className="container profile">
@@ -485,9 +489,10 @@ export default function MasterProfile() {
           <p className="muted">{master.headline || 'Professionista certificato del network Rivelya.'}</p>
           <div className="profile-rating">
             <span className="rating-large">★ {rating}</span>
-            <span className="muted">{master.kpis?.review_count || 0} recensioni · {master.experience_years || '5'} anni di esperienza</span>
+            <span className="muted">{master.reviews?.count || 0} recensioni · {master.experience_years || 0} anni di esperienza</span>
           </div>
           <p>{master.bio || 'Questo master è disponibile per consulenze su richiesta con un approccio empatico e orientato ai risultati.'}</p>
+
           <div className="tag-list">
             {(master.specialties || master.categories || []).slice(0, 4).map(spec => (
               <span key={spec} className="tag">{spec}</span>
@@ -516,16 +521,20 @@ export default function MasterProfile() {
           </div>
           <div className="profile-stats">
             <div>
-              <span className="stat-value">{master.kpis?.lifetime_calls || 0}</span>
+              <span className="stat-value">{master.sessions?.voice || 0}</span>
               <span className="stat-label">Chiamate</span>
             </div>
             <div>
-              <span className="stat-value">{master.kpis?.lifetime_chats || 0}</span>
+              <span className="stat-value">{master.sessions?.chat || 0}</span>
               <span className="stat-label">Chat</span>
             </div>
             <div>
-              <span className="stat-value">{master.kpis?.review_count || 0}</span>
+              <span className="stat-value">{master.reviews?.count || 0}</span>
               <span className="stat-label">Recensioni</span>
+            </div>
+            <div>
+              <span className="stat-value">{master.kpis?.profile_views || 0}</span>
+              <span className="stat-label">Visualizzazioni</span>
             </div>
           </div>
         </div>
@@ -705,6 +714,14 @@ export default function MasterProfile() {
         {master.working_hours?.notes && (
           <p className="micro muted">Note: {master.working_hours.notes}</p>
         )}
+      </div>
+      
+      <div className="booking-card">
+        <div className="booking-head">
+          <h2>Recensioni clienti</h2>
+          <p className="muted">{master.reviews?.count || 0} recensioni da clienti verificati</p>
+        </div>
+        <ReviewsList masterUserId={master.user_id} limit={10} />
       </div>
     </section>
   );

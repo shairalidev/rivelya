@@ -13,9 +13,9 @@ const formatDate = iso => {
 };
 
 const channelConfig = [
-  { key: 'chat', label: 'Chat', description: 'Messaggi', unitLabel: 'messaggi' },
-  { key: 'voice', label: 'Telefono', description: 'Chiamate', unitLabel: 'chiamate' },
-  { key: 'chat_voice', label: 'Video', description: 'Videochiamate', unitLabel: 'videochiamate' }
+  { key: 'chat', label: 'Chat', description: 'Chat', unitLabel: 'sessioni' },
+  { key: 'voice', label: 'Voce', description: 'Chiamate', unitLabel: 'chiamate' },
+  { key: 'chat_voice', label: 'Chat + Voce', description: 'Chat e Voce', unitLabel: 'sessioni' }
 ];
 
 const currencyFormatter = new Intl.NumberFormat('it-IT', {
@@ -37,6 +37,8 @@ export default function Wallet() {
   const [masterStats, setMasterStats] = useState(null);
   const [statsLoading, setStatsLoading] = useState(false);
   const [statsError, setStatsError] = useState('');
+  const [recentEarnings, setRecentEarnings] = useState([]);
+  const [earningsLoading, setEarningsLoading] = useState(false);
   const user = getUser();
   const isMaster = Boolean(user?.roles?.includes('master'));
 
@@ -61,19 +63,26 @@ export default function Wallet() {
     if (!isMaster) return undefined;
     let active = true;
     setStatsLoading(true);
-    client.get('/wallet/master/monthly-stats')
-      .then(res => {
+    setEarningsLoading(true);
+    
+    Promise.all([
+      client.get('/wallet/master/monthly-stats'),
+      client.get('/wallet/master/recent-earnings')
+    ])
+      .then(([statsRes, earningsRes]) => {
         if (!active) return;
-        setMasterStats(res.data);
+        setMasterStats(statsRes.data);
+        setRecentEarnings(earningsRes.data.transactions || []);
         setStatsError('');
       })
       .catch(() => {
         if (!active) return;
-        setStatsError('Impossibile recuperare il riepilogo mensile.');
+        setStatsError('Impossibile recuperare i dati del master.');
       })
       .finally(() => {
         if (!active) return;
         setStatsLoading(false);
+        setEarningsLoading(false);
       });
     return () => {
       active = false;
@@ -161,41 +170,14 @@ export default function Wallet() {
           </form>
         </div>
 
-        <div className="wallet-ledger">
-          <h3>Movimenti recenti</h3>
-          {loading ? (
-            <div className="skeleton-list">
-              {Array.from({ length: 4 }).map((_, idx) => (
-                <div key={idx} className="skeleton-item" />
-              ))}
-            </div>
-          ) : (
-            <ul className="ledger-list">
-              {data.ledger.map(entry => (
-                <li key={entry._id} className={`ledger-item ${entry.type}`}>
-                  <div>
-                    <p className="ledger-title">{entry.meta?.description || entry.meta?.master || entry.type}</p>
-                    <p className="muted">
-                      {formatDate(entry.createdAt)}
-                      {entry.meta?.master ? ` · ${entry.meta.master}` : ''}
-                      {entry.meta?.channel ? ` · ${entry.meta.channel}` : ''}
-                    </p>
-                  </div>
-                  <span className="ledger-amount">{(entry.amount / 100).toFixed(2)} €</span>
-                </li>
-              ))}
-            </ul>
-          )}
-        </div>
-
+        
         {isMaster && (
           <div className="wallet-master-panel">
             <div className="wallet-master-head">
               <div>
                 <span className="badge-soft">Riepilogo master</span>
-                <h3>Totali mensili</h3>
+                <h3>Sessioni e Guadagni - {monthLabel || 'Mese corrente'}</h3>
               </div>
-              <p className="muted">{monthLabel || 'Mese corrente'}</p>
             </div>
             {statsLoading ? (
               <div className="skeleton-list metrics-skeleton">
@@ -212,7 +194,7 @@ export default function Wallet() {
                     <thead>
                       <tr>
                         <th>Canale</th>
-                        <th>Interazioni</th>
+                        <th>Sessioni</th>
                         <th>Minuti</th>
                         <th>Guadagni (30%)</th>
                       </tr>
@@ -245,13 +227,14 @@ export default function Wallet() {
                 </div>
                 <div className="wallet-master-total">
                   <div>
-                    <p className="muted">Totale guadagni stimati</p>
+                    <p className="muted">Totale guadagni mensili</p>
                     <h4>{formatCurrency(totals.earnings_cents)}</h4>
                   </div>
                   <p className="micro">
-                    {totals.minutes} minuti · {totals.count} interazioni
+                    {totals.minutes} minuti · {totals.count} sessioni totali
                   </p>
                 </div>
+
               </>
             )}
           </div>

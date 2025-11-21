@@ -9,6 +9,7 @@
     "start": "node server.js",
     "lint": "eslint .",
     "seed": "node src/seed/seed.js",
+    "sync-reviews": "node src/scripts/sync-review-kpis.js",
     "test": "node --test"
   },
   "dependencies": {

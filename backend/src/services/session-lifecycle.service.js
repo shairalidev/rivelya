@@ -18,6 +18,7 @@ class SessionLifecycleService {
     cron.schedule('*/30 * * * * *', async () => {
       await this.checkExpiredSessions();
       await this.checkExpiredChatThreads();
+      await this.syncActiveSessions();
     });
     
     this.isRunning = true;
@@ -115,16 +116,33 @@ class SessionLifecycleService {
       const { emitSessionStatus } = await import('../utils/session-events.js');
       
       if (session.user_id && session.master_id) {
+        const masterUserId = session.master_id.user_id || session.master_id;
+        
         emitToUser(session.user_id, 'session:expired', { sessionId: session._id });
-        emitToUser(session.master_id.user_id || session.master_id, 'session:expired', { sessionId: session._id });
+        emitToUser(masterUserId, 'session:expired', { sessionId: session._id });
         
         emitSessionStatus({
           sessionId: session._id,
           channel: session.channel,
           status: 'expired',
           userId: session.user_id,
-          masterUserId: session.master_id.user_id || session.master_id
+          masterUserId
         });
+
+        // Trigger review prompts for both participants
+        if (booking) {
+          emitToUser(session.user_id, 'session:review:prompt', {
+            sessionId: session._id,
+            partnerName: booking.master_id?.display_name || 'Master',
+            partnerType: 'master'
+          });
+          
+          emitToUser(masterUserId, 'session:review:prompt', {
+            sessionId: session._id,
+            partnerName: booking.customer_id?.display_name || 'Cliente',
+            partnerType: 'client'
+          });
+        }
       }
 
       console.log(`Expired session ${session._id} for booking ${booking?.reservation_id}`);
@@ -204,6 +222,18 @@ class SessionLifecycleService {
             reservationId: booking.reservation_id,
             message: 'La sessione è terminata'
           });
+
+          // Trigger review prompt
+          const partnerName = participant.role === 'customer' 
+            ? booking.master_id?.display_name || 'Master'
+            : booking.customer_id?.display_name || 'Cliente';
+          const partnerType = participant.role === 'customer' ? 'master' : 'client';
+          
+          emitToUser(participant.userId, 'session:review:prompt', {
+            sessionId: booking.session_id,
+            partnerName,
+            partnerType
+          });
         }
       }
 
@@ -268,13 +298,28 @@ class SessionLifecycleService {
       session.ended_by = endedBy;
       await session.save();
 
-      // Update booking
+      // Update booking and trigger review prompts
       const booking = await Booking.findById(session.booking_id)
         .populate('master_id', 'user_id display_name')
         .populate('customer_id', '_id display_name');
 
       if (booking) {
         await this.completeBooking(booking);
+        
+        // Trigger review prompts for manual session end
+        const { emitToUser } = await import('../lib/socket.js');
+        
+        emitToUser(booking.customer_id._id, 'session:review:prompt', {
+          sessionId: session._id,
+          partnerName: booking.master_id?.display_name || 'Master',
+          partnerType: 'master'
+        });
+        
+        emitToUser(booking.master_id.user_id, 'session:review:prompt', {
+          sessionId: session._id,
+          partnerName: booking.customer_id?.display_name || 'Cliente',
+          partnerType: 'client'
+        });
       }
 
       return { success: true, message: 'Session ended successfully' };
@@ -310,6 +355,40 @@ class SessionLifecycleService {
       }
     } catch (error) {
       console.error('Error checking abandoned calls:', error);
+    }
+  }
+
+  async syncActiveSessions() {
+    try {
+      const now = new Date();
+      
+      // Find active sessions that need timer sync
+      const activeSessions = await Session.find({
+        status: 'active',
+        end_ts: { $gt: now }
+      }).populate('master_id', 'user_id');
+
+      const { emitToUser } = await import('../lib/socket.js');
+      
+      for (const session of activeSessions) {
+        const remainingSeconds = Math.max(0, Math.floor((session.end_ts - now) / 1000));
+        
+        const syncData = {
+          sessionId: session._id,
+          remainingSeconds,
+          expiresAt: session.end_ts
+        };
+        
+        // Emit to both participants
+        if (session.user_id) {
+          emitToUser(session.user_id, 'voice:session:sync', syncData);
+        }
+        if (session.master_id?.user_id) {
+          emitToUser(session.master_id.user_id, 'voice:session:sync', syncData);
+        }
+      }
+    } catch (error) {
+      console.error('Error syncing active sessions:', error);
     }
   }
 

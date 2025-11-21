@@ -1,9 +1,11 @@
 import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import toast from 'react-hot-toast';
+import dayjs from 'dayjs';
 import { fetchProfile, updateProfile, uploadAvatar, removeAvatar } from '../api/profile.js';
 import FancySelect from '../components/FancySelect.jsx';
 import { getToken, notifyAuthChange, setUser as storeUser } from '../lib/auth.js';
+import client from '../api/client.js';
 
 const initialForm = {
   firstName: '',
@@ -12,7 +14,14 @@ const initialForm = {
   phone: '',
   locale: 'it-IT',
   bio: '',
-  location: ''
+  location: '',
+  taxCode: '',
+  vatNumber: '',
+  birthDate: '',
+  birthPlace: '',
+  address: '',
+  iban: '',
+  taxRegime: 'forfettario'
 };
 
 const localeOptions = [
@@ -27,6 +36,8 @@ export default function Profile() {
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [avatarLoading, setAvatarLoading] = useState(false);
+  const [reviews, setReviews] = useState([]);
+  const [reviewsLoading, setReviewsLoading] = useState(false);
   const navigate = useNavigate();
 
   useEffect(() => {
@@ -42,8 +53,17 @@ export default function Profile() {
           phone: profile.phone || '',
           locale: profile.locale || 'it-IT',
           bio: profile.bio || '',
-          location: profile.location || ''
+          location: profile.location || '',
+          taxCode: profile.taxCode || '',
+          vatNumber: profile.vatNumber || '',
+          birthDate: profile.birthDate ? new Date(profile.birthDate).toISOString().split('T')[0] : '',
+          birthPlace: profile.birthPlace || '',
+          address: profile.address || '',
+          iban: profile.iban || '',
+          taxRegime: profile.taxRegime || 'forfettario'
         });
+        // Load user reviews
+        loadReviews(profile._id);
       })
       .catch(err => {
         if (err?.response?.status === 401) {
@@ -60,6 +80,18 @@ export default function Profile() {
       mounted = false;
     };
   }, [navigate]);
+
+  const loadReviews = async (userId) => {
+    try {
+      setReviewsLoading(true);
+      const response = await client.get(`/review/user/${userId}?reviewer_type=master`);
+      setReviews(response.data.reviews || []);
+    } catch (error) {
+      console.error('Failed to load reviews:', error);
+    } finally {
+      setReviewsLoading(false);
+    }
+  };
 
   const syncUser = updated => {
     setUser(updated);
@@ -251,12 +283,137 @@ export default function Profile() {
               />
             </label>
           </div>
+          {user?.roles?.includes('master') && (
+            <div className="account-section">
+              <h2>Dati esperti</h2>
+              <p className="muted">Informazioni fiscali e personali per l'attività di consulenza.</p>
+              <div className="account-form-grid">
+                <label className="input-label">
+                  Codice fiscale
+                  <input
+                    name="taxCode"
+                    value={form.taxCode}
+                    onChange={updateField}
+                    placeholder="RSSMRA80A01H501U"
+                    maxLength="16"
+                  />
+                </label>
+                <label className="input-label">
+                  Partita IVA
+                  <input
+                    name="vatNumber"
+                    value={form.vatNumber}
+                    onChange={updateField}
+                    placeholder="12345678901"
+                    maxLength="11"
+                  />
+                </label>
+                <label className="input-label">
+                  Data di nascita
+                  <input
+                    type="date"
+                    name="birthDate"
+                    value={form.birthDate}
+                    onChange={updateField}
+                  />
+                </label>
+                <label className="input-label">
+                  Luogo di nascita
+                  <input
+                    name="birthPlace"
+                    value={form.birthPlace}
+                    onChange={updateField}
+                    placeholder="Roma (RM)"
+                  />
+                </label>
+                <label className="input-label" data-span="2">
+                  Indirizzo
+                  <input
+                    name="address"
+                    value={form.address}
+                    onChange={updateField}
+                    placeholder="Via Roma 123, 00100 Roma (RM)"
+                  />
+                </label>
+                <label className="input-label">
+                  IBAN
+                  <input
+                    name="iban"
+                    value={form.iban}
+                    onChange={updateField}
+                    placeholder="IT60 X054 2811 1010 0000 0123 456"
+                    maxLength="34"
+                  />
+                </label>
+                <label className="input-label">
+                  Regime fiscale
+                  <FancySelect
+                    name="taxRegime"
+                    value={form.taxRegime}
+                    options={[
+                      { value: 'forfettario', label: 'Forfettario' },
+                      { value: 'ordinario', label: 'Ordinario' },
+                      { value: 'ritenuta_acconto', label: 'Ritenuta d\'acconto' }
+                    ]}
+                    onChange={updateField}
+                  />
+                </label>
+              </div>
+            </div>
+          )}
           <div className="account-actions">
             <button type="submit" className="btn primary" disabled={saving}>
               {saving ? 'Salvataggio…' : 'Salva modifiche'}
             </button>
           </div>
         </form>
+      </div>
+      
+      {/* Reviews Section */}
+      <div className="account-card">
+        <div className="account-section">
+          <h2>Le tue recensioni</h2>
+          <p className="muted">Recensioni ricevute dai master dopo le sessioni.</p>
+          
+          {reviewsLoading ? (
+            <div className="skeleton-list">
+              {[1, 2, 3].map(i => <div key={i} className="skeleton-item" />)}
+            </div>
+          ) : reviews.length === 0 ? (
+            <div className="empty-state">
+              <p>Non hai ancora ricevuto recensioni.</p>
+              <p className="micro">Le recensioni appariranno qui dopo aver completato delle sessioni.</p>
+            </div>
+          ) : (
+            <div className="reviews-list">
+              {reviews.map(review => (
+                <div key={review._id} className="review-item">
+                  <div className="review-header">
+                    <div className="review-rating">
+                      {[1, 2, 3, 4, 5].map(star => (
+                        <span key={star} className={`star ${star <= review.rating ? 'filled' : ''}`}>★</span>
+                      ))}
+                    </div>
+                    <span className="review-date">
+                      {dayjs(review.createdAt).format('DD MMM YYYY')}
+                    </span>
+                  </div>
+                  {review.text && (
+                    <p className="review-text">{review.text}</p>
+                  )}
+                  <div className="review-meta">
+                    <span className="review-channel">
+                      Sessione {review.session_id?.channel || 'chat'}
+                    </span>
+                    <span className="review-author">
+                      da {review.reviewer_id?.display_name || 'Master'}
+                    </span>
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
       </div>
     </section>
   );

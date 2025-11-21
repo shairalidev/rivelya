@@ -4,6 +4,7 @@ import { Wallet } from '../models/wallet.model.js';
 import { Transaction } from '../models/transaction.model.js';
 import { Master } from '../models/master.model.js';
 import { Session } from '../models/session.model.js';
+import { ChatThread } from '../models/chat-thread.model.js';
 import { payments } from '../services/payments.service.js';
 
 const router = Router();
@@ -76,7 +77,8 @@ router.get('/master/monthly-stats', requireAuth, requireRole('master'), async (r
     const periodStart = new Date(Date.UTC(year, month - 1, 1));
     const periodEnd = new Date(Date.UTC(year, month, 1));
 
-    const aggregates = await Session.aggregate([
+    // Get voice sessions (voice and chat_voice)
+    const voiceAggregates = await Session.aggregate([
       {
         $match: {
           master_id: master._id,
@@ -94,13 +96,43 @@ router.get('/master/monthly-stats', requireAuth, requireRole('master'), async (r
       }
     ]);
 
+    // Get chat sessions from ChatThread
+    const chatAggregates = await ChatThread.aggregate([
+      {
+        $match: {
+          master_id: master._id,
+          status: 'expired',
+          createdAt: { $gte: periodStart, $lt: periodEnd }
+        }
+      },
+      {
+        $lookup: {
+          from: 'bookings',
+          localField: 'booking_id',
+          foreignField: '_id',
+          as: 'booking'
+        }
+      },
+      {
+        $unwind: { path: '$booking', preserveNullAndEmptyArrays: true }
+      },
+      {
+        $group: {
+          _id: null,
+          sessions: { $sum: 1 },
+          totalCost: { $sum: { $ifNull: ['$booking.cost_cents', 0] } }
+        }
+      }
+    ]);
+
     const channels = ['chat', 'voice', 'chat_voice'];
     const stats = channels.reduce((acc, channel) => {
       acc[channel] = { count: 0, minutes: 0, earnings_cents: 0 };
       return acc;
     }, {});
 
-    aggregates.forEach(entry => {
+    // Process voice sessions
+    voiceAggregates.forEach(entry => {
       const channel = entry._id;
       if (!channel || !stats[channel]) return;
       const minutes = Math.round((entry.durationSeconds || 0) / 60);
@@ -112,6 +144,17 @@ router.get('/master/monthly-stats', requireAuth, requireRole('master'), async (r
       };
     });
 
+    // Process chat sessions
+    if (chatAggregates.length > 0) {
+      const chatData = chatAggregates[0];
+      const earnings = Math.round((chatData.totalCost || 0) * 0.3);
+      stats.chat = {
+        count: chatData.sessions || 0,
+        minutes: 0, // Chat sessions don't have duration tracking
+        earnings_cents: earnings
+      };
+    }
+
     const totals = Object.values(stats).reduce((acc, value) => {
       acc.count += value.count;
       acc.minutes += value.minutes;
@@ -120,6 +163,29 @@ router.get('/master/monthly-stats', requireAuth, requireRole('master'), async (r
     }, { count: 0, minutes: 0, earnings_cents: 0 });
 
     res.json({ year, month, stats, totals });
+  } catch (error) {
+    next(error);
+  }
+});
+
+router.get('/master/recent-earnings', requireAuth, requireRole('master'), async (req, res, next) => {
+  try {
+    const master = await Master.findOne({ user_id: req.user._id }).select('_id');
+    if (!master) return res.status(404).json({ message: 'Profilo master non trovato.' });
+
+    // Get recent transactions related to this master
+    const transactions = await Transaction.find({
+      $or: [
+        { 'meta.master_id': master._id },
+        { 'meta.session_master_id': master._id }
+      ],
+      type: { $in: ['session_payment', 'master_earning', 'session_hold'] }
+    })
+    .sort({ createdAt: -1 })
+    .limit(20)
+    .lean();
+
+    res.json({ transactions });
   } catch (error) {
     next(error);
   }

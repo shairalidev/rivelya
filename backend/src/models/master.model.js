@@ -44,7 +44,8 @@ const masterSchema = new mongoose.Schema({
     lifetime_calls: { type: Number, default: 0 },
     lifetime_chats: { type: Number, default: 0 },
     avg_rating: { type: Number, default: 0 },
-    review_count: { type: Number, default: 0 }
+    review_count: { type: Number, default: 0 },
+    profile_views: { type: Number, default: 0 }
   }
 }, { timestamps: true });
 

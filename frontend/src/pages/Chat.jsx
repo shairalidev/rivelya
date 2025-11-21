@@ -9,6 +9,7 @@ import useSocket from '../hooks/useSocket.js';
 import useCountdown from '../hooks/useCountdown.js';
 import { getToken, subscribeAuthChange } from '../lib/auth.js';
 import CallPopup from '../components/CallPopup.jsx';
+import ReviewModal from '../components/ReviewModal.jsx';
 import client from '../api/client.js';
 import { decodeTokenSub } from '../utils/jwt.js';
 
@@ -117,6 +118,8 @@ export default function Chat() {
   const [swipedThread, setSwipedThread] = useState(null);
   const [touchStart, setTouchStart] = useState(null);
   const [touchEnd, setTouchEnd] = useState(null);
+  const [showReviewModal, setShowReviewModal] = useState(false);
+  const [reviewData, setReviewData] = useState(null);
 
   useEffect(() => {
     const sync = () => {
@@ -281,6 +284,16 @@ export default function Chat() {
         // Handle connection status updates if needed
       }
     };
+
+    const handleReviewPrompt = payload => {
+      console.log('[chat] Review prompt received:', payload);
+      setReviewData({
+        sessionId: payload.sessionId,
+        partnerName: payload.partnerName,
+        partnerType: payload.partnerType
+      });
+      setShowReviewModal(true);
+    };
     socket.on('chat:message', handleMessage);
     socket.on('chat:thread:updated', handleThreadUpdate);
     socket.on('chat:call:incoming', handleCallIncoming);
@@ -291,6 +304,7 @@ export default function Chat() {
     socket.on('chat:call:timeout', handleCallTimeout);
     socket.on('chat:call:signal', handleCallSignal);
     socket.on('chat:call:connection:status', handleConnectionStatus);
+    socket.on('session:review:prompt', handleReviewPrompt);
     
     return () => {
       socket.off('chat:message', handleMessage);
@@ -303,6 +317,7 @@ export default function Chat() {
       socket.off('chat:call:timeout', handleCallTimeout);
       socket.off('chat:call:signal', handleCallSignal);
       socket.off('chat:call:connection:status', handleConnectionStatus);
+      socket.off('session:review:prompt', handleReviewPrompt);
     };
   }, [socket, queryClient, threadId, viewerId]);
 
@@ -319,6 +334,17 @@ export default function Chat() {
   const activeThread = threadQuery.data?.thread;
   const remainingSeconds = useCountdown(activeThread?.expiresAt);
   const canPost = threadQuery.data?.canPost && (remainingSeconds == null || remainingSeconds > 0);
+
+  // Sync timer with backend every 30 seconds for active threads
+  useEffect(() => {
+    if (!threadId || !activeThread || (activeThread.status !== 'active' && activeThread.status !== 'open')) return;
+    
+    const syncTimer = setInterval(() => {
+      threadQuery.refetch();
+    }, 30000); // Sync every 30 seconds
+    
+    return () => clearInterval(syncTimer);
+  }, [threadId, activeThread?.status, threadQuery]);
   const isNoteDirty = noteDraft !== noteBaseline;
 
   const handleSubmit = event => {
@@ -555,6 +581,7 @@ export default function Chat() {
                       ) : (
                         <span className="chat-thread-timer idle">Senza limite</span>
                       )}
+
                     </div>
                     <div className="chat-thread-actions">
                       <button 
@@ -755,6 +782,17 @@ export default function Chat() {
           )}
         </aside>
       </div>
+      
+      <ReviewModal
+        isOpen={showReviewModal}
+        onClose={() => {
+          setShowReviewModal(false);
+          setReviewData(null);
+        }}
+        sessionId={reviewData?.sessionId}
+        partnerName={reviewData?.partnerName}
+        partnerType={reviewData?.partnerType}
+      />
     </section>
   );
 }

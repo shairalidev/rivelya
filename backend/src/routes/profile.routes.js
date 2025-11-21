@@ -18,7 +18,14 @@ const profileSchema = Joi.object({
   phone: Joi.string().max(40).allow('', null),
   locale: Joi.string().max(10).allow('', null),
   bio: Joi.string().max(600).allow('', null),
-  location: Joi.string().max(120).allow('', null)
+  location: Joi.string().max(120).allow('', null),
+  taxCode: Joi.string().max(16).allow('', null),
+  vatNumber: Joi.string().max(11).allow('', null),
+  birthDate: Joi.date().allow(null),
+  birthPlace: Joi.string().max(120).allow('', null),
+  address: Joi.string().max(200).allow('', null),
+  iban: Joi.string().max(34).allow('', null),
+  taxRegime: Joi.string().valid('forfettario', 'ordinario', 'ritenuta_acconto').allow(null)
 });
 
 const serializeUser = user => ({
@@ -32,6 +39,13 @@ const serializeUser = user => ({
   locale: user.locale,
   bio: user.bio || '',
   location: user.location || '',
+  taxCode: user.tax_code || '',
+  vatNumber: user.vat_number || '',
+  birthDate: user.birth_date || null,
+  birthPlace: user.birth_place || '',
+  address: user.address || '',
+  iban: user.iban || '',
+  taxRegime: user.tax_regime || 'forfettario',
   avatarUrl: user.avatar_url || '',
   isEmailVerified: user.is_email_verified
 });
@@ -71,6 +85,13 @@ router.put('/me', requireAuth, async (req, res, next) => {
     if (payload.locale) user.locale = payload.locale;
     user.bio = payload.bio?.trim() ?? '';
     user.location = payload.location?.trim() ?? '';
+    user.tax_code = payload.taxCode?.trim() ?? '';
+    user.vat_number = payload.vatNumber?.trim() ?? '';
+    user.birth_date = payload.birthDate || null;
+    user.birth_place = payload.birthPlace?.trim() ?? '';
+    user.address = payload.address?.trim() ?? '';
+    user.iban = payload.iban?.trim() ?? '';
+    if (payload.taxRegime) user.tax_regime = payload.taxRegime;
 
     await user.save();
     res.json({ user: await decorateWithMaster(user) });
