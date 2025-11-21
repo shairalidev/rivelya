@@ -11,6 +11,7 @@ import Avatar from '../components/Avatar.jsx';
 import ReviewsList from '../components/ReviewsList.jsx';
 import { buildDailySchedule, resolveTimezoneLabel } from '../utils/schedule.js';
 import { resolveAvailabilityStatus } from '../utils/availability.js';
+import usePresence from '../hooks/usePresence.js';
 import { createBooking, fetchMasterMonthAvailability } from '../api/booking.js';
 import { getToken, getUser } from '../lib/auth.js';
 
@@ -72,6 +73,7 @@ dayjs.locale('it');
 export default function MasterProfile() {
   const { id } = useParams();
   const navigate = useNavigate();
+  const { isUserOnline } = usePresence();
   const [master, setMaster] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
@@ -114,36 +116,24 @@ export default function MasterProfile() {
 
   const formatDateKey = date => `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`;
 
-  const rangeToStarts = ranges =>
-    ranges
-      .flatMap(range => {
-        const start = timeToMinutes(range.start);
-        const end = timeToMinutes(range.end);
-        if (Number.isNaN(start) || Number.isNaN(end) || end <= start) return [];
-        const options = [];
-        for (let pointer = start; pointer < end; pointer += 30) {
-          options.push(minutesToTime(pointer));
-        }
-        return options;
-      })
-      .filter(Boolean)
-      .filter((value, index, self) => self.indexOf(value) === index)
-      .sort();
+  const rangeToStarts = () => {
+    const options = [];
+    for (let hour = 0; hour < 24; hour++) {
+      for (let minute = 0; minute < 60; minute += 30) {
+        options.push(minutesToTime(hour * 60 + minute));
+      }
+    }
+    return options;
+  };
 
-  const buildEndOptions = (ranges, startValue) => {
+  const buildEndOptions = (startValue) => {
     if (!/^\d{2}:\d{2}$/.test(startValue)) return [];
     const startMinutes = timeToMinutes(startValue);
     const options = [];
-    ranges.forEach(range => {
-      const rangeStart = timeToMinutes(range.start);
-      const rangeEnd = timeToMinutes(range.end);
-      if (Number.isNaN(rangeStart) || Number.isNaN(rangeEnd)) return;
-      if (startMinutes < rangeStart || startMinutes >= rangeEnd) return;
-      for (let pointer = Math.max(startMinutes + 30, rangeStart + 30); pointer <= rangeEnd; pointer += 30) {
-        options.push(minutesToTime(pointer));
-      }
-    });
-    return Array.from(new Set(options)).sort();
+    for (let pointer = startMinutes + 30; pointer <= 24 * 60; pointer += 30) {
+      options.push(minutesToTime(pointer));
+    }
+    return options;
   };
 
   const loadAvailability = async masterId => {
@@ -275,7 +265,7 @@ export default function MasterProfile() {
   const availableDays = useMemo(
     () =>
       Object.values(availability)
-        .filter(day => day.availableRanges?.length > 0 && !day.fullDayBlocked)
+        .filter(day => !day.fullDayBlocked)
         .sort((a, b) => a.date.localeCompare(b.date)),
     [availability]
   );
@@ -309,21 +299,21 @@ export default function MasterProfile() {
   useEffect(() => {
     if (availableDays.length > 0 && !booking.date) {
       const first = availableDays[0];
-      const startOptions = rangeToStarts(first.availableRanges);
-      const start = startOptions[0] || '09:00';
-      const endOptions = buildEndOptions(first.availableRanges, start);
+      const startOptions = rangeToStarts();
+      const start = startOptions[18] || '09:00'; // Default to 9:00 AM
+      const endOptions = buildEndOptions(start);
       setBooking(prev => ({
         ...prev,
         date: first.date,
         start,
-        end: endOptions[0] || minutesToTime(timeToMinutes(start) + 30)
+        end: endOptions[0] || '10:00'
       }));
     }
   }, [availableDays]);
 
   const selectedDay = booking.date ? availability[booking.date] : null;
-  const startOptions = selectedDay ? rangeToStarts(selectedDay.availableRanges || []) : [];
-  const endOptions = selectedDay ? buildEndOptions(selectedDay.availableRanges || [], booking.start) : [];
+  const startOptions = selectedDay ? rangeToStarts() : [];
+  const endOptions = selectedDay ? buildEndOptions(booking.start) : [];
 
   const startSelectOptions = useMemo(() => startOptions.map(value => ({ value, label: value })), [startOptions]);
   const endSelectOptions = useMemo(() => endOptions.map(value => ({ value, label: value })), [endOptions]);
@@ -358,22 +348,22 @@ export default function MasterProfile() {
   useEffect(() => {
     if (!booking.date) return;
     const day = availability[booking.date];
-    if (!day || day.availableRanges?.length === 0) {
+    if (!day || day.fullDayBlocked) {
       setBooking(prev => ({ ...prev, date: '', start: '', end: '' }));
       return;
     }
-    const starts = rangeToStarts(day.availableRanges || []);
+    const starts = rangeToStarts();
     if (!starts.includes(booking.start)) {
-      const nextStart = starts[0] || '';
-      const nextEnd = buildEndOptions(day.availableRanges || [], nextStart)[0] || '';
+      const nextStart = starts[18] || '09:00'; // Default to 9:00 AM
+      const nextEnd = buildEndOptions(nextStart)[0] || '10:00';
       if (nextStart !== booking.start || nextEnd !== booking.end) {
         setBooking(prev => ({ ...prev, start: nextStart, end: nextEnd }));
       }
       return;
     }
-    const ends = buildEndOptions(day.availableRanges || [], booking.start);
+    const ends = buildEndOptions(booking.start);
     if (!ends.includes(booking.end)) {
-      const nextEnd = ends[0] || '';
+      const nextEnd = ends[0] || '10:00';
       if (nextEnd !== booking.end) {
         setBooking(prev => ({ ...prev, end: nextEnd }));
       }
@@ -384,7 +374,7 @@ export default function MasterProfile() {
     const { name, value } = evt.target;
     setBooking(prev => {
       if (name === 'start') {
-        const nextEndOptions = selectedDay ? buildEndOptions(selectedDay.availableRanges || [], value) : [];
+        const nextEndOptions = selectedDay ? buildEndOptions(value) : [];
         return {
           ...prev,
           start: value,
@@ -393,9 +383,9 @@ export default function MasterProfile() {
       }
       if (name === 'date') {
         const nextDay = availability[value];
-        const startOptionsForDay = nextDay ? rangeToStarts(nextDay.availableRanges || []) : [];
-        const nextStart = startOptionsForDay[0] || '';
-        const nextEnd = nextDay ? buildEndOptions(nextDay.availableRanges || [], nextStart)[0] || nextStart : '';
+        const startOptionsForDay = nextDay ? rangeToStarts() : [];
+        const nextStart = startOptionsForDay[18] || '09:00'; // Default to 9:00 AM
+        const nextEnd = nextDay ? buildEndOptions(nextStart)[0] || '10:00' : '';
         return {
           ...prev,
           date: value,
@@ -467,7 +457,9 @@ export default function MasterProfile() {
   const dailySchedule = buildDailySchedule(master.working_hours);
   const hasCustomSchedule = (master.working_hours?.slots || []).length > 0;
   const timezoneLabel = resolveTimezoneLabel(master.working_hours);
-  const { status: availabilityStatus, label: availabilityLabel } = resolveAvailabilityStatus(master.availability);
+  const isReallyOnline = master?.is_online || isUserOnline(master?.user_id);
+  const finalStatus = isReallyOnline ? 'online' : 'offline';
+  const finalLabel = isReallyOnline ? 'Online' : 'Offline';
   
   const currentUser = getUser();
   const isMaster = Boolean(currentUser?.roles?.includes('master'));
@@ -481,7 +473,7 @@ export default function MasterProfile() {
             name={master.display_name || 'Esperti Rivelya'}
             size="large"
           />
-          <span className={`status-badge ${availabilityStatus}`}>{availabilityLabel}</span>
+          <span className={`status-badge ${finalStatus}`}>{finalLabel}</span>
         </div>
         <div className="profile-content">
           <span className="badge-soft">Esperti {master.categories?.[0] || 'Rivelya'}</span>
@@ -546,8 +538,8 @@ export default function MasterProfile() {
             <p>Solo Chat</p>
             <h3>{(master.rate_chat_cpm / 100).toFixed(2)} € / min</h3>
             <p className="muted">Messaggi di testo in tempo reale con il Esperti.</p>
-            <button className="btn outline" onClick={() => startSession('chat')}>
-              Avvia Chat
+            <button className="btn outline" onClick={() => document.querySelector('.booking-card')?.scrollIntoView({ behavior: 'smooth' })}>
+              Prenota Sessione
             </button>
           </div>
         )}
@@ -556,8 +548,8 @@ export default function MasterProfile() {
             <p>Solo Voce</p>
             <h3>{(master.rate_voice_cpm / 100).toFixed(2)} € / min</h3>
             <p className="muted">Chiamata vocale diretta con il Esperti.</p>
-            <button className="btn outline" onClick={() => startSession('voice')}>
-              Chiama Ora
+            <button className="btn outline" onClick={() => document.querySelector('.booking-card')?.scrollIntoView({ behavior: 'smooth' })}>
+              Prenota Sessione
             </button>
           </div>
         )}
@@ -566,8 +558,8 @@ export default function MasterProfile() {
             <p>Chat e Voce</p>
             <h3>{(master.rate_chat_voice_cpm / 100).toFixed(2)} € / min</h3>
             <p className="muted">Chiamata vocale con supporto chat e invio foto.</p>
-            <button className="btn outline" onClick={() => startSession('chat_voice')}>
-              Avvia Chat e Voce
+            <button className="btn outline" onClick={() => document.querySelector('.booking-card')?.scrollIntoView({ behavior: 'smooth' })}>
+              Prenota Sessione
             </button>
           </div>
         )}

@@ -4,6 +4,7 @@ import multer from 'multer';
 import { randomUUID } from 'crypto';
 import { requireAuth, requireRole } from '../middleware/auth.js';
 import { Master } from '../models/master.model.js';
+import { User } from '../models/user.model.js';
 import { deleteFromS3, uploadToS3 } from '../lib/s3.js';
 import { timeToMinutes } from '../utils/availability.js';
 
@@ -132,7 +133,10 @@ router.put('/me', requireAuth, requireRole('master'), async (req, res, next) => 
     if (!master) return res.status(404).json({ message: 'Profilo master non trovato.' });
 
     if (payload.displayName !== undefined) {
-      master.display_name = payload.displayName?.trim() || '';
+      const displayName = payload.displayName?.trim() || '';
+      master.display_name = displayName;
+      // Sync with user model
+      await User.findByIdAndUpdate(req.user._id, { display_name: displayName });
     }
     if (payload.headline !== undefined) {
       master.headline = payload.headline?.trim() || '';

@@ -120,7 +120,7 @@ router.get('/master/monthly-stats', requireAuth, requireRole('master'), async (r
         $group: {
           _id: null,
           sessions: { $sum: 1 },
-          totalCost: { $sum: { $ifNull: ['$booking.cost_cents', 0] } }
+          totalCost: { $sum: { $ifNull: ['$booking.amount_cents', 0] } }
         }
       }
     ]);

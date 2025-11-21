@@ -4,6 +4,7 @@ import { Review } from '../models/review.model.js';
 import { Session } from '../models/session.model.js';
 import { Master } from '../models/master.model.js';
 import { syncMasterReviewKPIs } from '../utils/review-sync.js';
+import { getPublicDisplayName } from '../utils/privacy.js';
 
 const router = Router();
 

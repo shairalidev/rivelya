@@ -68,10 +68,28 @@ const connectSocket = () => {
 
   socketRef.on('connect', () => {
     console.info('[voice] Socket connected', { id: socketRef.id });
+    
+    // Send heartbeat every 15 seconds to maintain presence
+    const heartbeatInterval = setInterval(() => {
+      if (socketRef && socketRef.connected) {
+        socketRef.emit('presence:heartbeat');
+      } else {
+        clearInterval(heartbeatInterval);
+      }
+    }, 15000);
+    
+    // Store interval reference for cleanup
+    socketRef._heartbeatInterval = heartbeatInterval;
   });
 
   socketRef.on('disconnect', (reason) => {
     console.warn('[voice] Socket disconnected', { reason });
+    
+    // Clear heartbeat interval
+    if (socketRef._heartbeatInterval) {
+      clearInterval(socketRef._heartbeatInterval);
+      socketRef._heartbeatInterval = null;
+    }
   });
 
   socketRef.io.on('reconnect_attempt', (attempt) => {

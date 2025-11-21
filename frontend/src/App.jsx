@@ -28,7 +28,11 @@ export default function App() {
             color: '#f6f8ff',
             border: '1px solid rgba(138, 153, 198, 0.24)',
             borderRadius: '16px',
-            boxShadow: '0 18px 45px -20px rgba(14, 20, 27, 0.8)'
+            boxShadow: '0 18px 45px -20px rgba(14, 20, 27, 0.8)',
+            fontSize: '16px',
+            padding: '16px 20px',
+            minWidth: '320px',
+            maxWidth: '500px'
           }
         }}
       />

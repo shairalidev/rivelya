@@ -5,7 +5,9 @@ import { summarizeWorkingHours, resolveTimezoneLabel } from '../utils/schedule.j
 import { resolveAvailabilityStatus } from '../utils/availability.js';
 import FancySelect from '../components/FancySelect.jsx';
 import SessionNotificationButton from '../components/SessionNotificationButton.jsx';
+import OnlineIndicator from '../components/OnlineIndicator.jsx';
 import useSocket from '../hooks/useSocket.js';
+import usePresence from '../hooks/usePresence.js';
 
 const categories = [
   { value: 'all', label: 'Tutte le categorie' },
@@ -25,6 +27,7 @@ export default function Catalog() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const socket = useSocket();
+  const { isUserOnline } = usePresence();
 
   const category = params.get('category') || 'all';
   const sort = params.get('sort') || 'rating';
@@ -50,21 +53,32 @@ export default function Catalog() {
 
   useEffect(() => {
     loadCatalog();
+    
+    // Reload catalog after a short delay to get fresh presence data
+    const presenceSync = setTimeout(() => {
+      loadCatalog({ showLoader: false });
+    }, 2000);
+    
+    return () => clearTimeout(presenceSync);
   }, [loadCatalog]);
 
   useEffect(() => {
     if (!socket) return undefined;
 
     const handleSessionUpdate = () => loadCatalog({ showLoader: false });
+    
+
 
     socket.on('voice:session:started', handleSessionUpdate);
     socket.on('voice:session:ended', handleSessionUpdate);
     socket.on('voice:session:expired', handleSessionUpdate);
 
+
     return () => {
       socket.off('voice:session:started', handleSessionUpdate);
       socket.off('voice:session:ended', handleSessionUpdate);
       socket.off('voice:session:expired', handleSessionUpdate);
+
     };
   }, [loadCatalog, socket]);
 
@@ -160,7 +174,9 @@ export default function Catalog() {
               const reviewCount = master.reviews?.count || 0;
               const scheduleSummary = summarizeWorkingHours(master.working_hours);
               const timezoneLabel = resolveTimezoneLabel(master.working_hours);
-              const { status: availabilityStatus, label: availabilityLabel } = resolveAvailabilityStatus(master.availability);
+              const isReallyOnline = master.is_online || isUserOnline(master.user_id);
+              const finalStatus = isReallyOnline ? 'online' : 'offline';
+              const finalLabel = isReallyOnline ? 'Online' : 'Offline';
               const sessionChannelLabel = master.active_session_channel === 'voice'
                 ? 'Voce'
                 : master.active_session_channel === 'chat_voice'
@@ -170,12 +186,18 @@ export default function Catalog() {
                 <article key={master._id} className="master-card">
                   <div className="master-media">
                     <img src={master.media?.avatar_url || 'https://placehold.co/240x240'} alt="" />
-                    <span className={`status-badge ${availabilityStatus}`}>{availabilityLabel}</span>
+                    <span className={`status-badge ${finalStatus}`}>{finalLabel}</span>
                   </div>
                   <div className="master-content">
                     <div className="master-header">
                       <div className="master-title">
                         <h3>{master.display_name || 'Esperti Rivelya'}</h3>
+                        <OnlineIndicator 
+                          userId={master.user_id}
+                          isOnline={master.is_online}
+                          lastSeen={master.last_seen}
+                          showLabel={false}
+                        />
                         {master.active_session && (
                           <span className="live-indicator">
                             <span className="live-pulse" aria-hidden="true" />

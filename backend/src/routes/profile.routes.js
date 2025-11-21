@@ -21,11 +21,13 @@ const profileSchema = Joi.object({
   location: Joi.string().max(120).allow('', null),
   taxCode: Joi.string().max(16).allow('', null),
   vatNumber: Joi.string().max(11).allow('', null),
-  birthDate: Joi.date().allow(null),
+
   birthPlace: Joi.string().max(120).allow('', null),
   address: Joi.string().max(200).allow('', null),
   iban: Joi.string().max(34).allow('', null),
-  taxRegime: Joi.string().valid('forfettario', 'ordinario', 'ritenuta_acconto').allow(null)
+  taxRegime: Joi.string().valid('forfettario', 'ordinario', 'ritenuta_acconto').allow(null),
+  horoscopeBirthDate: Joi.date().allow(null),
+  horoscopeBirthTime: Joi.string().pattern(/^([01]?[0-9]|2[0-3]):[0-5][0-9]$/).allow('', null)
 });
 
 const serializeUser = user => ({
@@ -41,11 +43,13 @@ const serializeUser = user => ({
   location: user.location || '',
   taxCode: user.tax_code || '',
   vatNumber: user.vat_number || '',
-  birthDate: user.birth_date || null,
+
   birthPlace: user.birth_place || '',
   address: user.address || '',
   iban: user.iban || '',
   taxRegime: user.tax_regime || 'forfettario',
+  horoscopeBirthDate: user.horoscope_birth_date || null,
+  horoscopeBirthTime: user.horoscope_birth_time || '',
   avatarUrl: user.avatar_url || '',
   isEmailVerified: user.is_email_verified
 });
@@ -87,13 +91,24 @@ router.put('/me', requireAuth, async (req, res, next) => {
     user.location = payload.location?.trim() ?? '';
     user.tax_code = payload.taxCode?.trim() ?? '';
     user.vat_number = payload.vatNumber?.trim() ?? '';
-    user.birth_date = payload.birthDate || null;
+    user.birth_date = payload.horoscopeBirthDate || null;
     user.birth_place = payload.birthPlace?.trim() ?? '';
     user.address = payload.address?.trim() ?? '';
     user.iban = payload.iban?.trim() ?? '';
     if (payload.taxRegime) user.tax_regime = payload.taxRegime;
+    user.horoscope_birth_date = payload.horoscopeBirthDate || null;
+    user.horoscope_birth_time = payload.horoscopeBirthTime?.trim() ?? '';
 
     await user.save();
+    
+    // Sync display_name with Master model if user is a master
+    if (user.roles?.includes('master')) {
+      await Master.findOneAndUpdate(
+        { user_id: user._id },
+        { display_name: user.display_name }
+      );
+    }
+    
     res.json({ user: await decorateWithMaster(user) });
   } catch (e) {
     if (e.isJoi) {

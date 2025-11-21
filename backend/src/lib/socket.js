@@ -2,6 +2,7 @@ import { Server } from 'socket.io';
 import jwt from 'jsonwebtoken';
 import { allowedOrigins } from '../app.js';
 import { User } from '../models/user.model.js';
+import { presenceService } from '../services/presence.service.js';
 
 let ioInstance = null;
 
@@ -71,9 +72,36 @@ export const initSocket = server => {
     }
   });
 
-  ioInstance.on('connection', socket => {
+  ioInstance.on('connection', async socket => {
     const userId = socket.data.user._id.toString();
     socket.join(`user:${userId}`);
+    
+    // Set user online
+    await presenceService.setUserOnline(userId, socket.id);
+    
+    // Broadcast presence update to all clients immediately
+    ioInstance.emit('user:presence:update', {
+      userId,
+      isOnline: true,
+      lastSeen: new Date()
+    });
+    
+    console.info('[presence] Broadcasting user online status', { userId });
+    
+    // Handle heartbeat for presence
+    socket.on('presence:heartbeat', async () => {
+      await User.findByIdAndUpdate(userId, {
+        last_seen: new Date()
+      });
+      
+      // Broadcast heartbeat to confirm online status
+      ioInstance.emit('user:presence:update', {
+        userId,
+        isOnline: true,
+        lastSeen: new Date()
+      });
+    });
+    
     console.info('[voice] Socket connected and joined personal room', { userId, socketId: socket.id });
 
     // Handle voice session events (legacy - keeping for compatibility)
@@ -174,8 +202,20 @@ export const initSocket = server => {
       }
     });
 
-    socket.on('disconnect', (reason) => {
-      // Clean up any session rooms when user disconnects
+    socket.on('disconnect', async (reason) => {
+      // Set user offline and clean up
+      await presenceService.handleSocketDisconnect(socket.id);
+      
+      // Broadcast presence update if user is now offline
+      const isStillOnline = presenceService.isUserOnline(userId);
+      ioInstance.emit('user:presence:update', {
+        userId,
+        isOnline: isStillOnline,
+        lastSeen: new Date()
+      });
+      
+      console.info('[presence] Broadcasting user offline status', { userId, isStillOnline });
+      
       console.info('[voice] Socket disconnected', { userId, socketId: socket.id, reason });
     });
   });

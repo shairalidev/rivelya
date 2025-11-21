@@ -230,14 +230,6 @@ export default function Layout() {
             >
               Wallet
             </Link>
-            <Link
-              to="/settings"
-              role="menuitem"
-              className="dropdown-link"
-              onMouseDown={handleProfileNavMouseDown('/settings')}
-            >
-              Impostazioni
-            </Link>
           </div>
           <button
             type="button"

@@ -1,7 +1,7 @@
 const labels = {
-  online: 'Disponibile ora',
-  busy: 'Occupato',
-  offline: 'Non disponibile'
+  online: 'Online',
+  busy: 'Occupato', 
+  offline: 'Offline'
 };
 
 export const resolveAvailabilityStatus = value => {

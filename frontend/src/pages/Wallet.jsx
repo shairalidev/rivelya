@@ -141,38 +141,73 @@ export default function Wallet() {
 
       {error && <div className="alert">{error}</div>}
 
-      <div className="wallet-grid">
-        <div className="wallet-summary">
+      <div className="wallet-rows">
+        <div className="wallet-summary" style={{ marginBottom: '2rem' }}>
           <p>Saldo disponibile</p>
           <h2>{balance} €</h2>
           <p className="muted">Valuta: {data.currency || 'EUR'}</p>
-          <div className="wallet-actions">
-            <button className="btn primary" onClick={() => topup(1000)}>Ricarica 10 €</button>
-            <button className="btn outline" onClick={() => topup(3000)}>Ricarica 30 €</button>
-            <button className="btn outline" onClick={() => topup(5000)}>Ricarica 50 €</button>
-          </div>
-          <p className="micro">Ogni ricarica include ricevuta fiscale e aggiornamento istantaneo del saldo.</p>
-          <form className="test-topup" onSubmit={testTopup}>
-            <p className="micro">Ricarica di test (usa la carta 4242 4242 4242 4242)</p>
-            <div className="test-grid">
-              <label className="input-label">
-                Numero carta
-                <input value={testCard} onChange={evt => setTestCard(evt.target.value)} placeholder="4242 4242 4242 4242" />
-              </label>
-              <label className="input-label">
-                Importo (cent)
-                <input value={testAmount} onChange={evt => setTestAmount(evt.target.value)} type="number" min="100" step="100" />
-              </label>
-            </div>
-            <button type="submit" className="btn outline" disabled={testLoading}>
-              {testLoading ? 'Caricamento…' : 'Aggiungi credito di test'}
-            </button>
-          </form>
+          {!isMaster && (
+            <>
+              <div className="wallet-actions">
+                <button className="btn primary" onClick={() => topup(1000)}>Ricarica 10 €</button>
+                <button className="btn outline" onClick={() => topup(3000)}>Ricarica 30 €</button>
+                <button className="btn outline" onClick={() => topup(5000)}>Ricarica 50 €</button>
+              </div>
+              <p className="micro">Ogni ricarica include ricevuta fiscale e aggiornamento istantaneo del saldo.</p>
+              <form className="test-topup" onSubmit={testTopup}>
+                <p className="micro">Ricarica di test (usa la carta 4242 4242 4242 4242)</p>
+                <div className="test-grid">
+                  <label className="input-label">
+                    Numero carta
+                    <input value={testCard} onChange={evt => setTestCard(evt.target.value)} placeholder="4242 4242 4242 4242" />
+                  </label>
+                  <label className="input-label">
+                    Importo (cent)
+                    <input value={testAmount} onChange={evt => setTestAmount(evt.target.value)} type="number" min="100" step="100" />
+                  </label>
+                </div>
+                <button type="submit" className="btn outline" disabled={testLoading}>
+                  {testLoading ? 'Caricamento…' : 'Aggiungi credito di test'}
+                </button>
+              </form>
+            </>
+          )}
+          {isMaster && (
+            <p className="micro">Il tuo saldo rappresenta i guadagni dalle sessioni completate (30% delle tariffe).</p>
+          )}
         </div>
 
-        
+        {!isMaster && (
+          <div className="wallet-ledger" style={{ marginBottom: '2rem' }}>
+            <h3>Movimenti recenti</h3>
+            {loading ? (
+              <div className="skeleton-list">
+                {Array.from({ length: 4 }).map((_, idx) => (
+                  <div key={idx} className="skeleton-item" />
+                ))}
+              </div>
+            ) : (
+              <ul className="ledger-list">
+                {data.ledger.map(entry => (
+                  <li key={entry._id} className={`ledger-item ${entry.type}`}>
+                    <div>
+                      <p className="ledger-title">{entry.meta?.description || entry.meta?.master || entry.type}</p>
+                      <p className="muted">
+                        {formatDate(entry.createdAt)}
+                        {entry.meta?.master ? ` · ${entry.meta.master}` : ''}
+                        {entry.meta?.channel ? ` · ${entry.meta.channel}` : ''}
+                      </p>
+                    </div>
+                    <span className="ledger-amount">{(entry.amount / 100).toFixed(2)} €</span>
+                  </li>
+                ))}
+              </ul>
+            )}
+          </div>
+        )}
+
         {isMaster && (
-          <div className="wallet-master-panel">
+          <div className="wallet-master-panel" style={{ marginBottom: '2rem' }}>
             <div className="wallet-master-head">
               <div>
                 <span className="badge-soft">Riepilogo master</span>
@@ -236,6 +271,35 @@ export default function Wallet() {
                 </div>
 
               </>
+            )}
+          </div>
+        )}
+
+        {isMaster && (
+          <div className="wallet-ledger" style={{ marginBottom: '2rem' }}>
+            <h3>Movimenti recenti</h3>
+            {loading ? (
+              <div className="skeleton-list">
+                {Array.from({ length: 4 }).map((_, idx) => (
+                  <div key={idx} className="skeleton-item" />
+                ))}
+              </div>
+            ) : (
+              <ul className="ledger-list">
+                {data.ledger.map(entry => (
+                  <li key={entry._id} className={`ledger-item ${entry.type}`}>
+                    <div>
+                      <p className="ledger-title">{entry.meta?.description || entry.meta?.master || entry.type}</p>
+                      <p className="muted">
+                        {formatDate(entry.createdAt)}
+                        {entry.meta?.master ? ` · ${entry.meta.master}` : ''}
+                        {entry.meta?.channel ? ` · ${entry.meta.channel}` : ''}
+                      </p>
+                    </div>
+                    <span className="ledger-amount">{(entry.amount / 100).toFixed(2)} €</span>
+                  </li>
+                ))}
+              </ul>
             )}
           </div>
         )}

@@ -25,6 +25,7 @@ import sessionNotificationRoutes from './routes/session-notification.routes.js';
 import masterRoutes from './routes/master.routes.js';
 import mediaRoutes from './routes/media.routes.js';
 import sessionManagementRoutes from './routes/session-management.routes.js';
+import presenceRoutes from './routes/presence.routes.js';
 
 import { notFound, errorHandler } from './middleware/error.js';
 
@@ -91,6 +92,7 @@ app.use('/session-notifications', sessionNotificationRoutes);
 app.use('/master', masterRoutes);
 app.use('/media', mediaRoutes);
 app.use('/session-management', sessionManagementRoutes);
+app.use('/presence', presenceRoutes);
 
 app.use(notFound);
 app.use(errorHandler);

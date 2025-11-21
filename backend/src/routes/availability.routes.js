@@ -5,6 +5,7 @@ import { Master } from '../models/master.model.js';
 import { MasterAvailability } from '../models/master-availability.model.js';
 import { Booking } from '../models/booking.model.js';
 import { computeMonthAvailability } from '../utils/availability.js';
+import { getPublicDisplayName } from '../utils/privacy.js';
 
 const router = Router();
 
@@ -57,9 +58,7 @@ const loadMonth = async ({ masterId, year, month, workingHours }) => {
     customer: booking.customer_id
       ? {
           id: booking.customer_id._id,
-          name: booking.customer_id.display_name
-            || [booking.customer_id.first_name, booking.customer_id.last_name].filter(Boolean).join(' ')
-            || booking.customer_id.email
+          name: getPublicDisplayName(booking.customer_id, 'Cliente')
         }
       : null
   });

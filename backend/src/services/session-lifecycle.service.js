@@ -5,6 +5,7 @@ import { ChatThread } from '../models/chat-thread.model.js';
 import { SessionNotification } from '../models/session-notification.model.js';
 import { createNotification } from '../utils/notifications.js';
 import { emitToUser } from '../lib/socket.js';
+import { getPublicDisplayName } from '../utils/privacy.js';
 
 class SessionLifecycleService {
   constructor() {
@@ -111,6 +112,9 @@ class SessionLifecycleService {
         await this.completeBooking(booking);
       }
 
+      // Create master earning transaction
+      await this.createMasterEarningTransaction(session, booking);
+
       // Emit session expiration events
       const { emitToUser } = await import('../lib/socket.js');
       const { emitSessionStatus } = await import('../utils/session-events.js');
@@ -174,6 +178,9 @@ class SessionLifecycleService {
 
       if (booking && booking.status === 'active') {
         await this.completeBooking(booking);
+        
+        // Create master earning transaction for chat
+        await this.createMasterEarningTransaction(null, booking);
       }
 
       // Emit expiration events (even if users are offline)
@@ -306,6 +313,9 @@ class SessionLifecycleService {
       if (booking) {
         await this.completeBooking(booking);
         
+        // Create master earning transaction
+        await this.createMasterEarningTransaction(session, booking);
+        
         // Trigger review prompts for manual session end
         const { emitToUser } = await import('../lib/socket.js');
         
@@ -389,6 +399,54 @@ class SessionLifecycleService {
       }
     } catch (error) {
       console.error('Error syncing active sessions:', error);
+    }
+  }
+
+  async createMasterEarningTransaction(session, booking) {
+    try {
+      if (!booking?.master_id?.user_id) return;
+
+      const { User } = await import('../models/user.model.js');
+      const { Wallet } = await import('../models/wallet.model.js');
+      const { Transaction } = await import('../models/transaction.model.js');
+
+      // Get master user and wallet
+      const masterUser = await User.findById(booking.master_id.user_id);
+      if (!masterUser?.wallet_id) return;
+
+      const masterWallet = await Wallet.findById(masterUser.wallet_id);
+      if (!masterWallet) return;
+
+      // Calculate master earnings (30% of session cost)
+      const sessionCost = session?.cost_cents || booking.amount_cents || 0;
+      const masterEarnings = Math.round(sessionCost * 0.3);
+
+      if (masterEarnings <= 0) return;
+
+      // Update master wallet balance
+      masterWallet.balance_cents += masterEarnings;
+      await masterWallet.save();
+
+      // Create transaction record with only public names
+      const transaction = await Transaction.create({
+        wallet_id: masterWallet._id,
+        type: 'master_earning',
+        amount: masterEarnings,
+        meta: {
+          description: `Guadagno sessione ${booking.reservation_id}`,
+          master: getPublicDisplayName(booking.master_id, 'Master'),
+          master_id: booking.master_id._id,
+          channel: session?.channel || booking.channel || 'chat',
+          session_id: session?._id,
+          booking_id: booking._id,
+          customer: getPublicDisplayName(booking.customer_id, 'Cliente')
+        }
+      });
+
+      console.log(`Created master earning transaction: ${masterEarnings} cents for ${booking.reservation_id}`);
+      return transaction;
+    } catch (error) {
+      console.error('Error creating master earning transaction:', error);
     }
   }
 

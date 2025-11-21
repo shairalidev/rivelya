@@ -30,7 +30,14 @@ const userSchema = new mongoose.Schema({
   email_verification_token: { type: String },
   email_verification_expires: { type: Date },
   password_reset_token: { type: String },
-  password_reset_expires: { type: Date }
+  password_reset_expires: { type: Date },
+  // Horoscope fields
+  horoscope_birth_date: { type: Date },
+  horoscope_birth_time: { type: String, trim: true, maxlength: 5 }, // HH:MM format
+  // Online presence tracking
+  is_online: { type: Boolean, default: false },
+  last_seen: { type: Date, default: Date.now },
+  socket_ids: { type: [String], default: [] }
 }, { timestamps: true });
 
 userSchema.pre('save', async function hashPass(next) {

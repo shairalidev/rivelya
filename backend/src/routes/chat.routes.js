@@ -8,6 +8,7 @@ import { emitToUser } from '../lib/socket.js';
 import { ChatThreadNote } from '../models/chat-thread-note.model.js';
 import { ChatCall } from '../models/chat-call.model.js';
 import { createNotification } from '../utils/notifications.js';
+import { getPublicDisplayName } from '../utils/privacy.js';
 
 const router = Router();
 
@@ -15,11 +16,7 @@ const messageSchema = Joi.object({
   body: Joi.string().trim().min(1).max(2000).required()
 });
 
-const resolveDisplayName = user =>
-  user?.display_name
-  || [user?.first_name, user?.last_name].filter(Boolean).join(' ')
-  || user?.email
-  || 'Utente';
+const resolveDisplayName = user => getPublicDisplayName(user, 'Cliente');
 
 const noteSchema = Joi.object({
   note: Joi.string().allow('', null).max(4000)

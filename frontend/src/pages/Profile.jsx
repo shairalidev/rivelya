@@ -7,6 +7,40 @@ import FancySelect from '../components/FancySelect.jsx';
 import { getToken, notifyAuthChange, setUser as storeUser } from '../lib/auth.js';
 import client from '../api/client.js';
 
+const getZodiacSign = (birthDate) => {
+  if (!birthDate) return null;
+  const date = new Date(birthDate);
+  const month = date.getMonth() + 1;
+  const day = date.getDate();
+  
+  const signs = [
+    { name: 'Capricorno', icon: '♑', start: [12, 22], end: [1, 19] },
+    { name: 'Acquario', icon: '♒', start: [1, 20], end: [2, 18] },
+    { name: 'Pesci', icon: '♓', start: [2, 19], end: [3, 20] },
+    { name: 'Ariete', icon: '♈', start: [3, 21], end: [4, 19] },
+    { name: 'Toro', icon: '♉', start: [4, 20], end: [5, 20] },
+    { name: 'Gemelli', icon: '♊', start: [5, 21], end: [6, 20] },
+    { name: 'Cancro', icon: '♋', start: [6, 21], end: [7, 22] },
+    { name: 'Leone', icon: '♌', start: [7, 23], end: [8, 22] },
+    { name: 'Vergine', icon: '♍', start: [8, 23], end: [9, 22] },
+    { name: 'Bilancia', icon: '♎', start: [9, 23], end: [10, 22] },
+    { name: 'Scorpione', icon: '♏', start: [10, 23], end: [11, 21] },
+    { name: 'Sagittario', icon: '♐', start: [11, 22], end: [12, 21] }
+  ];
+  
+  for (const sign of signs) {
+    const [startMonth, startDay] = sign.start;
+    const [endMonth, endDay] = sign.end;
+    
+    if (startMonth === endMonth) {
+      if (month === startMonth && day >= startDay && day <= endDay) return sign;
+    } else {
+      if ((month === startMonth && day >= startDay) || (month === endMonth && day <= endDay)) return sign;
+    }
+  }
+  return null;
+};
+
 const initialForm = {
   firstName: '',
   lastName: '',
@@ -17,11 +51,13 @@ const initialForm = {
   location: '',
   taxCode: '',
   vatNumber: '',
-  birthDate: '',
+
   birthPlace: '',
   address: '',
   iban: '',
-  taxRegime: 'forfettario'
+  taxRegime: 'forfettario',
+  horoscopeBirthDate: '',
+  horoscopeBirthTime: ''
 };
 
 const localeOptions = [
@@ -56,11 +92,13 @@ export default function Profile() {
           location: profile.location || '',
           taxCode: profile.taxCode || '',
           vatNumber: profile.vatNumber || '',
-          birthDate: profile.birthDate ? new Date(profile.birthDate).toISOString().split('T')[0] : '',
+
           birthPlace: profile.birthPlace || '',
           address: profile.address || '',
           iban: profile.iban || '',
-          taxRegime: profile.taxRegime || 'forfettario'
+          taxRegime: profile.taxRegime || 'forfettario',
+          horoscopeBirthDate: profile.horoscopeBirthDate ? new Date(profile.horoscopeBirthDate).toISOString().split('T')[0] : '',
+          horoscopeBirthTime: profile.horoscopeBirthTime || ''
         });
         // Load user reviews
         loadReviews(profile._id);
@@ -207,6 +245,15 @@ export default function Profile() {
           </div>
           <div className="account-meta">
             <p className="account-meta-name">{user?.displayName || 'Profilo Rivelya'}</p>
+            {user?.horoscopeBirthDate && (() => {
+              const zodiac = getZodiacSign(user.horoscopeBirthDate);
+              return zodiac ? (
+                <p className="muted" style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', marginBottom: '0.5rem' }}>
+                  <span style={{ fontSize: '1.2rem' }}>{zodiac.icon}</span>
+                  {zodiac.name}
+                </p>
+              ) : null;
+            })()}
             <p className="muted">{user?.email}</p>
             <span className={`account-status${user?.isEmailVerified ? ' success' : ''}`}>
               {user?.isEmailVerified ? 'Email verificata' : 'Email non verificata'}
@@ -308,15 +355,7 @@ export default function Profile() {
                     maxLength="11"
                   />
                 </label>
-                <label className="input-label">
-                  Data di nascita
-                  <input
-                    type="date"
-                    name="birthDate"
-                    value={form.birthDate}
-                    onChange={updateField}
-                  />
-                </label>
+
                 <label className="input-label">
                   Luogo di nascita
                   <input
@@ -361,6 +400,32 @@ export default function Profile() {
               </div>
             </div>
           )}
+          <div className="account-section">
+            <h2>🔮 Oroscopo</h2>
+            <p className="muted">Informazioni per l'oroscopo personalizzato integrato nella piattaforma.</p>
+            <div className="account-form-grid">
+              <label className="input-label">
+                Data di nascita
+                <input
+                  type="date"
+                  name="horoscopeBirthDate"
+                  value={form.horoscopeBirthDate}
+                  onChange={updateField}
+                />
+              </label>
+              <label className="input-label">
+                Ora di nascita (opzionale)
+                <input
+                  type="time"
+                  name="horoscopeBirthTime"
+                  value={form.horoscopeBirthTime}
+                  onChange={updateField}
+                  placeholder="Se non ricordi, lascia vuoto"
+                />
+              </label>
+            </div>
+            <p className="micro">Questi dati sono utilizzati esclusivamente per generare il tuo oroscopo personalizzato e non sono visibili ad altri utenti.</p>
+          </div>
           <div className="account-actions">
             <button type="submit" className="btn primary" disabled={saving}>
               {saving ? 'Salvataggio…' : 'Salva modifiche'}

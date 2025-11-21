@@ -6,7 +6,9 @@ import { Booking } from '../models/booking.model.js';
 import { Session } from '../models/session.model.js';
 import { Review } from '../models/review.model.js';
 import { ChatThread } from '../models/chat-thread.model.js';
+import { User } from '../models/user.model.js';
 import { computeMonthAvailability } from '../utils/availability.js';
+import { getPublicDisplayName } from '../utils/privacy.js';
 
 const router = Router();
 
@@ -21,12 +23,19 @@ router.get('/', async (req, res, next) => {
     const { category, online, sort } = req.query;
     const q = { is_accepting_requests: { $ne: false } };
     if (category) q.categories = category;
-    if (online === 'true') q.availability = 'online';
+    
+    // For online filter, we need both availability set to online AND user actually online
+    if (online === 'true') {
+      q.availability = 'online';
+      // We'll filter by actual online status after getting user data
+    }
 
-    let cursor = Master.find(q).select(
-      'media.avatar_url display_name headline bio categories languages specialties experience_years '
-        + 'rate_chat_cpm rate_voice_cpm rate_chat_voice_cpm services availability working_hours kpis is_accepting_requests'
-    );
+    let cursor = Master.find(q)
+      .populate('user_id', 'display_name first_name last_name avatar_url')
+      .select(
+        'user_id media.avatar_url display_name headline bio categories languages specialties experience_years '
+          + 'rate_chat_cpm rate_voice_cpm rate_chat_voice_cpm services availability working_hours kpis is_accepting_requests'
+      );
     // Rating sort will be handled after getting review data
     if (sort === 'priceAsc') cursor = cursor.sort({ rate_chat_cpm: 1 });
 
@@ -34,6 +43,20 @@ router.get('/', async (req, res, next) => {
 
     const masterIds = masters.map(master => master._id);
     const masterUserIds = masters.map(master => master.user_id).filter(Boolean);
+    
+    // Get real-time online status
+    const onlineUsers = await User.find({
+      _id: { $in: masterUserIds },
+      is_online: true
+    }).select('_id is_online last_seen').lean();
+    
+    const onlineUserMap = new Map();
+    onlineUsers.forEach(user => {
+      onlineUserMap.set(String(user._id), {
+        isOnline: user.is_online,
+        lastSeen: user.last_seen
+      });
+    });
     
     // Get active sessions
     const activeSessions = await Session.find({
@@ -124,14 +147,24 @@ router.get('/', async (req, res, next) => {
 
     let list = masters.map(master => {
       const sessions = sessionsByMasterId.get(String(master._id)) || { voice: 0, chat: 0 };
+      const onlineStatus = onlineUserMap.get(String(master.user_id._id || master.user_id)) || { isOnline: false, lastSeen: null };
+      const publicName = getPublicDisplayName(master.user_id, 'Master');
       return {
         ...master,
+        display_name: publicName,
         active_session: sessionsByMaster.has(String(master._id)),
         active_session_channel: sessionsByMaster.get(String(master._id)) || null,
-        reviews: reviewsByUserId.get(String(master.user_id)) || { avg_rating: 0, count: 0 },
-        sessions: sessions
+        reviews: reviewsByUserId.get(String(master.user_id._id || master.user_id)) || { avg_rating: 0, count: 0 },
+        sessions: sessions,
+        is_online: onlineStatus.isOnline,
+        last_seen: onlineStatus.lastSeen
       };
     });
+    
+    // Filter by real online status if online filter is applied
+    if (online === 'true') {
+      list = list.filter(master => master.is_online && master.availability === 'online');
+    }
 
     // Sort by rating if requested (now that we have real-time data)
     if (sort === 'rating') {
@@ -144,10 +177,23 @@ router.get('/', async (req, res, next) => {
 
 router.get('/:id', async (req, res, next) => {
   try {
-    const master = await Master.findById(req.params.id).lean();
+    const master = await Master.findById(req.params.id)
+      .populate('user_id', 'display_name first_name last_name avatar_url')
+      .lean();
     if (!master || master.is_accepting_requests === false) {
       return res.status(404).json({ message: 'Master not found' });
     }
+    
+    // Use public display name
+    const publicName = getPublicDisplayName(master.user_id, 'Master');
+    master.display_name = publicName;
+    
+    // Get real-time online status
+    const user = await User.findById(master.user_id).select('is_online last_seen').lean();
+    const onlineStatus = user ? {
+      is_online: user.is_online,
+      last_seen: user.last_seen
+    } : { is_online: false, last_seen: null };
     
     // Get real-time review statistics
     const reviewStats = await Review.aggregate([
@@ -179,7 +225,7 @@ router.get('/:id', async (req, res, next) => {
     
     const sessions = { voice: voiceSessions, chat: chatSessions };
     
-    res.json({ ...master, reviews, sessions });
+    res.json({ ...master, reviews, sessions, ...onlineStatus });
   } catch (e) { next(e); }
 });
 

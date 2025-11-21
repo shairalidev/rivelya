@@ -12,6 +12,7 @@ import { checkAvailability } from '../utils/availability.js';
 import { createNotification } from '../utils/notifications.js';
 import { emitToUser } from '../lib/socket.js';
 import { notifyVoiceSessionCreated } from '../utils/voice-events.js';
+import { getPublicDisplayName } from '../utils/privacy.js';
 
 const router = Router();
 
@@ -76,10 +77,7 @@ const serializeMasterRequest = booking => ({
   customer: booking.customer_id
     ? {
         id: booking.customer_id._id,
-        name:
-          booking.customer_id.display_name
-          || [booking.customer_id.first_name, booking.customer_id.last_name].filter(Boolean).join(' ')
-          || 'Cliente riservato',
+        name: getPublicDisplayName(booking.customer_id, 'Cliente'),
         phone: booking.customer_id.phone || '',
         emailAvailable: Boolean(booking.customer_id.email)
       }
@@ -206,7 +204,7 @@ const emitStartNowEvent = (booking, payload) => {
 router.post('/', requireAuth, async (req, res, next) => {
   try {
     const payload = await bookingSchema.validateAsync(req.body);
-    const master = await Master.findById(payload.masterId);
+    const master = await Master.findById(payload.masterId).populate('user_id', 'display_name first_name last_name');
     if (!master) return res.status(404).json({ message: 'Master non trovato.' });
     if (master.is_accepting_requests === false) {
       return res.status(400).json({ message: 'Il master al momento non accetta nuove richieste.' });
@@ -283,7 +281,7 @@ router.post('/', requireAuth, async (req, res, next) => {
       amount: -amount,
       meta: {
         booking: payload.date,
-        master: master.display_name,
+        master: getPublicDisplayName(master.user_id, 'Master'),
         channel: payload.channel,
         start: payload.start,
         end: payload.end
@@ -446,7 +444,7 @@ router.post('/:bookingId/respond', requireAuth, requireRole('master'), async (re
           amount: booking.amount_cents,
           meta: {
             booking: booking._id,
-            master: master.display_name,
+            master: getPublicDisplayName(master.user_id, 'Master'),
             reason: 'Prenotazione rifiutata'
           }
         });
@@ -537,7 +535,14 @@ router.get('/customer/history', requireAuth, async (req, res, next) => {
       .sort({ createdAt: -1 })
       .limit(limit * 1)
       .skip((page - 1) * limit)
-      .populate('master_id', 'display_name avatar_url services')
+      .populate({
+        path: 'master_id',
+        select: 'display_name avatar_url services user_id',
+        populate: {
+          path: 'user_id',
+          select: 'display_name first_name last_name avatar_url'
+        }
+      })
       .populate('wallet_txn_id', 'amount type createdAt');
 
     const total = await Booking.countDocuments(filter);
@@ -547,8 +552,8 @@ router.get('/customer/history', requireAuth, async (req, res, next) => {
         id: booking._id,
         master: {
           id: booking.master_id._id,
-          name: booking.master_id.display_name,
-          avatar: booking.master_id.avatar_url
+          name: getPublicDisplayName(booking.master_id.user_id, 'Master'),
+          avatar: booking.master_id.user_id?.avatar_url || booking.master_id.avatar_url
         },
         date: booking.date,
         start: booking.start_time,
@@ -989,13 +994,15 @@ router.get('/reservations', requireAuth, async (req, res, next) => {
         reservation_id: booking.reservation_id,
         master: {
           id: booking.master_id._id,
-          name: booking.master_id.display_name,
-          avatar: booking.master_id.avatar_url,
-          user_id: booking.master_id.user_id
+          name: booking.master_id.user_id?.display_name || 
+                [booking.master_id.user_id?.first_name, booking.master_id.user_id?.last_name].filter(Boolean).join(' ') ||
+                booking.master_id.display_name || 'Master',
+          avatar: booking.master_id.user_id?.avatar_url || booking.master_id.avatar_url,
+          user_id: booking.master_id.user_id?._id || booking.master_id.user_id
         },
         customer: {
           id: booking.customer_id._id,
-          name: booking.customer_id.display_name,
+          name: getPublicDisplayName(booking.customer_id, 'Cliente'),
           avatar: booking.customer_id.avatar_url
         },
         date: booking.date,
