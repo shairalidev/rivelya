@@ -1082,10 +1082,61 @@ body.nav-open {
 .status-badge.busy { background: rgba(255, 178, 92, 0.3); }
 .status-badge.offline { background: rgba(152, 165, 199, 0.2); }
 
+.notification-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  padding: 0.35rem 0.75rem;
+  border: none;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.08);
+  color: var(--muted);
+  font-size: 0.75rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  text-transform: uppercase;
+  letter-spacing: 0.02em;
+}
+
+.notification-btn:hover {
+  background: rgba(255, 255, 255, 0.12);
+  color: var(--text);
+  transform: translateY(-1px);
+}
+
+.notification-btn.active {
+  background: rgba(109, 91, 255, 0.2);
+  color: var(--brand);
+  border: 1px solid rgba(109, 91, 255, 0.4);
+}
+
+.notification-btn:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+  transform: none;
+}
+
+.notification-btn svg {
+  width: 16px;
+  height: 16px;
+}
+
 .master-content { padding: 1.6rem; display: flex; flex-direction: column; gap: 1.1rem; flex: 1; }
 
 .master-header { display: flex; justify-content: space-between; gap: 1rem; align-items: baseline; }
 .master-title { display: flex; align-items: center; gap: 0.55rem; flex-wrap: wrap; }
+
+.master-title .notification-btn {
+  font-size: 0.65rem;
+  padding: 0.25rem 0.5rem;
+  margin-left: 0.5rem;
+}
+
+.master-title .notification-btn svg {
+  width: 12px;
+  height: 12px;
+}
 .live-indicator {
   display: inline-flex;
   align-items: center;
@@ -5174,4 +5225,55 @@ body.nav-open {
   .form-grid .input-label[data-span="3"] {
     grid-column: span 1;
   }
+}
+
+/* Avatar Component Styles */
+.avatar {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 50%;
+  overflow: hidden;
+  background: linear-gradient(135deg, var(--brand), var(--accent));
+  color: #040612;
+  font-weight: 700;
+  flex-shrink: 0;
+}
+
+.avatar--small {
+  width: 32px;
+  height: 32px;
+  font-size: 0.75rem;
+}
+
+.avatar--medium {
+  width: 48px;
+  height: 48px;
+  font-size: 1rem;
+}
+
+.avatar--large {
+  width: 96px;
+  height: 96px;
+  font-size: 1.8rem;
+  border-radius: 24px;
+}
+
+.avatar img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  border-radius: inherit;
+}
+
+.avatar-initials {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 100%;
+  height: 100%;
+  font-weight: inherit;
+  color: inherit;
+  font-size: inherit;
 }

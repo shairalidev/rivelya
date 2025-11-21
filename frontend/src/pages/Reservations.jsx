@@ -190,9 +190,13 @@ export default function Reservations() {
     const handleSessionStarted = (payload) => {
       if (!payload) return;
 
-      toast.success(`Sessione ${payload.reservationId || ''} avviata`);
+      const message = payload.autoStarted 
+        ? `La sessione ${payload.reservationId || ''} è iniziata automaticamente`
+        : `Sessione ${payload.reservationId || ''} avviata`;
+      
+      toast.success(message);
       setConfirmModal({
-        title: 'Sessione attiva',
+        title: payload.autoStarted ? 'Sessione iniziata automaticamente' : 'Sessione attiva',
         message: payload.reservationId
           ? `La sessione ${payload.reservationId} è stata avviata. Vuoi aprirla ora?`
           : 'Una delle tue sessioni è stata avviata. Vuoi aprirla ora?',
@@ -210,25 +214,59 @@ export default function Reservations() {
       loadReservations(pagination.page, { showLoader: false });
     };
 
+    const handleUpcomingSession = (payload) => {
+      if (!payload) return;
+      
+      toast(`🔔 La tua sessione ${payload.reservationId} inizierà tra 10 minuti!`, {
+        duration: 8000,
+        style: {
+          background: 'rgba(255, 159, 67, 0.9)',
+          color: '#040612'
+        }
+      });
+    };
+
     socket.on('booking:start_now', handleStartNowSocket);
     socket.on('session:status', handleSessionStatus);
     socket.on('booking:session_started', handleSessionStarted);
+    socket.on('session:upcoming', handleUpcomingSession);
 
     return () => {
       socket.off('booking:start_now', handleStartNowSocket);
       socket.off('session:status', handleSessionStatus);
       socket.off('booking:session_started', handleSessionStarted);
+      socket.off('session:upcoming', handleUpcomingSession);
     };
   }, [loadReservations, navigate, pagination.page, socket]);
 
   const handleReschedule = (reservation) => {
     setRescheduleModal(reservation);
+    const calculatedEnd = calculateEndTime(reservation.start, reservation.duration_minutes);
     setRescheduleForm({
       newDate: reservation.date,
       newStart: reservation.start,
-      newEnd: reservation.end,
+      newEnd: calculatedEnd,
       reason: ''
     });
+  };
+
+  const calculateEndTime = (startTime, durationMinutes) => {
+    if (!startTime || !durationMinutes) return '';
+    const [hours, minutes] = startTime.split(':').map(Number);
+    const startMinutes = hours * 60 + minutes;
+    const endMinutes = startMinutes + durationMinutes;
+    const endHours = Math.floor(endMinutes / 60) % 24;
+    const endMins = endMinutes % 60;
+    return `${endHours.toString().padStart(2, '0')}:${endMins.toString().padStart(2, '0')}`;
+  };
+
+  const handleStartTimeChange = (newStartTime) => {
+    const newEndTime = calculateEndTime(newStartTime, rescheduleModal?.duration_minutes);
+    setRescheduleForm(prev => ({ 
+      ...prev, 
+      newStart: newStartTime,
+      newEnd: newEndTime
+    }));
   };
 
   const submitReschedule = async () => {
@@ -414,11 +452,12 @@ export default function Reservations() {
       ? new Date(`${reservation.date}T${reservation.start}:00`)
       : new Date(reservation.date);
     const isFutureSession = !Number.isNaN(sessionStart.getTime()) && sessionStart > new Date();
-    const validStatus = ['awaiting_master', 'confirmed', 'ready_to_start'].includes(reservation.status);
+    const validStatus = ['awaiting_master', 'confirmed', 'ready_to_start', 'reschedule_requested'].includes(reservation.status);
     const isCustomer = reservation.user_role === 'customer';
-    const hasPendingRequest = Boolean(reservation.reschedule_request);
+    const sessionNotStarted = !isSessionStarted(reservation) && !reservation.actual_started_at;
+    const sessionNotCompleted = !isSessionCompleted(reservation);
 
-    return validStatus && isCustomer && !hasPendingRequest;
+    return validStatus && isCustomer && sessionNotStarted && sessionNotCompleted && isFutureSession;
   };
 
   const startNowStatusLabel = (request) => {
@@ -453,9 +492,12 @@ export default function Reservations() {
 
     const now = new Date();
     const sessionDateTime = new Date(`${reservation.date}T${reservation.start}:00`);
-    const timeDiff = Math.abs(now - sessionDateTime) / (1000 * 60);
+    const timeDiff = (now - sessionDateTime) / (1000 * 60); // Positive if past scheduled time
 
-    return timeDiff <= 15; // Can start 15 minutes before/after scheduled time
+    // Only allow manual start if:
+    // 1. Session is more than 5 minutes past scheduled time (auto-start failed), OR
+    // 2. Session is within 2 minutes of scheduled time
+    return (timeDiff > 5) || (timeDiff >= -2 && timeDiff <= 2);
   };
 
   const hasIncomingStartNow = (reservation) => {
@@ -471,6 +513,7 @@ export default function Reservations() {
   const canRequestStartNow = (reservation) => {
     if (reservation.status !== 'ready_to_start' || !reservation.can_start) return false;
     if (reservation.status === 'active') return false;
+    if (reservation.user_role !== 'customer') return false; // Only clients can request
     return !hasIncomingStartNow(reservation) && !hasOutgoingStartNow(reservation);
   };
 
@@ -564,7 +607,7 @@ export default function Reservations() {
                   <p><strong>Durata:</strong> {reservation.duration_minutes} minuti</p>
                 </div>
 
-                {reservation.reschedule_request && (
+                {reservation.reschedule_request && reservation.status === 'reschedule_requested' && (
                   <div className="reschedule-info">
                     <h4>
                       {reservation.reschedule_request.requested_by === reservation.user_role
@@ -579,7 +622,7 @@ export default function Reservations() {
                   </div>
                 )}
 
-                {latestReschedule && (
+                {latestReschedule && latestReschedule.response && !reservation.reschedule_request && (
                   <div className="reschedule-info">
                     <h4>Ultima riprogrammazione</h4>
                     <p><strong>Richiesta da:</strong> {latestReschedule.requested_by === 'customer' ? 'Cliente' : 'Esperti'}</p>
@@ -595,16 +638,20 @@ export default function Reservations() {
                   </div>
                 )}
 
-                {reservation.start_now_request && (
+                {reservation.start_now_request && reservation.start_now_request.status === 'pending' && (
                   <div className="reschedule-info">
                     <h4>Avvio immediato</h4>
                     <p>
                       Richiesto da {reservation.start_now_request.requested_by === 'customer' ? 'Cliente' : 'Esperti'}
                     </p>
                     <p><strong>Stato:</strong> {startNowStatusLabel(reservation.start_now_request)}</p>
-                    {reservation.start_now_request.status === 'accepted' && (
-                      <p className="micro muted">Puoi avviare la sessione senza attendere l'orario programmato.</p>
-                    )}
+                  </div>
+                )}
+
+                {reservation.start_now_request && reservation.start_now_request.status === 'accepted' && reservation.status === 'ready_to_start' && (
+                  <div className="reschedule-info">
+                    <h4>Avvio immediato approvato</h4>
+                    <p className="micro muted">Puoi avviare la sessione senza attendere l'orario programmato.</p>
                   </div>
                 )}
 
@@ -667,7 +714,7 @@ export default function Reservations() {
                 )}
 
                 {/* Show action buttons only if session hasn't started and isn't completed */}
-                {canShowActions(reservation) && (
+                {canShowActions(reservation) && !isSessionStarted(reservation) && (
                   <>
                     {canStartSession(reservation) && (
                       <button
@@ -679,20 +726,39 @@ export default function Reservations() {
                     )}
 
                     {hasIncomingStartNow(reservation) && (
-                      <>
-                        <button
-                          className="btn primary"
-                          onClick={() => handleStartNowResponse(reservation, 'accept')}
-                        >
-                          Accetta avvio immediato
-                        </button>
-                        <button
-                          className="btn outline"
-                          onClick={() => handleStartNowResponse(reservation, 'reject')}
-                        >
-                          Rifiuta avvio immediato
-                        </button>
-                      </>
+                      <div style={{ 
+                        backgroundColor: 'rgba(255, 159, 67, 0.15)', 
+                        border: '1px solid rgba(255, 159, 67, 0.4)', 
+                        borderRadius: 'var(--radius-sm)', 
+                        padding: '0.75rem', 
+                        marginBottom: '0.75rem',
+                        borderLeft: '3px solid #ff9f43',
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'space-between',
+                        gap: '1rem'
+                      }}>
+                        <div>
+                          <strong style={{ color: '#ff9f43', fontSize: '0.85rem' }}>🔔 Richiesta di avvio immediato</strong>
+                          <p style={{ margin: '0.25rem 0 0 0', fontSize: '0.8rem', color: 'var(--muted)' }}>
+                            {reservation.start_now_request.requested_by === 'customer' ? 'Il cliente' : 'L\'esperto'} vuole iniziare subito
+                          </p>
+                        </div>
+                        <div style={{ display: 'flex', gap: '0.5rem', flexShrink: 0 }}>
+                          <button
+                            className="btn small primary"
+                            onClick={() => handleStartNowResponse(reservation, 'accept')}
+                          >
+                            Accetta
+                          </button>
+                          <button
+                            className="btn small outline"
+                            onClick={() => handleStartNowResponse(reservation, 'reject')}
+                          >
+                            Rifiuta
+                          </button>
+                        </div>
+                      </div>
                     )}
 
                     {hasOutgoingStartNow(reservation) && (
@@ -701,21 +767,12 @@ export default function Reservations() {
                       </span>
                     )}
 
-                    {canRequestStartNow(reservation) && !hasIncomingStartNow(reservation) && !hasOutgoingStartNow(reservation) && (
+                    {canRequestStartNow(reservation) && (
                       <button
                         className="btn outline"
                         onClick={() => handleStartNowRequest(reservation)}
                       >
                         Richiedi avvio immediato
-                      </button>
-                    )}
-
-                    {canReschedule(reservation) && !isPendingMyReschedule(reservation) && (
-                      <button
-                        className="btn outline"
-                        onClick={() => handleReschedule(reservation)}
-                      >
-                        {reservation.status === 'reschedule_requested' ? 'Nuova riprogrammazione' : 'Riprogramma'}
                       </button>
                     )}
 
@@ -728,11 +785,7 @@ export default function Reservations() {
                       </button>
                     )}
 
-                    {isPendingMyReschedule(reservation) && (
-                      <span className="btn outline" style={{ opacity: 0.6, cursor: 'not-allowed' }}>
-                        In attesa di risposta
-                      </span>
-                    )}
+
                     
                     {reservation.status === 'awaiting_master' && reservation.user_role === 'master' && (
                       <>
@@ -769,6 +822,16 @@ export default function Reservations() {
                     )}
                   </>
                 )}
+
+                {/* Client reschedule button - show for all valid client bookings */}
+                {canReschedule(reservation) && (
+                  <button
+                    className="btn outline"
+                    onClick={() => handleReschedule(reservation)}
+                  >
+                    {reservation.reschedule_request ? 'Modifica riprogrammazione' : 'Riprogramma'}
+                  </button>
+                )}
               </div>
             </div>
             );
@@ -799,56 +862,125 @@ export default function Reservations() {
       )}
 
       {rescheduleModal && (
-        <div className="modal-overlay" onClick={() => setRescheduleModal(null)}>
-          <div className="modal" onClick={(e) => e.stopPropagation()}>
-            <div className="modal__header">
-              <h2>Riprogramma {rescheduleModal.reservation_id}</h2>
-              <button onClick={() => setRescheduleModal(null)}>×</button>
+        <div className="modal-backdrop" onClick={() => setRescheduleModal(null)}>
+          <div className="modal-card" onClick={(e) => e.stopPropagation()}>
+            <div className="modal-head">
+              <h3>🔄 Riprogramma {rescheduleModal.reservation_id}</h3>
+              <button className="modal-close" onClick={() => setRescheduleModal(null)}>×</button>
             </div>
-            <div className="modal__body">
-              <p>Orario attuale: {formatDate(rescheduleModal.date)} dalle {rescheduleModal.start} alle {rescheduleModal.end}</p>
+            
+            <div className="modal-body">
+              <div style={{ 
+                padding: '1rem 1.2rem', 
+                borderRadius: 'var(--radius-md)', 
+                background: 'rgba(109, 91, 255, 0.12)', 
+                border: '1px solid rgba(109, 91, 255, 0.3)',
+                marginBottom: '1.5rem'
+              }}>
+                <strong style={{ color: 'var(--brand)' }}>📅 Orario attuale:</strong>
+                <br />
+                <span style={{ color: 'var(--text)', fontSize: '0.95rem' }}>
+                  {formatDate(rescheduleModal.date)} dalle {rescheduleModal.start} alle {rescheduleModal.end}
+                </span>
+              </div>
               
-              <div className="form-grid">
-                <label className="input-label">
-                  Nuova data
-                  <input
-                    type="date"
-                    value={rescheduleForm.newDate}
-                    onChange={(e) => setRescheduleForm(prev => ({ ...prev, newDate: e.target.value }))}
-                    min={new Date().toISOString().split('T')[0]}
-                  />
-                </label>
+              <div className="modal-section">
+                <div className="time-grid">
+                  <label className="input-label">
+                    <span style={{ color: 'var(--text)', fontWeight: '600', marginBottom: '0.5rem', display: 'block' }}>
+                      Nuova data
+                    </span>
+                    <input
+                      type="date"
+                      value={rescheduleForm.newDate}
+                      onChange={(e) => setRescheduleForm(prev => ({ ...prev, newDate: e.target.value }))}
+                      min={new Date().toISOString().split('T')[0]}
+                      style={{
+                        padding: '0.75rem 1rem',
+                        borderRadius: 'var(--radius-md)',
+                        border: '1px solid rgba(255, 255, 255, 0.12)',
+                        background: 'rgba(4, 6, 18, 0.8)',
+                        color: 'var(--text)',
+                        fontSize: '0.95rem',
+                        transition: 'all 0.2s ease',
+                        colorScheme: 'dark'
+                      }}
+                    />
+                  </label>
+                  
+                  <label className="input-label">
+                    <span style={{ color: 'var(--text)', fontWeight: '600', marginBottom: '0.5rem', display: 'block' }}>
+                      Ora inizio
+                    </span>
+                    <input
+                      type="time"
+                      value={rescheduleForm.newStart}
+                      onChange={(e) => handleStartTimeChange(e.target.value)}
+                      style={{
+                        padding: '0.75rem 1rem',
+                        borderRadius: 'var(--radius-md)',
+                        border: '1px solid rgba(255, 255, 255, 0.12)',
+                        background: 'rgba(4, 6, 18, 0.8)',
+                        color: 'var(--text)',
+                        fontSize: '0.95rem',
+                        transition: 'all 0.2s ease',
+                        colorScheme: 'dark'
+                      }}
+                    />
+                  </label>
+                </div>
                 
-                <label className="input-label">
-                  Ora inizio
-                  <input
-                    type="time"
-                    value={rescheduleForm.newStart}
-                    onChange={(e) => setRescheduleForm(prev => ({ ...prev, newStart: e.target.value }))}
-                  />
-                </label>
-                
-                <label className="input-label">
-                  Ora fine
+                <label className="input-label" style={{ marginTop: '1rem' }}>
+                  <span style={{ color: 'rgba(255, 255, 255, 0.6)', fontWeight: '600', marginBottom: '0.5rem', display: 'block' }}>
+                    Ora fine (calcolata automaticamente)
+                  </span>
                   <input
                     type="time"
                     value={rescheduleForm.newEnd}
-                    onChange={(e) => setRescheduleForm(prev => ({ ...prev, newEnd: e.target.value }))}
+                    readOnly
+                    style={{
+                      padding: '0.75rem 1rem',
+                      borderRadius: 'var(--radius-md)',
+                      border: '1px solid rgba(255, 255, 255, 0.08)',
+                      background: 'rgba(255, 255, 255, 0.03)',
+                      color: 'rgba(255, 255, 255, 0.6)',
+                      fontSize: '0.95rem',
+                      cursor: 'not-allowed',
+                      opacity: 0.7,
+                      colorScheme: 'dark'
+                    }}
                   />
                 </label>
                 
-                <label className="input-label" data-span="3">
-                  Motivo (obbligatorio)
+                <label className="input-label" style={{ marginTop: '1.2rem' }}>
+                  <span style={{ color: 'var(--text)', fontWeight: '600', marginBottom: '0.5rem', display: 'block' }}>
+                    💬 Motivo della riprogrammazione *
+                  </span>
                   <textarea
                     value={rescheduleForm.reason}
                     onChange={(e) => setRescheduleForm(prev => ({ ...prev, reason: e.target.value }))}
-                    placeholder="Spiega il motivo della riprogrammazione e proponi un orario alternativo"
-                    rows={3}
+                    placeholder="Spiega il motivo della riprogrammazione e proponi un orario alternativo..."
+                    rows={4}
+                    style={{
+                      width: '100%',
+                      padding: '1rem',
+                      borderRadius: 'var(--radius-md)',
+                      border: '1px solid rgba(255, 255, 255, 0.12)',
+                      background: 'rgba(4, 6, 18, 0.8)',
+                      color: 'var(--text)',
+                      fontSize: '0.95rem',
+                      fontFamily: 'inherit',
+                      resize: 'vertical',
+                      minHeight: '100px',
+                      transition: 'all 0.2s ease',
+                      lineHeight: '1.5'
+                    }}
                   />
                 </label>
               </div>
             </div>
-            <div className="modal__actions">
+            
+            <div className="modal-actions">
               <button className="btn outline" onClick={() => setRescheduleModal(null)}>
                 Annulla
               </button>
@@ -857,7 +989,7 @@ export default function Reservations() {
                 onClick={submitReschedule}
                 disabled={!rescheduleForm.newDate || !rescheduleForm.newStart || !rescheduleForm.newEnd || !rescheduleForm.reason.trim()}
               >
-                Invia richiesta
+                ✨ Invia richiesta
               </button>
             </div>
           </div>
@@ -865,35 +997,69 @@ export default function Reservations() {
       )}
 
       {rescheduleResponseModal && (
-        <div className="modal-overlay" onClick={() => !rescheduleResponseLoading && setRescheduleResponseModal(null)}>
-          <div className="modal" onClick={(e) => e.stopPropagation()}>
-            <div className="modal__header">
-              <h2>{rescheduleResponseModal.action === 'accept' ? 'Accetta riprogrammazione' : 'Rifiuta riprogrammazione'}</h2>
-              <button onClick={() => !rescheduleResponseLoading && setRescheduleResponseModal(null)}>×</button>
+        <div className="modal-backdrop" onClick={() => !rescheduleResponseLoading && setRescheduleResponseModal(null)}>
+          <div className="modal-card" onClick={(e) => e.stopPropagation()}>
+            <div className="modal-head">
+              <h3>{rescheduleResponseModal.action === 'accept' ? '✅ Accetta riprogrammazione' : '❌ Rifiuta riprogrammazione'}</h3>
+              <button className="modal-close" onClick={() => !rescheduleResponseLoading && setRescheduleResponseModal(null)}>×</button>
             </div>
-            <div className="modal__body">
-              <p className="micro muted" style={{ marginBottom: '1rem' }}>
+            
+            <div className="modal-body">
+              <div style={{ 
+                padding: '1rem 1.2rem', 
+                borderRadius: 'var(--radius-md)', 
+                background: rescheduleResponseModal.action === 'accept' ? 'rgba(61, 216, 182, 0.08)' : 'rgba(255, 123, 123, 0.08)', 
+                border: rescheduleResponseModal.action === 'accept' ? '1px solid rgba(61, 216, 182, 0.2)' : '1px solid rgba(255, 123, 123, 0.2)',
+                marginBottom: '1.2rem',
+                fontSize: '0.9rem'
+              }}>
                 {rescheduleResponseModal.action === 'accept'
                   ? 'Conferma la nuova data proposta dal cliente e aggiungi un breve messaggio.'
                   : 'Spiega il motivo del rifiuto e proponi eventualmente un orario alternativo nella nota.'}
-              </p>
+              </div>
 
-              <p className="micro muted" style={{ marginBottom: '0.75rem' }}>
-                Nuovo orario proposto: {formatDate(rescheduleResponseModal.reservation.reschedule_request.new_date)} dalle {formatTime(rescheduleResponseModal.reservation.reschedule_request.new_start_time)} alle {formatTime(rescheduleResponseModal.reservation.reschedule_request.new_end_time)}
-              </p>
+              <div style={{ 
+                padding: '1rem', 
+                borderRadius: 'var(--radius-md)', 
+                background: 'rgba(19, 209, 255, 0.08)', 
+                border: '1px solid rgba(19, 209, 255, 0.2)',
+                marginBottom: '1.2rem'
+              }}>
+                <strong style={{ color: 'var(--accent)' }}>📅 Nuovo orario proposto:</strong>
+                <br />
+                {formatDate(rescheduleResponseModal.reservation.reschedule_request.new_date)} dalle {formatTime(rescheduleResponseModal.reservation.reschedule_request.new_start_time)} alle {formatTime(rescheduleResponseModal.reservation.reschedule_request.new_end_time)}
+              </div>
 
               <label className="input-label">
-                Nota per il cliente
+                <span style={{ color: 'var(--text)', fontWeight: '600', marginBottom: '0.5rem', display: 'block' }}>
+                  💬 Nota per il cliente
+                </span>
                 <textarea
                   value={rescheduleResponseForm.note}
                   onChange={(e) => setRescheduleResponseForm(prev => ({ ...prev, note: e.target.value }))}
-                  placeholder="Scrivi un breve messaggio per il cliente"
+                  placeholder="Scrivi un breve messaggio per il cliente..."
                   rows={4}
                   disabled={rescheduleResponseLoading}
+                  style={{
+                    width: '100%',
+                    padding: '1rem',
+                    borderRadius: 'var(--radius-md)',
+                    border: '1px solid rgba(255, 255, 255, 0.12)',
+                    background: 'rgba(4, 6, 18, 0.8)',
+                    color: 'var(--text)',
+                    fontSize: '0.95rem',
+                    fontFamily: 'inherit',
+                    resize: 'vertical',
+                    minHeight: '100px',
+                    transition: 'all 0.2s ease',
+                    lineHeight: '1.5',
+                    opacity: rescheduleResponseLoading ? 0.6 : 1
+                  }}
                 />
               </label>
             </div>
-            <div className="modal__actions">
+            
+            <div className="modal-actions">
               <button className="btn outline" onClick={() => setRescheduleResponseModal(null)} disabled={rescheduleResponseLoading}>
                 Annulla
               </button>
@@ -902,7 +1068,7 @@ export default function Reservations() {
                 onClick={() => respondReschedule(rescheduleResponseModal.reservation.id, rescheduleResponseModal.action, rescheduleResponseForm.note)}
                 disabled={rescheduleResponseLoading || (rescheduleResponseModal.action === 'reject' && !rescheduleResponseForm.note.trim())}
               >
-                {rescheduleResponseLoading ? 'Invio in corso...' : 'Invia risposta'}
+                {rescheduleResponseLoading ? '⏳ Invio in corso...' : '✨ Invia risposta'}
               </button>
             </div>
           </div>
@@ -910,33 +1076,59 @@ export default function Reservations() {
       )}
 
       {responseModal && (
-        <div className="modal-overlay" onClick={() => !responseLoading && setResponseModal(null)}>
-          <div className="modal" onClick={(e) => e.stopPropagation()}>
-            <div className="modal__header">
-              <h2>{responseModal.action === 'accept' ? 'Accetta prenotazione' : 'Rifiuta prenotazione'}</h2>
-              <button onClick={() => !responseLoading && setResponseModal(null)}>×</button>
+        <div className="modal-backdrop" onClick={() => !responseLoading && setResponseModal(null)}>
+          <div className="modal-card" onClick={(e) => e.stopPropagation()}>
+            <div className="modal-head">
+              <h3>{responseModal.action === 'accept' ? '✅ Accetta prenotazione' : '❌ Rifiuta prenotazione'}</h3>
+              <button className="modal-close" onClick={() => !responseLoading && setResponseModal(null)}>×</button>
             </div>
-            <div className="modal__body">
-              <p className="micro muted" style={{ marginBottom: '1rem' }}>
+            
+            <div className="modal-body">
+              <div style={{ 
+                padding: '1rem 1.2rem', 
+                borderRadius: 'var(--radius-md)', 
+                background: responseModal.action === 'accept' ? 'rgba(61, 216, 182, 0.08)' : 'rgba(255, 123, 123, 0.08)', 
+                border: responseModal.action === 'accept' ? '1px solid rgba(61, 216, 182, 0.2)' : '1px solid rgba(255, 123, 123, 0.2)',
+                marginBottom: '1.2rem',
+                fontSize: '0.9rem'
+              }}>
                 {responseModal.action === 'accept'
                   ? 'Puoi aggiungere una nota per il cliente quando accetti la prenotazione.'
                   : 'Spiega il motivo del rifiuto. Sarà il cliente a riprogrammare.'}
-              </p>
+              </div>
 
               <label className="input-label">
-                Nota
+                <span style={{ color: 'var(--text)', fontWeight: '600', marginBottom: '0.5rem', display: 'block' }}>
+                  💬 Nota per il cliente
+                </span>
                 <textarea
                   value={responseForm.note}
                   onChange={(e) => setResponseForm(prev => ({ ...prev, note: e.target.value }))}
                   placeholder={responseModal.action === 'accept'
-                    ? 'Aggiungi informazioni utili per la sessione.'
-                    : 'Motiva il rifiuto e fornisci indicazioni per riprogrammare.'}
+                    ? 'Aggiungi informazioni utili per la sessione...'
+                    : 'Motiva il rifiuto e fornisci indicazioni per riprogrammare...'}
                   rows={4}
                   disabled={responseLoading}
+                  style={{
+                    width: '100%',
+                    padding: '1rem',
+                    borderRadius: 'var(--radius-md)',
+                    border: '1px solid rgba(255, 255, 255, 0.12)',
+                    background: 'rgba(4, 6, 18, 0.8)',
+                    color: 'var(--text)',
+                    fontSize: '0.95rem',
+                    fontFamily: 'inherit',
+                    resize: 'vertical',
+                    minHeight: '100px',
+                    transition: 'all 0.2s ease',
+                    lineHeight: '1.5',
+                    opacity: responseLoading ? 0.6 : 1
+                  }}
                 />
               </label>
             </div>
-            <div className="modal__actions">
+            
+            <div className="modal-actions">
               <button className="btn outline" onClick={() => setResponseModal(null)} disabled={responseLoading}>
                 Annulla
               </button>
@@ -945,7 +1137,7 @@ export default function Reservations() {
                 onClick={submitResponseModal}
                 disabled={responseLoading || (responseModal.action === 'reject' && !responseForm.note.trim())}
               >
-                {responseLoading ? 'Invio in corso...' : 'Invia risposta'}
+                {responseLoading ? '⏳ Invio in corso...' : '✨ Invia risposta'}
               </button>
             </div>
           </div>

@@ -7,10 +7,12 @@ const sessionSchema = new mongoose.Schema({
   channel: { type: String, enum: ['chat', 'voice', 'chat_voice'], required: true },
   start_ts: { type: Date },
   end_ts: { type: Date },
+  actual_end_ts: { type: Date },
   duration_s: { type: Number, default: 0 },
   price_cpm: { type: Number, required: true }, // cents per minute
   cost_cents: { type: Number, default: 0 },
   status: { type: String, enum: ['created', 'active', 'ended', 'failed'], default: 'created' },
+  ended_by: { type: String, enum: ['customer', 'master', 'system'] },
   cdr: { type: Object, default: {} },
   twilio_conference_sid: { type: String },
   twilio_customer_call_sid: { type: String },
@@ -24,5 +26,11 @@ const sessionSchema = new mongoose.Schema({
     default: {}
   }
 }, { timestamps: true });
+
+// Indexes for performance
+sessionSchema.index({ status: 1, end_ts: 1 });
+sessionSchema.index({ booking_id: 1 });
+sessionSchema.index({ master_id: 1, status: 1 });
+sessionSchema.index({ user_id: 1, status: 1 });
 
 export const Session = mongoose.model('Session', sessionSchema);

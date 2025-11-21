@@ -7,10 +7,11 @@ import { DayPicker } from 'react-day-picker';
 import 'react-day-picker/dist/style.css';
 import client from '../api/client.js';
 import FancySelect from '../components/FancySelect.jsx';
+import Avatar from '../components/Avatar.jsx';
 import { buildDailySchedule, resolveTimezoneLabel } from '../utils/schedule.js';
 import { resolveAvailabilityStatus } from '../utils/availability.js';
 import { createBooking, fetchMasterMonthAvailability } from '../api/booking.js';
-import { getToken } from '../lib/auth.js';
+import { getToken, getUser } from '../lib/auth.js';
 
 const ChatGlyph = props => (
   <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true" {...props}>
@@ -463,12 +464,19 @@ export default function MasterProfile() {
   const hasCustomSchedule = (master.working_hours?.slots || []).length > 0;
   const timezoneLabel = resolveTimezoneLabel(master.working_hours);
   const { status: availabilityStatus, label: availabilityLabel } = resolveAvailabilityStatus(master.availability);
+  
+  const currentUser = getUser();
+  const isMaster = currentUser?.role === 'master';
 
   return (
     <section className="container profile">
       <div className="profile-card">
         <div className="profile-avatar">
-          <img src={master.media?.avatar_url || 'https://placehold.co/320'} alt={master.display_name || 'Esperti Rivelya'} />
+          <Avatar 
+            src={master.media?.avatar_url} 
+            name={master.display_name || 'Esperti Rivelya'}
+            size="large"
+          />
           <span className={`status-badge ${availabilityStatus}`}>{availabilityLabel}</span>
         </div>
         <div className="profile-content">
@@ -522,6 +530,7 @@ export default function MasterProfile() {
           </div>
         </div>
       </div>
+      {!isMaster && (
       <div className="profile-actions">
         {hasService(master.services, 'chat') && (
           <div className="rate-card">
@@ -554,115 +563,118 @@ export default function MasterProfile() {
           </div>
         )}
       </div>
-      <div className="booking-card">
-        <div className="booking-head">
-          <h2>Prenota una consulenza</h2>
-          <p className="muted">
-            Seleziona giorno e orario tra le disponibilità reali del esperti. Il credito verrà prenotato e confermato al momento
-            dell&apos;accettazione.
-          </p>
-        </div>
-        {availabilityLoading && <div className="booking-skeleton" aria-hidden="true" />}
-        {!availabilityLoading && availableDays.length === 0 && (
-          <p className="muted">Questo Esperti non ha ancora pubblicato disponibilità per le prossime settimane.</p>
-        )}
-        {!availabilityLoading && availableDays.length > 0 && (
-          <div className="booking-form">
-            <div className="booking-calendar">
-              <p className="calendar-title">Scegli una data</p>
-              <DayPicker
-                mode="single"
-                selected={selectedDateObject}
-                onSelect={handleDaySelect}
-                disabled={disabledDays}
-                modifiers={modifiers}
-                modifiersClassNames={{ available: 'calendar-available' }}
-                weekStartsOn={1}
-                fromDate={today}
-                numberOfMonths={2}
-                showOutsideDays
-                captionLayout="buttons"
-              />
-              <p className="calendar-selection">{selectedDateLabel}</p>
-            </div>
-            <div className="booking-fields">
-              <div className="booking-time-grid">
-                <label className="input-label">
-                  Inizio
-                  <FancySelect
-                    name="start"
-                    value={booking.start}
-                    options={startSelectOptions}
-                    onChange={updateBooking}
-                    placeholder="Seleziona"
-                    isDisabled={startSelectOptions.length === 0}
-                  />
-                </label>
-                <label className="input-label">
-                  Fine
-                  <FancySelect
-                    name="end"
-                    value={booking.end}
-                    options={endSelectOptions}
-                    onChange={updateBooking}
-                    placeholder="Seleziona"
-                    isDisabled={endSelectOptions.length === 0}
-                  />
-                </label>
-              </div>
-              <label className="input-label">
-                Canale preferito
-                <FancySelect
-                  name="channel"
-                  value={booking.channel}
-                  options={channelOptions}
-                  onChange={updateBooking}
-                  isDisabled={channelOptions.length === 0}
-                />
-              </label>
-              <div className="booking-summary">
-                <div>
-                  <span className="summary-label">Durata selezionata</span>
-                  <strong>{durationMinutes ? `${durationMinutes} min` : '—'}</strong>
-                </div>
-                <div>
-                  <span className="summary-label">
-                    Tariffa {channelRateLabels[booking.channel] || 'selezionata'}
-                  </span>
-                  <strong>
-                    {activeRateCents != null ? `${(activeRateCents / 100).toFixed(2)} € / min` : '—'}
-                  </strong>
-                </div>
-                <div>
-                  <span className="summary-label">Totale stimato</span>
-                  <strong>{estimatedCost != null ? `${estimatedCost.toFixed(2)} €` : '—'}</strong>
-                </div>
-              </div>
-              <p className="booking-summary-note">
-                L&apos;importo viene prenotato dal tuo wallet e addebitato solo dopo la conferma del Esperti.
-              </p>
-              <label className="input-label">
-                Note per il Esperti (opzionale)
-                <textarea
-                  name="notes"
-                  rows="3"
-                  value={booking.notes}
-                  onChange={updateBooking}
-                  placeholder="Inserisci eventuali preferenze o contesto della sessione"
-                />
-              </label>
-              <button
-                type="button"
-                className="btn primary"
-                onClick={submitBooking}
-                disabled={bookingLoading || !booking.date || !booking.start || !booking.end || !booking.channel}
-              >
-                {bookingLoading ? 'Prenotazione in corso…' : 'Conferma prenotazione'}
-              </button>
-            </div>
+      )}
+      {!isMaster && (
+        <div className="booking-card">
+          <div className="booking-head">
+            <h2>Prenota una consulenza</h2>
+            <p className="muted">
+              Seleziona giorno e orario tra le disponibilità reali del esperti. Il credito verrà prenotato e confermato al momento
+              dell&apos;accettazione.
+            </p>
           </div>
-        )}
-      </div>
+          {availabilityLoading && <div className="booking-skeleton" aria-hidden="true" />}
+          {!availabilityLoading && availableDays.length === 0 && (
+            <p className="muted">Questo Esperti non ha ancora pubblicato disponibilità per le prossime settimane.</p>
+          )}
+          {!availabilityLoading && availableDays.length > 0 && (
+            <div className="booking-form">
+              <div className="booking-calendar">
+                <p className="calendar-title">Scegli una data</p>
+                <DayPicker
+                  mode="single"
+                  selected={selectedDateObject}
+                  onSelect={handleDaySelect}
+                  disabled={disabledDays}
+                  modifiers={modifiers}
+                  modifiersClassNames={{ available: 'calendar-available' }}
+                  weekStartsOn={1}
+                  fromDate={today}
+                  numberOfMonths={2}
+                  showOutsideDays
+                  captionLayout="buttons"
+                />
+                <p className="calendar-selection">{selectedDateLabel}</p>
+              </div>
+              <div className="booking-fields">
+                <div className="booking-time-grid">
+                  <label className="input-label">
+                    Inizio
+                    <FancySelect
+                      name="start"
+                      value={booking.start}
+                      options={startSelectOptions}
+                      onChange={updateBooking}
+                      placeholder="Seleziona"
+                      isDisabled={startSelectOptions.length === 0}
+                    />
+                  </label>
+                  <label className="input-label">
+                    Fine
+                    <FancySelect
+                      name="end"
+                      value={booking.end}
+                      options={endSelectOptions}
+                      onChange={updateBooking}
+                      placeholder="Seleziona"
+                      isDisabled={endSelectOptions.length === 0}
+                    />
+                  </label>
+                </div>
+                <label className="input-label">
+                  Canale preferito
+                  <FancySelect
+                    name="channel"
+                    value={booking.channel}
+                    options={channelOptions}
+                    onChange={updateBooking}
+                    isDisabled={channelOptions.length === 0}
+                  />
+                </label>
+                <div className="booking-summary">
+                  <div>
+                    <span className="summary-label">Durata selezionata</span>
+                    <strong>{durationMinutes ? `${durationMinutes} min` : '—'}</strong>
+                  </div>
+                  <div>
+                    <span className="summary-label">
+                      Tariffa {channelRateLabels[booking.channel] || 'selezionata'}
+                    </span>
+                    <strong>
+                      {activeRateCents != null ? `${(activeRateCents / 100).toFixed(2)} € / min` : '—'}
+                    </strong>
+                  </div>
+                  <div>
+                    <span className="summary-label">Totale stimato</span>
+                    <strong>{estimatedCost != null ? `${estimatedCost.toFixed(2)} €` : '—'}</strong>
+                  </div>
+                </div>
+                <p className="booking-summary-note">
+                  L&apos;importo viene prenotato dal tuo wallet e addebitato solo dopo la conferma del Esperti.
+                </p>
+                <label className="input-label">
+                  Note per il Esperti (opzionale)
+                  <textarea
+                    name="notes"
+                    rows="3"
+                    value={booking.notes}
+                    onChange={updateBooking}
+                    placeholder="Inserisci eventuali preferenze o contesto della sessione"
+                  />
+                </label>
+                <button
+                  type="button"
+                  className="btn primary"
+                  onClick={submitBooking}
+                  disabled={bookingLoading || !booking.date || !booking.start || !booking.end || !booking.channel}
+                >
+                  {bookingLoading ? 'Prenotazione in corso…' : 'Conferma prenotazione'}
+                </button>
+              </div>
+            </div>
+          )}
+        </div>
+      )}
       <div className="schedule-card">
         <div className="schedule-header">
           <h2>Disponibilità settimanale</h2>

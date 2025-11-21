@@ -4,6 +4,7 @@ import client from '../api/client.js';
 import { summarizeWorkingHours, resolveTimezoneLabel } from '../utils/schedule.js';
 import { resolveAvailabilityStatus } from '../utils/availability.js';
 import FancySelect from '../components/FancySelect.jsx';
+import SessionNotificationButton from '../components/SessionNotificationButton.jsx';
 import useSocket from '../hooks/useSocket.js';
 
 const categories = [
@@ -180,6 +181,13 @@ export default function Catalog() {
                             <span className="live-pulse" aria-hidden="true" />
                             In sessione{master.active_session_channel ? ` · ${sessionChannelLabel}` : ''}
                           </span>
+                        )}
+                        {master.active_session && (
+                          <SessionNotificationButton 
+                            masterId={master._id}
+                            masterName={master.display_name}
+                            isBusy={true}
+                          />
                         )}
                       </div>
                       <span className="rating">★ {rating}</span>

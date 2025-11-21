@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import toast from 'react-hot-toast';
 import { getBookingHistory, requestReschedule, respondToReschedule } from '../api/dashboard.js';
 import ConfirmModal from '../components/ConfirmModal.jsx';
+import Avatar from '../components/Avatar.jsx';
 
 const statusLabels = {
   awaiting_master: 'In attesa',
@@ -177,9 +178,11 @@ export default function Dashboard() {
             <div key={booking.id} className="booking-card">
               <div className="booking-card__header">
                 <div className="booking-master">
-                  {booking.master.avatar && (
-                    <img src={booking.master.avatar} alt={booking.master.name} />
-                  )}
+                  <Avatar 
+                    src={booking.master.avatar} 
+                    name={booking.master.name}
+                    size="small"
+                  />
                   <div>
                     <h3>{booking.master.name}</h3>
                     <span className={`status status--${booking.status}`}>

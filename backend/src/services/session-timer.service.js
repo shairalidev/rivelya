@@ -1,8 +1,14 @@
+// DEPRECATED: This service is replaced by session-lifecycle.service.js
+// TODO: Remove this file after confirming no dependencies
+
 import { Session } from '../models/session.model.js';
-import { emitToUser } from './socket.service.js';
+import { emitToUser } from '../lib/socket.js'; // Fixed import path
 import { emitSessionStatus } from '../utils/session-events.js';
 
+// DEPRECATED: Use session-lifecycle.service.js instead
 export const startSessionTimer = () => {
+  console.warn('DEPRECATED: session-timer.service.js is deprecated. Use session-lifecycle.service.js instead.');
+  return; // Disable this service
   // Check for expired sessions every 30 seconds
   setInterval(async () => {
     try {

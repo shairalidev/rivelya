@@ -33,13 +33,12 @@ import http from 'http';
 
 const { app } = await import('./src/app.js');
 const { initSocket } = await import('./src/lib/socket.js');
-const { startSessionTimer } = await import('./src/services/session-timer.service.js');
 
 const port = process.env.PORT || 8080;
 const server = http.createServer(app);
 
 initSocket(server);
-startSessionTimer();
+// Session services are now started in app.js to avoid duplication
 
 server.listen(port, () => {
   console.log(`✅ API running on port ${port} - Mode: ${process.env.NODE_ENV}`);

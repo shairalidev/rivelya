@@ -598,9 +598,8 @@ router.post('/:bookingId/reschedule', requireAuth, async (req, res, next) => {
       return res.status(400).json({ message: 'Puoi riprogrammare solo dopo che il master ha accettato.' });
     }
 
-    if (booking.reschedule_request) {
-      return res.status(409).json({ message: 'Esiste già una richiesta di riprogrammazione in attesa.' });
-    }
+    // If there's an existing reschedule request, update it instead of blocking
+    const isUpdatingExistingRequest = Boolean(booking.reschedule_request);
 
     // Validate new time slot
     const { blocks, bookings } = await loadDayContext({ 
@@ -656,7 +655,11 @@ router.post('/:bookingId/reschedule', requireAuth, async (req, res, next) => {
       meta: { bookingId: booking._id, reason: payload.reason.trim() }
     });
 
-    res.json({ message: 'Richiesta di riprogrammazione inviata.' });
+    res.json({ 
+      message: isUpdatingExistingRequest 
+        ? 'Richiesta di riprogrammazione aggiornata.' 
+        : 'Richiesta di riprogrammazione inviata.' 
+    });
   } catch (error) {
     if (error.isJoi) {
       return res.status(400).json({ message: 'Dati non validi.' });
@@ -794,10 +797,9 @@ router.post('/:bookingId/start-now/request', requireAuth, async (req, res, next)
     if (!booking) return res.status(404).json({ message: 'Prenotazione non trovata.' });
 
     const isCustomer = booking.customer_id._id.toString() === req.user._id.toString();
-    const isMaster = booking.master_id.user_id.toString() === req.user._id.toString();
 
-    if (!isCustomer && !isMaster) {
-      return res.status(403).json({ message: 'Non autorizzato.' });
+    if (!isCustomer) {
+      return res.status(403).json({ message: 'Solo i clienti possono richiedere l\'avvio immediato.' });
     }
 
     if (!booking.can_start || booking.status !== 'ready_to_start') {
@@ -809,17 +811,15 @@ router.post('/:bookingId/start-now/request', requireAuth, async (req, res, next)
     }
 
     booking.start_now_request = {
-      requested_by: isCustomer ? 'customer' : 'master',
+      requested_by: 'customer',
       requested_at: new Date(),
       status: 'pending'
     };
 
     await booking.save();
 
-    const targetUserId = isCustomer ? booking.master_id.user_id : booking.customer_id._id;
-    const requesterName = isCustomer ?
-      (booking.customer_id.display_name || 'Cliente') :
-      (booking.master_id.display_name || 'Master');
+    const targetUserId = booking.master_id.user_id;
+    const requesterName = booking.customer_id.display_name || 'Cliente';
 
     await createNotification({
       userId: targetUserId,
@@ -892,6 +892,12 @@ router.post('/:bookingId/start-now/respond', requireAuth, async (req, res, next)
       });
 
       return res.json({ message: 'Richiesta di avvio immediato rifiutata.' });
+    }
+
+    // Check if session already exists before accepting
+    const existingSession = await Session.findOne({ booking_id: booking._id });
+    if (existingSession) {
+      return res.status(409).json({ message: 'La sessione è già stata avviata.' });
     }
 
     booking.start_now_request.status = 'accepted';
@@ -1038,6 +1044,17 @@ router.post('/:bookingId/start', requireAuth, async (req, res, next) => {
     
     if (!isCustomer && !isMaster) {
       return res.status(403).json({ message: 'Non autorizzato.' });
+    }
+
+    // Check if session already exists
+    const existingSession = await Session.findOne({ booking_id: booking._id });
+    if (existingSession) {
+      return res.status(409).json({ message: 'La sessione è già stata avviata.' });
+    }
+
+    // Check if booking is already active
+    if (booking.status === 'active' || booking.actual_started_at) {
+      return res.status(409).json({ message: 'La sessione è già in corso.' });
     }
 
     if (!booking.can_start || booking.status !== 'ready_to_start') {

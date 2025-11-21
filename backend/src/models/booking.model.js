@@ -25,9 +25,12 @@ const bookingSchema = new mongoose.Schema({
     default: 'awaiting_master'
   },
   can_start: { type: Boolean, default: false },
-  started_by: { type: String, enum: ['customer', 'master'] },
+  started_by: { type: String, enum: ['customer', 'master', 'system'] },
   started_at: { type: Date },
   actual_started_at: { type: Date },
+  completed_at: { type: Date },
+  notification_sent: { type: Boolean, default: false },
+  auto_started: { type: Boolean, default: false },
   start_now_request: {
     requested_by: { type: String, enum: ['customer', 'master'] },
     requested_at: { type: Date },
@@ -74,6 +77,8 @@ const bookingSchema = new mongoose.Schema({
 bookingSchema.index({ master_id: 1, date: 1 });
 bookingSchema.index({ customer_id: 1, status: 1 });
 bookingSchema.index({ status: 1, createdAt: -1 });
+bookingSchema.index({ status: 1, actual_started_at: 1 });
+bookingSchema.index({ date: 1, start_time: 1, status: 1 });
 
 // Generate reservation ID before saving
 bookingSchema.pre('save', function(next) {

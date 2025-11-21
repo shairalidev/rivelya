@@ -4,6 +4,8 @@ import helmet from 'helmet';
 import morgan from 'morgan';
 import rateLimit from 'express-rate-limit';
 import './config/db.js';
+import { sessionScheduler } from './services/session-scheduler.service.js';
+import { sessionLifecycle } from './services/session-lifecycle.service.js';
 
 import authRoutes from './routes/auth.routes.js';
 import catalogRoutes from './routes/catalog.routes.js';
@@ -19,8 +21,10 @@ import bookingRoutes from './routes/booking.routes.js';
 import chatRoutes from './routes/chat.routes.js';
 import voiceRoutes from './routes/voice.routes.js';
 import notificationRoutes from './routes/notification.routes.js';
+import sessionNotificationRoutes from './routes/session-notification.routes.js';
 import masterRoutes from './routes/master.routes.js';
 import mediaRoutes from './routes/media.routes.js';
+import sessionManagementRoutes from './routes/session-management.routes.js';
 
 import { notFound, errorHandler } from './middleware/error.js';
 
@@ -83,8 +87,14 @@ app.use('/bookings', bookingRoutes);
 app.use('/chat', chatRoutes);
 app.use('/voice', voiceRoutes);
 app.use('/notifications', notificationRoutes);
+app.use('/session-notifications', sessionNotificationRoutes);
 app.use('/master', masterRoutes);
 app.use('/media', mediaRoutes);
+app.use('/session-management', sessionManagementRoutes);
 
 app.use(notFound);
 app.use(errorHandler);
+
+// Start session services
+sessionScheduler.start();
+sessionLifecycle.start();
