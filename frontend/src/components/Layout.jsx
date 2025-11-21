@@ -345,8 +345,59 @@ export default function Layout() {
                   </NavLink>
                 )
               )}
+              {/* Mobile Profile Links */}
+              {user && (
+                <>
+                  <div className="mobile-nav-divider" />
+                  {user?.roles?.includes('master') && (
+                    <Link to="/master/dashboard" className="nav-link" onClick={handleNavClick}>
+                      Area Esperti
+                    </Link>
+                  )}
+                  <Link to="/reservations" className="nav-link" onClick={handleNavClick}>
+                    Gestione Prenotazioni
+                  </Link>
+                  <Link to="/chat" className="nav-link" onClick={handleNavClick}>
+                    Chat
+                  </Link>
+                  <Link to="/voice" className="nav-link" onClick={handleNavClick}>
+                    Chiamate
+                  </Link>
+                  <Link to="/profile" className="nav-link" onClick={handleNavClick}>
+                    Profilo
+                  </Link>
+                  <Link to="/wallet" className="nav-link" onClick={handleNavClick}>
+                    Wallet
+                  </Link>
+                </>
+              )}
             </nav>
-            <div className="mobile-auth">{authControls}</div>
+            <div className="mobile-auth">
+              {user ? (
+                <div className="mobile-user-info">
+                  <div className="mobile-user-details">
+                    <p className="mobile-user-name">{user.displayName || user.email}</p>
+                    <p className="mobile-user-email">{user.email}</p>
+                  </div>
+                  <button
+                    type="button"
+                    className="btn outline mobile-logout-btn"
+                    onClick={logout}
+                  >
+                    Esci
+                  </button>
+                </div>
+              ) : (
+                <div className="auth-buttons">
+                  <Link to="/login" className="btn ghost" onClick={handleNavClick}>
+                    Accedi
+                  </Link>
+                  <Link to="/register" className="btn primary" onClick={handleNavClick}>
+                    Inizia ora
+                  </Link>
+                </div>
+              )}
+            </div>
           </div>
         </div>
 
