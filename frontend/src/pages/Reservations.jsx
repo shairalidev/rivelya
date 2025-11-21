@@ -410,6 +410,10 @@ export default function Reservations() {
   };
 
   const canReschedule = (reservation) => {
+    const sessionStart = reservation.start
+      ? new Date(`${reservation.date}T${reservation.start}:00`)
+      : new Date(reservation.date);
+    const isFutureSession = !Number.isNaN(sessionStart.getTime()) && sessionStart > new Date();
     const validStatus = ['awaiting_master', 'confirmed', 'ready_to_start'].includes(reservation.status);
     const isCustomer = reservation.user_role === 'customer';
     const hasPendingRequest = Boolean(reservation.reschedule_request);
