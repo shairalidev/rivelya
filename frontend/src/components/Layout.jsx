@@ -1,6 +1,7 @@
 import { Link, NavLink, Outlet, useLocation, useNavigate } from 'react-router-dom';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import NotificationBell from './NotificationBell.jsx';
+import PageTransition from './PageTransition.jsx';
 import {
   clearAuth,
   getUser as getStoredUser,
@@ -108,10 +109,20 @@ export default function Layout() {
   const closeProfileMenu = () => setProfileOpen(false);
 
   const logout = () => {
-    clearAuth();
-    setUser(null);
-    notifyAuthChange();
-    navigate('/');
+    // Add logout animation class
+    document.body.classList.add('auth-transitioning');
+    
+    setTimeout(() => {
+      clearAuth();
+      setUser(null);
+      notifyAuthChange();
+      navigate('/');
+      
+      // Remove animation class after navigation
+      setTimeout(() => {
+        document.body.classList.remove('auth-transitioning');
+      }, 300);
+    }, 150);
   };
 
   const activeCategory = useMemo(() => {
@@ -342,7 +353,9 @@ export default function Layout() {
       </header>
 
       <main className={`main${isChat ? ' chat-main' : ''}`}>
-        <Outlet />
+        <PageTransition>
+          <Outlet />
+        </PageTransition>
       </main>
 
       {!isChat && <footer className="footer">
@@ -378,9 +391,9 @@ export default function Layout() {
         <div className="container footer-bottom">
           <span>© {new Date().getFullYear()} Rivelya. Tutti i diritti riservati.</span>
           <div className="footer-legal">
-            <a href="#" className="footer-link">Privacy</a>
-            <a href="#" className="footer-link">Cookie</a>
-            <a href="#" className="footer-link">Termini</a>
+            <Link to="/privacy" className="footer-link">Privacy</Link>
+            <Link to="/cookie" className="footer-link">Cookie</Link>
+            <Link to="/terms" className="footer-link">Termini</Link>
           </div>
         </div>
       </footer>}

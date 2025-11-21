@@ -32,14 +32,28 @@ export default function Login() {
     if (loading) return;
     try {
       setLoading(true);
+      
+      // Add login animation class
+      document.body.classList.add('auth-transitioning');
+      
       const res = await client.post('/auth/login', form);
       setToken(res.data.token);
       storeUser(res.data.user);
       toast.success('Bentornato su Rivelya!');
       notifyAuthChange();
-      const target = returnTo || '/';
-      navigate(target);
+      
+      // Smooth transition to target page
+      setTimeout(() => {
+        const target = returnTo || '/';
+        navigate(target);
+        
+        // Remove animation class after navigation
+        setTimeout(() => {
+          document.body.classList.remove('auth-transitioning');
+        }, 300);
+      }, 200);
     } catch (error) {
+      document.body.classList.remove('auth-transitioning');
       const status = error?.response?.status;
       const message = error?.response?.data?.message || 'Credenziali non valide.';
       if (status === 403) {

@@ -16,6 +16,9 @@ import Dashboard from './pages/Dashboard.jsx';
 import Reservations from './pages/Reservations.jsx';
 import Chat from './pages/Chat.jsx';
 import Voice from './pages/Voice.jsx';
+import Privacy from './pages/Privacy.jsx';
+import Cookie from './pages/Cookie.jsx';
+import Terms from './pages/Terms.jsx';
 
 export default function App() {
   return (
@@ -55,6 +58,9 @@ export default function App() {
           <Route path="/forgot-password" element={<ForgotPassword />} />
           <Route path="/reset-password" element={<ResetPassword />} />
           <Route path="/verify-email" element={<VerifyEmail />} />
+          <Route path="/privacy" element={<Privacy />} />
+          <Route path="/cookie" element={<Cookie />} />
+          <Route path="/terms" element={<Terms />} />
           <Route path="*" element={<Navigate to="/" replace />} />
         </Route>
       </Routes>

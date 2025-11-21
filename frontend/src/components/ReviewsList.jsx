@@ -19,18 +19,20 @@ const StarRating = ({ rating, size = 'medium' }) => {
   return <div className="review-stars">{stars}</div>;
 };
 
-export default function ReviewsList({ masterUserId, limit = 10 }) {
+export default function ReviewsList({ masterId, masterUserId, limit = 10 }) {
   const [reviews, setReviews] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
 
   useEffect(() => {
     const loadReviews = async () => {
-      if (!masterUserId) return;
+      const targetId = masterId || masterUserId;
+      if (!targetId) return;
       
       try {
         setLoading(true);
-        const res = await client.get(`/review/user/${masterUserId}?reviewer_type=client&limit=${limit}`);
+        // Always use user_id based endpoint since reviews are linked to user_id
+        const res = await client.get(`/review/user/${masterUserId || masterId}?reviewer_type=client&limit=${limit}`);
         setReviews(res.data.reviews || []);
       } catch (err) {
         console.warn('Failed to load reviews:', err);
@@ -42,7 +44,7 @@ export default function ReviewsList({ masterUserId, limit = 10 }) {
     };
 
     loadReviews();
-  }, [masterUserId, limit]);
+  }, [masterId, masterUserId, limit]);
 
   if (loading) {
     return (

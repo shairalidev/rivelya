@@ -25,11 +25,21 @@ export default function Register() {
     if (loading) return;
     try {
       setLoading(true);
+      
+      // Add registration animation class
+      document.body.classList.add('auth-transitioning');
+      
       const res = await client.post('/auth/signup', form);
       toast.success(res.data.message || 'Registrazione completata!');
       setSentTo(form.email);
-      setCompleted(true);
+      
+      // Smooth transition to success state
+      setTimeout(() => {
+        setCompleted(true);
+        document.body.classList.remove('auth-transitioning');
+      }, 300);
     } catch (error) {
+      document.body.classList.remove('auth-transitioning');
       const message = error?.response?.data?.message || 'Registrazione non riuscita.';
       toast.error(message);
     } finally {

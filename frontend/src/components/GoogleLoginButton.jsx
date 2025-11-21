@@ -19,13 +19,22 @@ export default function GoogleLoginButton({ onSuccess }) {
         client_id: clientId,
         callback: async response => {
           try {
+            // Add Google login animation class
+            document.body.classList.add('auth-transitioning');
+            
             const res = await client.post('/auth/google', { credential: response.credential });
             setToken(res.data.token);
             setUser(res.data.user);
             toast.success('Accesso con Google riuscito!');
             notifyAuthChange();
-            onSuccess?.();
+            
+            // Smooth transition after Google login
+            setTimeout(() => {
+              onSuccess?.();
+              document.body.classList.remove('auth-transitioning');
+            }, 300);
           } catch (error) {
+            document.body.classList.remove('auth-transitioning');
             const message = error?.response?.data?.message || 'Impossibile completare l\'accesso con Google.';
             toast.error(message);
           }
