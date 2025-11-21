@@ -418,7 +418,7 @@ export default function Reservations() {
     const isCustomer = reservation.user_role === 'customer';
     const hasPendingRequest = Boolean(reservation.reschedule_request);
 
-    return isFutureSession && validStatus && isCustomer && !hasPendingRequest;
+    return validStatus && isCustomer && !hasPendingRequest;
   };
 
   const startNowStatusLabel = (request) => {
