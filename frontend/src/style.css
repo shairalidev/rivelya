@@ -3886,7 +3886,7 @@ body.nav-open {
 /* Page Transition Animations */
 .page-transition {
   animation-duration: 0.3s;
-  animation-fill-mode: both;
+  animation-fill-mode: none;
   animation-timing-function: cubic-bezier(0.4, 0, 0.2, 1);
 }
 
@@ -3905,14 +3905,14 @@ body.nav-open {
   }
   to {
     opacity: 1;
-    transform: translateY(0);
+    transform: none;
   }
 }
 
 @keyframes fadeOutDown {
   from {
     opacity: 1;
-    transform: translateY(0);
+    transform: none;
   }
   to {
     opacity: 0;
@@ -3931,15 +3931,15 @@ body.auth-transitioning .app-shell {
 
 @keyframes authTransition {
   0% {
-    transform: scale(1);
+    opacity: 1;
     filter: blur(0px);
   }
   50% {
-    transform: scale(0.98);
+    opacity: 0.8;
     filter: blur(2px);
   }
   100% {
-    transform: scale(1);
+    opacity: 1;
     filter: blur(0px);
   }
 }
@@ -4302,11 +4302,11 @@ html {
 @keyframes pageLoad {
   from {
     opacity: 0;
-    transform: translateY(10px);
+    filter: blur(6px);
   }
   to {
     opacity: 1;
-    transform: translateY(0);
+    filter: blur(0px);
   }
 }
 
