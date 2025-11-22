@@ -948,12 +948,15 @@ export default function MasterDashboard() {
 
                   const isBlocked = day.fullDayBlocked;
                   const hasAvail = day.availableRanges?.length > 0;
+                  const hasBookings = (day.bookings || []).length > 0;
                   const label = Number(day.date.split('-')[2]);
 
                   return (
                     <button
                       key={day.date}
-                      className={`calendar-day${isBlocked ? ' blocked' : ''}${hasAvail ? ' available' : ''}`}
+                      className={`calendar-day${isBlocked ? ' blocked' : ''}${hasAvail ? ' available' : ''}${
+                        hasBookings ? ' has-bookings' : ''
+                      }`}
                       onClick={() => openDayModal(day)}
                     >
                       <span>{label}</span>
@@ -1089,8 +1092,8 @@ export default function MasterDashboard() {
 
       {/* MODAL */}
       {modalDay && monthData && (
-        <div className="modal-backdrop">
-          <div className="modal-card">
+        <div className="modal-backdrop" onClick={() => setModalDay(null)}>
+          <div className="modal-card day-modal" onClick={e => e.stopPropagation()}>
             <div className="modal-head">
               <h3>
                 {new Date(`${modalDay.date}T00:00:00`).toLocaleDateString('it-IT', {
@@ -1102,37 +1105,55 @@ export default function MasterDashboard() {
               <button type="button" className="btn ghost" onClick={() => setModalDay(null)}>×</button>
             </div>
 
-            <div className="modal-body">
-              {modalDay.fullDayBlocked ? (
-                <p className="muted">Giorno già bloccato completamente.</p>
-              ) : (
-                <p className="muted">
-                  Le fasce disponibili seguono la tua disponibilità settimanale oppure restano h24 se non hai impostato alcuna
-                  fascia.
-                </p>
-              )}
+            <div className="day-modal-body">
+              <div className="day-modal-column day-modal-bookings">
+                <div className="modal-section-head">
+                  <p className="micro">Prenotazioni del giorno</p>
+                  <span className="micro muted">
+                    {modalBookings.length > 0
+                      ? `${modalBookings.length} sessione${modalBookings.length > 1 ? 'i' : ''}`
+                      : 'Nessuna prenotazione registrata'}
+                  </span>
+                </div>
 
-              {modalDay.blocks?.length > 0 && (
-                <div className="modal-section">
-                  <p className="micro">Restrizioni attive</p>
+                {modalBookings.length === 0 ? (
+                  <p className="muted">Non sono presenti prenotazioni per questa data.</p>
+                ) : (
+                  <ul className="day-booking-list">
+                    {modalBookings.map(booking => (
+                      <li key={booking.id} className="day-booking-item">
+                        <div className="day-booking-row">
+                          <div className="day-booking-time">
+                            <strong>{booking.start} – {booking.end}</strong>
+                            <span className="micro muted">{bookingChannelLabels[booking.channel] || booking.channel}</span>
+                          </div>
 
-                  <ul className="block-list">
-                    {modalDay.blocks.map(b => (
-                      <li key={b.id || b._id}>
-                        {b.fullDay ? 'Intera giornata' : `${b.start} - ${b.end}`}
+                          <span className={`status status--${booking.status || 'awaiting_master'}`}>
+                            {bookingStatusLabels[booking.status] || booking.status || 'In attesa'}
+                          </span>
+                        </div>
 
-                        <button
-                          type="button"
-                          className="btn ghost"
-                          onClick={() => handleRemoveBlock(b.id || b._id)}
-                        >
-                          Rimuovi
-                        </button>
+                        <div className="day-booking-meta">
+                          <span className="micro">{booking.customer?.name || 'Cliente'}</span>
+                          {typeof booking.amount_cents === 'number' && (
+                            <span className="micro muted">€ {formatCurrency(booking.amount_cents)}</span>
+                          )}
+                        </div>
                       </li>
                     ))}
                   </ul>
-                </div>
-              )}
+                )}
+              </div>
+
+              <div className="day-modal-column day-modal-controls">
+                {modalDay.fullDayBlocked ? (
+                  <p className="muted">Giorno già bloccato completamente.</p>
+                ) : (
+                  <p className="muted">
+                    Le fasce disponibili seguono la tua disponibilità settimanale oppure restano h24 se non hai impostato alcuna
+                    fascia.
+                  </p>
+                )}
 
               <div className="modal-section">
                 <div className="modal-section-head">
@@ -1176,40 +1197,61 @@ export default function MasterDashboard() {
               <div className="modal-section">
                 <p className="micro">Blocca fascia oraria</p>
 
-                <div className="time-grid">
-                  <label className="input-label">
-                    Inizio
-                    <FancySelect
-                      name="start"
-                      value={blockForm.start}
-                      options={startSelectOptions}
-                      onChange={updateBlockForm}
-                    />
-                  </label>
+                    <ul className="block-list">
+                      {modalDay.blocks.map(b => (
+                        <li key={b.id || b._id}>
+                          {b.fullDay ? 'Intera giornata' : `${b.start} - ${b.end}`}
 
-                  <label className="input-label">
-                    Fine
-                    <FancySelect
-                      name="end"
-                      value={blockForm.end}
-                      options={endSelectOptions}
-                      onChange={updateBlockForm}
-                      isDisabled={endSelectOptions.length === 0}
-                    />
-                  </label>
-                </div>
+                          <button
+                            type="button"
+                            className="btn ghost small"
+                            onClick={() => handleRemoveBlock(b.id || b._id)}
+                          >
+                            Rimuovi
+                          </button>
+                        </li>
+                      ))}
+                    </ul>
+                  </div>
+                )}
 
-                <div className="modal-actions">
-                  <button type="button" className="btn outline" onClick={() => handleAddBlock(false)}>
-                    Blocca fascia
-                  </button>
+                <div className="modal-section">
+                  <p className="micro">Blocca fascia oraria</p>
 
-                  <button type="button" className="btn ghost" onClick={() => handleAddBlock(true)}>
-                    Blocca intera giornata
-                  </button>
+                  <div className="time-grid">
+                    <label className="input-label">
+                      Inizio
+                      <FancySelect
+                        name="start"
+                        value={blockForm.start}
+                        options={startSelectOptions}
+                        onChange={updateBlockForm}
+                      />
+                    </label>
+
+                    <label className="input-label">
+                      Fine
+                      <FancySelect
+                        name="end"
+                        value={blockForm.end}
+                        options={endSelectOptions}
+                        onChange={updateBlockForm}
+                        isDisabled={endSelectOptions.length === 0}
+                      />
+                    </label>
+                  </div>
+
+                  <div className="modal-actions">
+                    <button type="button" className="btn outline" onClick={() => handleAddBlock(false)}>
+                      Blocca fascia
+                    </button>
+
+                    <button type="button" className="btn ghost" onClick={() => handleAddBlock(true)}>
+                      Blocca intera giornata
+                    </button>
+                  </div>
                 </div>
               </div>
-
             </div>
           </div>
         </div>
