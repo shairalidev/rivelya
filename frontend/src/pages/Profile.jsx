@@ -122,7 +122,7 @@ export default function Profile() {
   const loadReviews = async (userId) => {
     try {
       setReviewsLoading(true);
-      const response = await client.get(`/review/user/${userId}?reviewer_type=master`);
+      const response = await client.get(`/reviews/user/${userId}?reviewer_type=master`);
       setReviews(response.data.reviews || []);
     } catch (error) {
       console.error('Failed to load reviews:', error);

@@ -286,9 +286,9 @@ export default function Chat() {
     };
 
     const handleReviewPrompt = payload => {
-      console.log('[chat] Review prompt received:', payload);
+      if (!payload?.bookingId) return;
       setReviewData({
-        sessionId: payload.sessionId,
+        bookingId: payload.bookingId,
         partnerName: payload.partnerName,
         partnerType: payload.partnerType
       });
@@ -800,7 +800,7 @@ export default function Chat() {
           setShowReviewModal(false);
           setReviewData(null);
         }}
-        sessionId={reviewData?.sessionId}
+        bookingId={reviewData?.bookingId}
         partnerName={reviewData?.partnerName}
         partnerType={reviewData?.partnerType}
       />
