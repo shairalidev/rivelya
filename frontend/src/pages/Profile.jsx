@@ -100,8 +100,10 @@ export default function Profile() {
           horoscopeBirthDate: profile.horoscopeBirthDate ? new Date(profile.horoscopeBirthDate).toISOString().split('T')[0] : '',
           horoscopeBirthTime: profile.horoscopeBirthTime || ''
         });
-        // Load user reviews
-        loadReviews(profile._id);
+        // Load user reviews only for masters
+        if (profile?.roles?.includes('master')) {
+          loadReviews(profile._id);
+        }
       })
       .catch(err => {
         if (err?.response?.status === 401) {
@@ -435,7 +437,8 @@ export default function Profile() {
       </div>
       
       {/* Reviews Section */}
-      <div className="account-card">
+      {user?.roles?.includes('master') && (
+        <div className="account-card">
         <div className="account-section">
           <h2>Le tue recensioni</h2>
           <p className="muted">Recensioni ricevute dai master dopo le sessioni.</p>
@@ -479,7 +482,8 @@ export default function Profile() {
             </div>
           )}
         </div>
-      </div>
+        </div>
+      )}
     </section>
   );
 }
