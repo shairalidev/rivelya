@@ -28,3 +28,31 @@ reviewSchema.index(
 );
 
 export const Review = mongoose.model('Review', reviewSchema);
+
+const LEGACY_SESSION_INDEXES = ['session_id_1_reviewer_id_1', 'session_id_1'];
+
+async function dropLegacySessionIndexes() {
+  try {
+    const existingIndexes = await Review.collection.indexes();
+    const legacyIndexes = existingIndexes
+      .map(index => index.name)
+      .filter(name => LEGACY_SESSION_INDEXES.includes(name));
+
+    await Promise.all(legacyIndexes.map(name => Review.collection.dropIndex(name)));
+
+    if (legacyIndexes.length > 0) {
+      console.info(`Dropped legacy session review indexes: ${legacyIndexes.join(', ')}`);
+    }
+  } catch (err) {
+    // Ignore cases where the collection has not been created yet or indexes are missing
+    if (err.codeName !== 'NamespaceNotFound' && err.codeName !== 'IndexNotFound') {
+      console.warn('Error while dropping legacy session review indexes', err);
+    }
+  }
+}
+
+if (mongoose.connection.readyState === 1) {
+  dropLegacySessionIndexes();
+} else {
+  mongoose.connection.once('open', dropLegacySessionIndexes);
+}
