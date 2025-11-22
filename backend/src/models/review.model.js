@@ -17,8 +17,17 @@ const reviewSchema = new mongoose.Schema({
 }, { timestamps: true });
 
 // Compound index to prevent duplicate reviews for same session and reviewer
-reviewSchema.index({ session_id: 1, reviewer_id: 1 }, { unique: true });
+// Only applies when a session_id exists to avoid collisions with booking-only reviews
+reviewSchema.index(
+  { session_id: 1, reviewer_id: 1 },
+  { unique: true, partialFilterExpression: { session_id: { $exists: true, $ne: null } } }
+);
+
 // Compound index to prevent duplicate reviews for same booking and reviewer
-reviewSchema.index({ booking_id: 1, reviewer_id: 1 }, { unique: true });
+// Only applies when a booking_id exists to avoid collisions with session-only reviews
+reviewSchema.index(
+  { booking_id: 1, reviewer_id: 1 },
+  { unique: true, partialFilterExpression: { booking_id: { $exists: true, $ne: null } } }
+);
 
 export const Review = mongoose.model('Review', reviewSchema);
