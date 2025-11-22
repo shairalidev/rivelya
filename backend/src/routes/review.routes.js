@@ -6,6 +6,7 @@ import { Booking } from '../models/booking.model.js';
 import { Master } from '../models/master.model.js';
 import { syncMasterReviewKPIs } from '../utils/review-sync.js';
 import { getPublicDisplayName } from '../utils/privacy.js';
+import mongoose from 'mongoose';
 
 const router = Router();
 
@@ -83,27 +84,34 @@ router.get('/user/:userId', async (req, res, next) => {
   try {
     const { userId } = req.params;
     const { page = 1, limit = 10, reviewer_type } = req.query;
-    
+
+    if (!mongoose.Types.ObjectId.isValid(userId)) {
+      return res.status(400).json({ message: 'Invalid user id' });
+    }
+
+    const parsedLimit = Math.min(Math.max(parseInt(limit, 10) || 10, 1), 100);
+    const parsedPage = Math.max(parseInt(page, 10) || 1, 1);
+
     const filter = { reviewee_id: userId };
     if (reviewer_type) filter.reviewer_type = reviewer_type;
-    
+
     const reviews = await Review.find(filter)
       .populate('reviewer_id', 'display_name avatar_url')
       .populate('session_id', 'channel createdAt')
       .populate('booking_id', 'channel createdAt')
       .sort({ createdAt: -1 })
-      .limit(limit * 1)
-      .skip((page - 1) * limit);
-    
+      .limit(parsedLimit)
+      .skip((parsedPage - 1) * parsedLimit);
+
     const total = await Review.countDocuments(filter);
-    
+
     res.json({
       reviews,
       pagination: {
-        page: parseInt(page),
-        limit: parseInt(limit),
+        page: parsedPage,
+        limit: parsedLimit,
         total,
-        pages: Math.ceil(total / limit)
+        pages: Math.ceil(total / parsedLimit)
       }
     });
   } catch (e) { next(e); }

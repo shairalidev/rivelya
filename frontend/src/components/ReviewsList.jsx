@@ -24,15 +24,22 @@ export default function ReviewsList({ masterId, masterUserId, limit = 10 }) {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
 
+  const resolveUserId = (value) => {
+    if (!value) return '';
+    if (typeof value === 'string') return value;
+    if (typeof value === 'object') return value._id || value.id || value.user_id || '';
+    return '';
+  };
+
   useEffect(() => {
     const loadReviews = async () => {
-      const targetId = masterId || masterUserId;
+      const targetId = resolveUserId(masterUserId) || resolveUserId(masterId);
       if (!targetId) return;
-      
+
       try {
         setLoading(true);
         // Always use user_id based endpoint since reviews are linked to user_id
-        const res = await client.get(`/review/user/${masterUserId || masterId}?reviewer_type=client&limit=${limit}`);
+        const res = await client.get(`/review/user/${targetId}?reviewer_type=client&limit=${limit}`);
         console.log('Loaded reviews:', res.data.reviews); // Debug log
         setReviews(res.data.reviews || []);
       } catch (err) {
