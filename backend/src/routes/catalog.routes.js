@@ -41,9 +41,10 @@ router.get('/', async (req, res, next) => {
 
     const masters = await cursor.limit(50).lean();
 
-    const masterIds = masters.map(master => master._id);
-    const masterUserIds = masters.map(master => master.user_id).filter(Boolean);
-    
+  const masterIds = masters.map(master => master._id);
+const masterUserIds = masters.map(master => master.user_id?._id).filter(Boolean);
+
+
     // Get real-time online status
     const onlineUsers = await User.find({
       _id: { $in: masterUserIds },
@@ -196,21 +197,22 @@ router.get('/:id', async (req, res, next) => {
     } : { is_online: false, last_seen: null };
     
     // Get real-time review statistics
-    const reviewStats = await Review.aggregate([
-      {
-        $match: {
-          reviewee_id: master.user_id,
-          reviewer_type: 'client'
-        }
-      },
-      {
-        $group: {
-          _id: null,
-          avg_rating: { $avg: '$rating' },
-          count: { $sum: 1 }
-        }
-      }
-    ]);
+   const reviewStats = await Review.aggregate([
+  {
+    $match: {
+      reviewee_id: master.user_id?._id ? master.user_id._id : master.user_id,
+      reviewer_type: 'client'
+    }
+  },
+  {
+    $group: {
+      _id: null,
+      avg_rating: { $avg: '$rating' },
+      count: { $sum: 1 }
+    }
+  }
+]);
+
     
     const reviews = reviewStats.length > 0 ? {
       avg_rating: Math.round(reviewStats[0].avg_rating * 10) / 10,

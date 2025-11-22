@@ -101,9 +101,9 @@ export default function Profile() {
           horoscopeBirthTime: profile.horoscopeBirthTime || ''
         });
         // Load user reviews only for masters
-        if (profile?.roles?.includes('master')) {
-          loadReviews(profile._id);
-        }
+        loadReviews(profile.user_id);
+
+
       })
       .catch(err => {
         if (err?.response?.status === 401) {
@@ -124,7 +124,8 @@ export default function Profile() {
   const loadReviews = async (userId) => {
     try {
       setReviewsLoading(true);
-      const response = await client.get(`/reviews/user/${userId}?reviewer_type=master`);
+      // Reviews for a master are written by clients, request reviewer_type=client
+      const response = await client.get(`/reviews/user/${userId}?reviewer_type=client`);
       setReviews(response.data.reviews || []);
     } catch (error) {
       console.error('Failed to load reviews:', error);
@@ -435,55 +436,8 @@ export default function Profile() {
           </div>
         </form>
       </div>
-      
-      {/* Reviews Section */}
-      {user?.roles?.includes('master') && (
-        <div className="account-card">
-        <div className="account-section">
-          <h2>Le tue recensioni</h2>
-          <p className="muted">Recensioni ricevute dai master dopo le sessioni.</p>
-          
-          {reviewsLoading ? (
-            <div className="skeleton-list">
-              {[1, 2, 3].map(i => <div key={i} className="skeleton-item" />)}
-            </div>
-          ) : reviews.length === 0 ? (
-            <div className="empty-state">
-              <p>Non hai ancora ricevuto recensioni.</p>
-              <p className="micro">Le recensioni appariranno qui dopo aver completato delle sessioni.</p>
-            </div>
-          ) : (
-            <div className="reviews-list">
-              {reviews.map(review => (
-                <div key={review._id} className="review-item">
-                  <div className="review-header">
-                    <div className="review-rating">
-                      {[1, 2, 3, 4, 5].map(star => (
-                        <span key={star} className={`star ${star <= review.rating ? 'filled' : ''}`}>★</span>
-                      ))}
-                    </div>
-                    <span className="review-date">
-                      {dayjs(review.createdAt).format('DD MMM YYYY')}
-                    </span>
-                  </div>
-                  {review.text && (
-                    <p className="review-text">{review.text}</p>
-                  )}
-                  <div className="review-meta">
-                    <span className="review-channel">
-                      Sessione {review.session_id?.channel || 'chat'}
-                    </span>
-                    <span className="review-author">
-                      da {review.reviewer_id?.display_name || 'Master'}
-                    </span>
-                  </div>
-                </div>
-              ))}
-            </div>
-          )}
-        </div>
-        </div>
-      )}
+     
+  
     </section>
   );
 }
