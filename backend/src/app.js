@@ -78,7 +78,7 @@ app.use('/auth', authRoutes);
 app.use('/catalog', catalogRoutes);
 app.use('/wallet', walletRoutes);
 app.use('/session', sessionRoutes);
-app.use('/review', reviewRoutes);
+app.use('/reviews', reviewRoutes);
 app.use('/admin', adminRoutes);
 app.use('/cms', cmsRoutes);
 app.use('/webhooks', webhookRoutes);

@@ -548,7 +548,7 @@ export default function Reservations() {
   };
 
   const canReview = (reservation) => {
-    return reservation.status === 'completed' && reservation.actual_started_at && reservation.user_role === 'customer';
+    return reservation.status === 'completed' && reservation.user_role === 'customer' && !hasReviewed(reservation);
   };
 
   const hasReviewed = (reservation) => {
@@ -556,8 +556,8 @@ export default function Reservations() {
   };
 
   const handleReview = (reservation) => {
-    const partnerName = reservation.user_role === 'master' 
-      ? reservation.customer.name 
+    const partnerName = reservation.user_role === 'master'
+      ? reservation.customer.name
       : reservation.master.name;
     
     setReviewModal({
@@ -569,8 +569,11 @@ export default function Reservations() {
 
   const handleReviewSubmitted = () => {
     setReviewModal(null);
-    // Reload reservations to get updated review status
-    loadReservations(pagination.page, { showLoader: false });
+    setReservations(prev => prev.map(reservation => (
+      reservation.id === reviewModal?.bookingId
+        ? { ...reservation, has_reviewed: true }
+        : reservation
+    )));
   };
 
   if (loading && reservations.length === 0) {

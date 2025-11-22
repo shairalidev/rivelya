@@ -304,12 +304,6 @@ try {
     }
   ]);
 
-  await Review.create([
-    { session_id: sessions[0]._id, rating: 5, text: 'Sessione illuminante, mi ha aiutato a trovare chiarezza immediata.' },
-    { session_id: sessions[1]._id, rating: 4, text: 'Risposte puntuali e concrete, ottima esperienza di consulenza.' },
-    { session_id: sessions[2]._id, rating: 5, text: 'Un boost di energia e motivazione, consigli pratici da applicare subito.' }
-  ]);
-
   const ledger = [
     { type: 'topup', amount: 20000, meta: { description: 'Ricarica Stripe', reference: 'STR12345' } },
     { type: 'topup', amount: 10000, meta: { description: 'Promo di benvenuto', reference: 'PR-BONUS' } },

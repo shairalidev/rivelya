@@ -1078,7 +1078,7 @@ router.get('/reservations', requireAuth, async (req, res, next) => {
 
     // Get review information for completed bookings
     const completedBookingIds = bookings
-      .filter(b => b.status === 'completed' && b.actual_started_at)
+      .filter(b => b.status === 'completed')
       .map(b => b._id);
     
     const { Review } = await import('../models/review.model.js');

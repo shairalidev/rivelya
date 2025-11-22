@@ -1,82 +1,15 @@
 import { Router } from 'express';
 import { requireAuth } from '../middleware/auth.js';
 import { Review } from '../models/review.model.js';
-import { Session } from '../models/session.model.js';
 import { Booking } from '../models/booking.model.js';
-import { Master } from '../models/master.model.js';
 import { syncMasterReviewKPIs } from '../utils/review-sync.js';
-import { getPublicDisplayName } from '../utils/privacy.js';
 import mongoose from 'mongoose';
 
 const router = Router();
 
-// Create a review
-router.post('/', requireAuth, async (req, res, next) => {
-  try {
-    const { session_id, rating, text } = req.body;
-    
-    // Try to find as a Session first
-    let sess = await Session.findById(session_id).populate('master_id', 'user_id');
-    let reviewerType, revieweeId, actualSessionId = session_id;
-    
-    if (sess) {
-      // Handle voice session
-      if (sess.status !== 'ended') {
-        return res.status(400).json({ message: 'Session not found or not ended' });
-      }
-      
-      const isClient = String(sess.user_id) === String(req.user._id);
-      
-      if (isClient) {
-        reviewerType = 'client';
-        revieweeId = sess.master_id.user_id;
-      } else {
-        return res.status(403).json({ message: 'Only clients can leave reviews' });
-      }
-    } else {
-      // Try to find as a ChatThread
-      const { ChatThread } = await import('../models/chat-thread.model.js');
-      const thread = await ChatThread.findById(session_id);
-      
-      if (!thread || thread.status !== 'expired') {
-        return res.status(400).json({ message: 'Session not found or not ended' });
-      }
-      
-      const isClient = String(thread.customer_id) === String(req.user._id);
-      
-      if (isClient) {
-        reviewerType = 'client';
-        revieweeId = thread.master_user_id;
-      } else {
-        return res.status(403).json({ message: 'Only clients can leave reviews' });
-      }
-      
-      // Use thread ID as session ID for chat reviews
-      actualSessionId = thread._id;
-    }
-
-    // Check if review already exists
-    const existingReview = await Review.findOne({ session_id: actualSessionId, reviewer_id: req.user._id });
-    if (existingReview) {
-      return res.status(400).json({ message: 'Review already submitted for this session' });
-    }
-
-    const review = await Review.create({
-      session_id: actualSessionId,
-      reviewer_id: req.user._id,
-      reviewee_id: revieweeId,
-      reviewer_type: reviewerType,
-      rating,
-      text
-    });
-    
-    // Update master KPIs if this is a client reviewing a master
-    if (reviewerType === 'client') {
-      await syncMasterReviewKPIs(revieweeId);
-    }
-    
-    res.json(review);
-  } catch (e) { next(e); }
+// Session-based reviews are deprecated/disabled
+router.post('/', requireAuth, (req, res) => {
+  return res.status(410).json({ message: 'Session reviews are disabled. Please submit a booking review.' });
 });
 
 // Get reviews for a user (as reviewee)
@@ -97,7 +30,6 @@ router.get('/user/:userId', async (req, res, next) => {
 
     const reviews = await Review.find(filter)
       .populate('reviewer_id', 'display_name avatar_url')
-      .populate('session_id', 'channel createdAt')
       .populate('booking_id', 'channel createdAt')
       .sort({ createdAt: -1 })
       .limit(parsedLimit)
@@ -117,55 +49,9 @@ router.get('/user/:userId', async (req, res, next) => {
   } catch (e) { next(e); }
 });
 
-// Check if user can review a session
-router.get('/session/:sessionId/can-review', requireAuth, async (req, res, next) => {
-  try {
-    const { sessionId } = req.params;
-    
-    // Try to find as a Session first
-    let sess = await Session.findById(sessionId).populate('master_id', 'user_id');
-    let canReview = false;
-    
-    if (sess) {
-      // Handle voice session
-      if (sess.status !== 'ended') {
-        return res.json({ canReview: false, reason: 'Session not found or not ended' });
-      }
-      
-      const isClient = String(sess.user_id) === String(req.user._id);
-      
-      if (!isClient) {
-        return res.json({ canReview: false, reason: 'Only clients can leave reviews' });
-      }
-      
-      canReview = true;
-    } else {
-      // Try to find as a ChatThread
-      const { ChatThread } = await import('../models/chat-thread.model.js');
-      const thread = await ChatThread.findById(sessionId);
-      
-      if (!thread || thread.status !== 'expired') {
-        return res.json({ canReview: false, reason: 'Session not found or not ended' });
-      }
-      
-      const isClient = String(thread.customer_id) === String(req.user._id);
-      
-      if (!isClient) {
-        return res.json({ canReview: false, reason: 'Only clients can leave reviews' });
-      }
-      
-      canReview = true;
-    }
-
-    if (canReview) {
-      const existingReview = await Review.findOne({ session_id: sessionId, reviewer_id: req.user._id });
-      if (existingReview) {
-        return res.json({ canReview: false, reason: 'Already reviewed' });
-      }
-    }
-
-    res.json({ canReview });
-  } catch (e) { next(e); }
+// Session review checks are disabled
+router.get('/session/:sessionId/can-review', requireAuth, (req, res) => {
+  return res.status(410).json({ canReview: false, reason: 'Session reviews are disabled. Please review the booking.' });
 });
 
 // Create a review for a booking
@@ -209,11 +95,8 @@ router.post('/booking', requireAuth, async (req, res, next) => {
       text
     });
     
-    console.log('Created booking review:', review); // Debug log
-    
     // Update master KPIs if this is a client reviewing a master
     if (reviewerType === 'client') {
-      console.log('Syncing KPIs for master:', revieweeId); // Debug log
       await syncMasterReviewKPIs(revieweeId);
     }
     

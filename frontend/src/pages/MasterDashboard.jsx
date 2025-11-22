@@ -209,7 +209,7 @@ export default function MasterDashboard() {
     if (!user?._id) return;
     try {
       setReviewsLoading(true);
-      const res = await client.get(`/review/user/${user._id}?reviewer_type=client&limit=20`);
+      const res = await client.get(`/reviews/user/${user._id}?reviewer_type=client&limit=20`);
       setReviews(res.data.reviews || []);
     } catch (err) {
       console.warn('Failed to load reviews:', err);
@@ -224,7 +224,7 @@ export default function MasterDashboard() {
     try {
       setReplySubmitting(true);
       const endpoint = replyModal.reply ? 'PUT' : 'POST';
-      await client[endpoint.toLowerCase()](`/review/${replyModal._id}/reply`, {
+      await client[endpoint.toLowerCase()](`/reviews/${replyModal._id}/reply`, {
         text: replyText.trim()
       });
       
