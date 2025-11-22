@@ -404,9 +404,13 @@ export default function Layout() {
       </header>
 
       <main className={`main${isChat ? ' chat-main' : ''}`}>
-        <PageTransition>
+        {isChat ? (
           <Outlet />
-        </PageTransition>
+        ) : (
+          <PageTransition>
+            <Outlet />
+          </PageTransition>
+        )}
       </main>
 
       {!isChat && <footer className="footer">

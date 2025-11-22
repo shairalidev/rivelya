@@ -4,7 +4,9 @@ import toast from 'react-hot-toast';
 import client from '../api/client.js';
 import { requestReschedule, respondToReschedule, requestStartNow, respondStartNow } from '../api/dashboard.js';
 import ConfirmModal from '../components/ConfirmModal.jsx';
+import ReviewModal from '../components/ReviewModal.jsx';
 import useSocket from '../hooks/useSocket.js';
+import useNetworkStatus from '../hooks/useNetworkStatus.js';
 
 const statusLabels = {
   awaiting_master: 'In attesa Esperti',
@@ -40,7 +42,6 @@ const canShowActions = (reservation) => {
 };
 
 export default function Reservations() {
-  const [reservations, setReservations] = useState([]);
   const [loading, setLoading] = useState(true);
   const [filter, setFilter] = useState('all');
   const [pagination, setPagination] = useState({ page: 1, total: 0, pages: 0 });
@@ -59,9 +60,16 @@ export default function Reservations() {
   const [responseLoading, setResponseLoading] = useState(false);
   const [confirmModal, setConfirmModal] = useState(null);
   const [incomingStartNow, setIncomingStartNow] = useState(null);
+  const [reviewModal, setReviewModal] = useState(null);
   const reservationsSnapshot = useRef(new Map());
   const navigate = useNavigate();
   const socket = useSocket();
+  const { isOnline } = useNetworkStatus();
+  
+  // Simple state management for now
+  const [reservations, setReservations] = useState([]);
+  const [isUpdating, setIsUpdating] = useState(false);
+  const [lastUpdate, setLastUpdate] = useState(Date.now());
 
   const myRole = useCallback(
     (reservation) => (reservation.user_role === 'customer' ? 'customer' : 'master'),
@@ -122,7 +130,10 @@ export default function Reservations() {
   }, []);
 
   const loadReservations = useCallback(async (page = 1, { showLoader = true } = {}) => {
+    if (isUpdating && !showLoader) return;
+    
     try {
+      setIsUpdating(true);
       if (showLoader) setLoading(true);
       const params = { page, limit: 10 };
       if (filter !== 'all') params.status = filter;
@@ -131,6 +142,7 @@ export default function Reservations() {
       notifyIncomingUpdates(data.reservations);
       setReservations(data.reservations);
       setPagination(data.pagination);
+      setLastUpdate(Date.now());
       
       // Check status of active bookings
       await checkActiveBookingsStatus(data.reservations);
@@ -141,21 +153,24 @@ export default function Reservations() {
       }
       toast.error('Errore nel caricamento delle prenotazioni');
     } finally {
+      setIsUpdating(false);
       if (showLoader) setLoading(false);
     }
-  }, [filter, navigate, checkActiveBookingsStatus]);
+  }, [filter, navigate, checkActiveBookingsStatus, isUpdating]);
 
   useEffect(() => {
-    loadReservations();
-  }, [filter, loadReservations]);
+    loadReservations(1, { showLoader: true });
+  }, [filter]);
 
   useEffect(() => {
     const interval = setInterval(() => {
-      loadReservations(pagination.page, { showLoader: false });
-    }, 5000); // Check every 5 seconds for real-time updates
+      if (!isUpdating) {
+        loadReservations(pagination.page, { showLoader: false });
+      }
+    }, 5000);
 
     return () => clearInterval(interval);
-  }, [filter, loadReservations, pagination.page]);
+  }, [pagination.page, isUpdating]);
 
   useEffect(() => {
     if (!socket) return undefined;
@@ -294,12 +309,13 @@ export default function Reservations() {
   };
 
   const handleStartNowResponse = (reservation, action) => {
+    const reservationId = reservation.id;
     setConfirmModal({
       title: action === 'accept' ? 'Accetta avvio immediato' : 'Rifiuta avvio immediato',
       message: action === 'accept'
         ? 'Confermi di avviare subito la sessione?'
         : 'Vuoi rifiutare la richiesta di avvio immediato?',
-      onConfirm: () => respondStartNowAction(reservation.id, action)
+      onConfirm: () => respondStartNowAction(reservationId, action)
     });
   };
 
@@ -457,6 +473,7 @@ export default function Reservations() {
     const sessionNotStarted = !isSessionStarted(reservation) && !reservation.actual_started_at;
     const sessionNotCompleted = !isSessionCompleted(reservation);
 
+    // Only customers can initiate reschedule requests
     return validStatus && isCustomer && sessionNotStarted && sessionNotCompleted && isFutureSession;
   };
 
@@ -479,6 +496,12 @@ export default function Reservations() {
     return reservation.status === 'reschedule_requested'
       && reservation.user_role === 'master'
       && reservation.reschedule_request?.requested_by === 'customer';
+  };
+
+  const canRespondToStartNow = (reservation) => {
+    return reservation.start_now_request?.status === 'pending'
+      && reservation.user_role === 'master'
+      && reservation.start_now_request?.requested_by === 'customer';
   };
 
   const canStartSession = (reservation) => {
@@ -513,7 +536,8 @@ export default function Reservations() {
   const canRequestStartNow = (reservation) => {
     if (reservation.status !== 'ready_to_start' || !reservation.can_start) return false;
     if (reservation.status === 'active') return false;
-    if (reservation.user_role !== 'customer') return false; // Only clients can request
+    // Only customers can initiate start now requests
+    if (reservation.user_role !== 'customer') return false;
     return !hasIncomingStartNow(reservation) && !hasOutgoingStartNow(reservation);
   };
 
@@ -521,6 +545,32 @@ export default function Reservations() {
     return reservation.status === 'reschedule_requested'
       && reservation.reschedule_request?.requested_by === 'customer'
       && reservation.user_role === 'customer';
+  };
+
+  const canReview = (reservation) => {
+    return reservation.status === 'completed' && reservation.actual_started_at && reservation.user_role === 'customer';
+  };
+
+  const hasReviewed = (reservation) => {
+    return reservation.has_reviewed || false;
+  };
+
+  const handleReview = (reservation) => {
+    const partnerName = reservation.user_role === 'master' 
+      ? reservation.customer.name 
+      : reservation.master.name;
+    
+    setReviewModal({
+      bookingId: reservation.id,
+      partnerName,
+      partnerType: reservation.user_role === 'master' ? 'client' : 'master'
+    });
+  };
+
+  const handleReviewSubmitted = () => {
+    setReviewModal(null);
+    // Reload reservations to get updated review status
+    loadReservations(pagination.page, { showLoader: false });
   };
 
   if (loading && reservations.length === 0) {
@@ -542,7 +592,14 @@ export default function Reservations() {
       </div>
 
       <div className="dashboard__filters">
-        <select value={filter} onChange={(e) => setFilter(e.target.value)}>
+        <select 
+          value={filter} 
+          onChange={(e) => {
+            setFilter(e.target.value);
+            setPagination(prev => ({ ...prev, page: 1 }));
+          }}
+          disabled={isUpdating}
+        >
           <option value="all">Tutte le prenotazioni</option>
           <option value="awaiting_master">In attesa Esperti</option>
           <option value="ready_to_start">Pronte per iniziare</option>
@@ -552,9 +609,35 @@ export default function Reservations() {
           <option value="rejected">Rifiutate</option>
           <option value="cancelled">Annullate</option>
         </select>
+        
+        {/* Real-time status indicator */}
+        <div style={{ 
+          display: 'flex', 
+          alignItems: 'center', 
+          gap: '0.5rem', 
+          fontSize: '0.8rem', 
+          color: 'var(--muted)',
+          marginLeft: 'auto'
+        }}>
+          <div style={{
+            width: '8px',
+            height: '8px',
+            borderRadius: '50%',
+            backgroundColor: !isOnline ? '#ff6b6b' : isUpdating ? '#ff9f43' : '#3dd8b6',
+            animation: isUpdating ? 'pulse 1s infinite' : 'none'
+          }} />
+          {!isOnline ? 'Offline' : isUpdating ? 'Aggiornamento...' : 'Sincronizzato'}
+          <span style={{ marginLeft: '0.5rem', fontSize: '0.7rem' }}>
+            {isOnline ? new Date(lastUpdate).toLocaleTimeString('it-IT', { 
+              hour: '2-digit', 
+              minute: '2-digit', 
+              second: '2-digit' 
+            }) : 'Nessuna connessione'}
+          </span>
+        </div>
       </div>
 
-      <div className="dashboard__bookings">
+      <div className={`dashboard__bookings ${loading ? 'loading' : ''}`}>
         {reservations.length === 0 ? (
           <div className="empty-state">
             <p>Nessuna prenotazione trovata</p>
@@ -563,7 +646,25 @@ export default function Reservations() {
             </button>
           </div>
         ) : (
-          reservations.map(reservation => {
+          [...reservations].sort((a, b) => {
+            // Priority sorting: open requests first
+            const aHasOpenRequest = (
+              (a.status === 'awaiting_master' && a.user_role === 'master') ||
+              (a.status === 'reschedule_requested' && a.user_role === 'master' && a.reschedule_request?.requested_by === 'customer') ||
+              (a.start_now_request?.status === 'pending' && a.user_role === 'master' && a.start_now_request?.requested_by === 'customer')
+            );
+            const bHasOpenRequest = (
+              (b.status === 'awaiting_master' && b.user_role === 'master') ||
+              (b.status === 'reschedule_requested' && b.user_role === 'master' && b.reschedule_request?.requested_by === 'customer') ||
+              (b.start_now_request?.status === 'pending' && b.user_role === 'master' && b.start_now_request?.requested_by === 'customer')
+            );
+            
+            if (aHasOpenRequest && !bHasOpenRequest) return -1;
+            if (!aHasOpenRequest && bHasOpenRequest) return 1;
+            
+            // Secondary sort by date (newest first)
+            return new Date(b.createdAt || b.date) - new Date(a.createdAt || a.date);
+          }).map(reservation => {
             const latestReschedule = reservation.reschedule_history?.[reservation.reschedule_history.length - 1];
 
             return (
@@ -687,8 +788,21 @@ export default function Reservations() {
                       className="btn primary"
                       onClick={async () => {
                         try {
-                          const { data } = await client.get(`/bookings/${reservation.id}/session-url`);
-                          navigate(data.session_url);
+                          // Direct URL generation based on channel type
+                          let sessionUrl;
+                          if (reservation.channel === 'voice') {
+                            sessionUrl = `/voice/${reservation.id}`;
+                          } else {
+                            // For chat channels, try to get the thread ID from backend
+                            try {
+                              const { data } = await client.get(`/bookings/${reservation.id}/session-url`);
+                              sessionUrl = data.session_url;
+                            } catch {
+                              // Fallback to booking ID if thread lookup fails
+                              sessionUrl = `/chat/${reservation.id}`;
+                            }
+                          }
+                          navigate(sessionUrl);
                         } catch (error) {
                           toast.error('Impossibile accedere alla sessione');
                         }
@@ -701,16 +815,33 @@ export default function Reservations() {
 
                 {/* Show completed status */}
                 {isSessionCompleted(reservation) && (
-                  <div className="session-status">
-                    <span className={`status status--${reservation.status}`}>
-                      {statusLabels[reservation.status]}
-                    </span>
-                    {reservation.actual_started_at && (
-                      <span className="micro muted" style={{ marginLeft: '0.5rem' }}>
-                        Iniziata alle {new Date(reservation.actual_started_at).toLocaleTimeString('it-IT', { hour: '2-digit', minute: '2-digit' })}
+                  <>
+                    <div className="session-status">
+                      <span className={`status status--${reservation.status}`}>
+                        {statusLabels[reservation.status]}
                       </span>
+                      {reservation.actual_started_at && (
+                        <span className="micro muted" style={{ marginLeft: '0.5rem' }}>
+                          Iniziata alle {new Date(reservation.actual_started_at).toLocaleTimeString('it-IT', { hour: '2-digit', minute: '2-digit' })}
+                        </span>
+                      )}
+                    </div>
+                    
+                    {/* Review button for completed sessions */}
+                    {canReview(reservation) && (
+                      <button
+                        className={`btn ${hasReviewed(reservation) ? 'outline' : 'primary'}`}
+                        onClick={() => handleReview(reservation)}
+                        disabled={hasReviewed(reservation)}
+                        style={{
+                          opacity: hasReviewed(reservation) ? 0.6 : 1,
+                          cursor: hasReviewed(reservation) ? 'not-allowed' : 'pointer'
+                        }}
+                      >
+                        {hasReviewed(reservation) ? '✓ Recensione inviata' : '⭐ Aggiungi recensione'}
+                      </button>
                     )}
-                  </div>
+                  </>
                 )}
 
                 {/* Show action buttons only if session hasn't started and isn't completed */}
@@ -725,7 +856,7 @@ export default function Reservations() {
                       </button>
                     )}
 
-                    {hasIncomingStartNow(reservation) && (
+                    {canRespondToStartNow(reservation) && (
                       <div style={{ 
                         backgroundColor: 'rgba(255, 159, 67, 0.15)', 
                         border: '1px solid rgba(255, 159, 67, 0.4)', 
@@ -741,7 +872,7 @@ export default function Reservations() {
                         <div>
                           <strong style={{ color: '#ff9f43', fontSize: '0.85rem' }}>🔔 Richiesta di avvio immediato</strong>
                           <p style={{ margin: '0.25rem 0 0 0', fontSize: '0.8rem', color: 'var(--muted)' }}>
-                            {reservation.start_now_request.requested_by === 'customer' ? 'Il cliente' : 'L\'esperto'} vuole iniziare subito
+                            Il cliente vuole iniziare subito
                           </p>
                         </div>
                         <div style={{ display: 'flex', gap: '0.5rem', flexShrink: 0 }}>
@@ -776,17 +907,6 @@ export default function Reservations() {
                       </button>
                     )}
 
-                    {canRejectBeforeStart(reservation) && reservation.status !== 'awaiting_master' && (
-                      <button
-                        className="btn outline"
-                        onClick={() => openResponseModal(reservation, 'reject')}
-                      >
-                        Rifiuta prenotazione
-                      </button>
-                    )}
-
-
-                    
                     {reservation.status === 'awaiting_master' && reservation.user_role === 'master' && (
                       <>
                         <button
@@ -854,7 +974,7 @@ export default function Reservations() {
           <button
             className="btn outline"
             onClick={() => loadReservations(pagination.page + 1)}
-            disabled={pagination.page === pagination.pages}
+            disabled={pagination.page === pagination.pages || isUpdating}
           >
             Successiva ›
           </button>
@@ -1156,6 +1276,17 @@ export default function Reservations() {
           secondaryText={confirmModal.secondaryText}
           type={confirmModal.type}
           onClose={() => setConfirmModal(null)}
+        />
+      )}
+
+      {reviewModal && (
+        <ReviewModal
+          isOpen={!!reviewModal}
+          onClose={() => setReviewModal(null)}
+          bookingId={reviewModal.bookingId}
+          partnerName={reviewModal.partnerName}
+          partnerType={reviewModal.partnerType}
+          onReviewSubmitted={handleReviewSubmitted}
         />
       )}
     </section>

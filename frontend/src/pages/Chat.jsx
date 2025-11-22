@@ -335,16 +335,27 @@ export default function Chat() {
   const remainingSeconds = useCountdown(activeThread?.expiresAt);
   const canPost = threadQuery.data?.canPost && (remainingSeconds == null || remainingSeconds > 0);
 
-  // Sync timer with backend every 30 seconds for active threads
+  // Sync timer with backend every 5 seconds for active threads
   useEffect(() => {
     if (!threadId || !activeThread || (activeThread.status !== 'active' && activeThread.status !== 'open')) return;
     
     const syncTimer = setInterval(() => {
       threadQuery.refetch();
-    }, 30000); // Sync every 30 seconds
+    }, 5000); // Sync every 5 seconds for accurate timing
     
     return () => clearInterval(syncTimer);
   }, [threadId, activeThread?.status, threadQuery]);
+
+  // Also sync threads list every 10 seconds to update sidebar timers
+  useEffect(() => {
+    if (!token) return;
+    
+    const syncThreadsTimer = setInterval(() => {
+      threadsQuery.refetch();
+    }, 10000); // Sync threads every 10 seconds
+    
+    return () => clearInterval(syncThreadsTimer);
+  }, [token, threadsQuery]);
   const isNoteDirty = noteDraft !== noteBaseline;
 
   const handleSubmit = event => {

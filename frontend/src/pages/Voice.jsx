@@ -196,16 +196,27 @@ export default function Voice() {
   const remainingSeconds = useCountdown(activeSession?.expiresAt);
   const canCall = sessionQuery.data?.canCall && (remainingSeconds == null || remainingSeconds > 0);
 
-  // Sync timer with backend every 30 seconds for active sessions
+  // Sync timer with backend every 5 seconds for active sessions
   useEffect(() => {
     if (!sessionId || !activeSession || activeSession.status !== 'active') return;
     
     const syncTimer = setInterval(() => {
       sessionQuery.refetch();
-    }, 30000); // Sync every 30 seconds
+    }, 5000); // Sync every 5 seconds for accurate timing
     
     return () => clearInterval(syncTimer);
   }, [sessionId, activeSession?.status, sessionQuery]);
+
+  // Also sync sessions list every 10 seconds to update sidebar timers
+  useEffect(() => {
+    if (!token) return;
+    
+    const syncSessionsTimer = setInterval(() => {
+      sessionsQuery.refetch();
+    }, 10000); // Sync sessions every 10 seconds
+    
+    return () => clearInterval(syncSessionsTimer);
+  }, [token, sessionsQuery]);
   const isNoteDirty = noteDraft !== noteBaseline;
   const isSessionActive = activeSession?.status === 'active';
   const isSessionEnded = activeSession?.status === 'ended';

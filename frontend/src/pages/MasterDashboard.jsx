@@ -12,6 +12,7 @@ import { getUser as getStoredUser, subscribeAuthChange } from '../lib/auth.js';
 import { fetchMasterProfile, updateMasterProfile } from '../api/master.js';
 import useSocket from '../hooks/useSocket.js';
 import { DAY_ORDER, DAY_LABELS } from '../utils/schedule.js';
+import ReviewsList from '../components/ReviewsList.jsx';
 
 const weekdays = ['Lun', 'Mar', 'Mer', 'Gio', 'Ven', 'Sab', 'Dom'];
 const formatCurrency = c => (c / 100).toFixed(2);
@@ -154,6 +155,11 @@ export default function MasterDashboard() {
   const [profileForm, setProfileForm] = useState(initialProfileForm);
   const [workingHoursForm, setWorkingHoursForm] = useState(() => mapWorkingHoursToForm());
   const [workingHoursSaving, setWorkingHoursSaving] = useState(false);
+  const [reviews, setReviews] = useState([]);
+  const [reviewsLoading, setReviewsLoading] = useState(true);
+  const [replyModal, setReplyModal] = useState(null);
+  const [replyText, setReplyText] = useState('');
+  const [replySubmitting, setReplySubmitting] = useState(false);
 
   const masterId = user?.masterId;
 
@@ -198,6 +204,46 @@ export default function MasterDashboard() {
       setProfileLoading(false);
     }
   }, [buildProfileForm, buildWorkingHoursForm]);
+
+  const loadReviews = useCallback(async () => {
+    if (!user?._id) return;
+    try {
+      setReviewsLoading(true);
+      const res = await client.get(`/review/user/${user._id}?reviewer_type=client&limit=20`);
+      setReviews(res.data.reviews || []);
+    } catch (err) {
+      console.warn('Failed to load reviews:', err);
+    } finally {
+      setReviewsLoading(false);
+    }
+  }, [user?._id]);
+
+  const handleReplySubmit = async () => {
+    if (!replyModal || !replyText.trim()) return;
+    
+    try {
+      setReplySubmitting(true);
+      const endpoint = replyModal.reply ? 'PUT' : 'POST';
+      await client[endpoint.toLowerCase()](`/review/${replyModal._id}/reply`, {
+        text: replyText.trim()
+      });
+      
+      toast.success(replyModal.reply ? 'Risposta aggiornata' : 'Risposta inviata');
+      setReplyModal(null);
+      setReplyText('');
+      loadReviews(); // Reload reviews to show the new reply
+    } catch (err) {
+      const msg = err?.response?.data?.message || 'Errore durante l\'invio della risposta';
+      toast.error(msg);
+    } finally {
+      setReplySubmitting(false);
+    }
+  };
+
+  const openReplyModal = (review) => {
+    setReplyModal(review);
+    setReplyText(review.reply?.text || '');
+  };
 
   const startSelectOptions = useMemo(() => {
     if (!modalDay) return [];
@@ -312,8 +358,11 @@ export default function MasterDashboard() {
 
 
   useEffect(() => {
-    if (user?.roles?.includes('master')) loadProfile();
-  }, [user?.roles, loadProfile]);
+    if (user?.roles?.includes('master')) {
+      loadProfile();
+      loadReviews();
+    }
+  }, [user?.roles, loadProfile, loadReviews]);
 
   useEffect(() => {
     if (user?.roles?.includes('master')) loadMonth(monthCursor);
@@ -1100,6 +1149,129 @@ export default function MasterDashboard() {
                 </div>
               </div>
 
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* REVIEWS SECTION */}
+      <div className="profile-settings-card" style={{ width: '100%' }}>
+        <div className="profile-settings-head">
+          <h2>Recensioni ricevute</h2>
+          <p className="muted">Gestisci le recensioni dei tuoi clienti e rispondi per migliorare la tua reputazione.</p>
+        </div>
+
+        {reviewsLoading ? (
+          <div className="reviews-loading">
+            <p>Caricamento recensioni...</p>
+          </div>
+        ) : reviews.length === 0 ? (
+          <div className="reviews-empty">
+            <p>Non hai ancora ricevuto recensioni dai clienti.</p>
+          </div>
+        ) : (
+          <div className="reviews-list">
+            {reviews.map(review => (
+              <div key={review._id} className="review-item-enhanced">
+                <div className="review-item-header">
+                  <div className="review-author-section">
+                    <div className="review-author-details">
+                      <p className="review-author-name">
+                        {review.reviewer_id?.display_name || 'Cliente Rivelya'}
+                      </p>
+                      <p className="review-date-text">
+                        {new Date(review.createdAt).toLocaleDateString('it-IT')}
+                      </p>
+                    </div>
+                  </div>
+                  <div className="review-rating">
+                    {[1, 2, 3, 4, 5].map(star => (
+                      <span key={star} className={`review-star ${star <= review.rating ? 'filled' : ''}`}>
+                        ★
+                      </span>
+                    ))}
+                  </div>
+                </div>
+                {review.text && (
+                  <p className="review-content">{review.text}</p>
+                )}
+                {review.reply && (
+                  <div className="review-reply">
+                    <div className="review-reply-header">
+                      <span className="review-reply-label">La tua risposta</span>
+                      <span className="review-reply-date">
+                        {new Date(review.reply.createdAt).toLocaleDateString('it-IT')}
+                      </span>
+                    </div>
+                    <p className="review-reply-content">{review.reply.text}</p>
+                  </div>
+                )}
+                <div className="review-actions">
+                  <button
+                    className="btn outline small"
+                    onClick={() => openReplyModal(review)}
+                  >
+                    {review.reply ? 'Modifica risposta' : 'Rispondi'}
+                  </button>
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
+
+      {/* REPLY MODAL */}
+      {replyModal && (
+        <div className="modal-backdrop" onClick={() => setReplyModal(null)}>
+          <div className="modal-card" onClick={(e) => e.stopPropagation()}>
+            <div className="modal-head">
+              <h3>{replyModal.reply ? 'Modifica risposta' : 'Rispondi alla recensione'}</h3>
+              <button className="modal-close" onClick={() => setReplyModal(null)}>×</button>
+            </div>
+            
+            <div className="modal-body">
+              <div className="original-review">
+                <div className="review-rating">
+                  {[1, 2, 3, 4, 5].map(star => (
+                    <span key={star} className={`review-star ${star <= replyModal.rating ? 'filled' : ''}`}>
+                      ★
+                    </span>
+                  ))}
+                </div>
+                {replyModal.text && (
+                  <p className="review-content">{replyModal.text}</p>
+                )}
+              </div>
+              
+              <label className="input-label">
+                La tua risposta
+                <textarea
+                  value={replyText}
+                  onChange={(e) => setReplyText(e.target.value)}
+                  placeholder="Scrivi una risposta professionale e cortese..."
+                  rows={4}
+                  maxLength={500}
+                  disabled={replySubmitting}
+                />
+                <div className="char-count">{replyText.length}/500 caratteri</div>
+              </label>
+            </div>
+
+            <div className="modal-footer">
+              <button 
+                className="btn secondary" 
+                onClick={() => setReplyModal(null)}
+                disabled={replySubmitting}
+              >
+                Annulla
+              </button>
+              <button 
+                className="btn primary" 
+                onClick={handleReplySubmit}
+                disabled={replySubmitting || !replyText.trim()}
+              >
+                {replySubmitting ? 'Invio...' : (replyModal.reply ? 'Aggiorna risposta' : 'Invia risposta')}
+              </button>
             </div>
           </div>
         </div>

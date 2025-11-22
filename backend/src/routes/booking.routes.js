@@ -210,6 +210,15 @@ router.post('/', requireAuth, async (req, res, next) => {
       return res.status(400).json({ message: 'Il master al momento non accetta nuove richieste.' });
     }
 
+    // Prevent booking past dates
+    const bookingDate = new Date(payload.date);
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    
+    if (bookingDate < today) {
+      return res.status(400).json({ message: 'Non puoi prenotare per date passate.' });
+    }
+
     const user = req.user;
     if (!user.wallet_id) {
       return res.status(400).json({ message: 'Wallet non disponibile.' });
@@ -380,6 +389,16 @@ router.post('/:bookingId/respond', requireAuth, requireRole('master'), async (re
       };
       await booking.save();
 
+      // Emit real-time update
+      emitToUser(booking.customer_id?._id, 'booking:updated', {
+        bookingId: booking._id.toString(),
+        updates: {
+          status: 'ready_to_start',
+          can_start: true,
+          master_response: booking.master_response
+        }
+      });
+
       if (booking.channel === 'chat' || booking.channel === 'chat_voice') {
         const startedAt = new Date();
         const allowedSeconds = Math.max(60, (booking.duration_minutes || 0) * 60);
@@ -432,6 +451,16 @@ router.post('/:bookingId/respond', requireAuth, requireRole('master'), async (re
       responded_at: new Date()
     };
     await booking.save();
+
+    // Emit real-time update
+    emitToUser(booking.customer_id?._id, 'booking:updated', {
+      bookingId: booking._id.toString(),
+      updates: {
+        status: 'rejected',
+        can_start: false,
+        master_response: booking.master_response
+      }
+    });
 
     if (booking.wallet_txn_id && booking.amount_cents > 0 && booking.customer_id?.wallet_id) {
       const wallet = await Wallet.findById(booking.customer_id.wallet_id);
@@ -649,6 +678,16 @@ router.post('/:bookingId/reschedule', requireAuth, async (req, res, next) => {
     booking.start_now_request = undefined;
     await booking.save();
 
+    // Emit real-time update to master
+    emitToUser(booking.master_id.user_id, 'booking:updated', {
+      bookingId: booking._id.toString(),
+      updates: {
+        status: 'reschedule_requested',
+        reschedule_request: booking.reschedule_request,
+        can_start: false
+      }
+    });
+
     const targetUserId = booking.master_id.user_id;
     const requesterName = booking.customer_id.display_name || 'Cliente';
 
@@ -743,6 +782,20 @@ router.post('/:bookingId/reschedule/respond', requireAuth, async (req, res, next
       booking.reschedule_request = undefined;
       await booking.save();
 
+      // Emit real-time update to customer
+      emitToUser(booking.customer_id._id, 'booking:updated', {
+        bookingId: booking._id.toString(),
+        updates: {
+          status: 'ready_to_start',
+          date: booking.date,
+          start: booking.start_time,
+          end: booking.end_time,
+          can_start: true,
+          reschedule_request: undefined,
+          reschedule_history: booking.reschedule_history
+        }
+      });
+
       const targetUserId = currentRequest.requested_by === 'customer' ? 
         booking.customer_id._id : booking.master_id.user_id;
       
@@ -770,6 +823,17 @@ router.post('/:bookingId/reschedule/respond', requireAuth, async (req, res, next
       
       booking.reschedule_request = undefined;
       await booking.save();
+
+      // Emit real-time update to customer
+      emitToUser(booking.customer_id._id, 'booking:updated', {
+        bookingId: booking._id.toString(),
+        updates: {
+          status: 'ready_to_start',
+          can_start: true,
+          reschedule_request: undefined,
+          reschedule_history: booking.reschedule_history
+        }
+      });
 
       const targetUserId = currentRequest.requested_by === 'customer' ? 
         booking.customer_id._id : booking.master_id.user_id;
@@ -822,6 +886,14 @@ router.post('/:bookingId/start-now/request', requireAuth, async (req, res, next)
     };
 
     await booking.save();
+
+    // Emit real-time update to master
+    emitToUser(booking.master_id.user_id, 'booking:updated', {
+      bookingId: booking._id.toString(),
+      updates: {
+        start_now_request: booking.start_now_request
+      }
+    });
 
     const targetUserId = booking.master_id.user_id;
     const requesterName = booking.customer_id.display_name || 'Cliente';
@@ -881,6 +953,14 @@ router.post('/:bookingId/start-now/respond', requireAuth, async (req, res, next)
 
       const requesterId = requesterRole === 'customer' ? booking.customer_id._id : booking.master_id.user_id;
 
+      // Emit real-time update to requester
+      emitToUser(requesterId, 'booking:updated', {
+        bookingId: booking._id.toString(),
+        updates: {
+          start_now_request: booking.start_now_request
+        }
+      });
+
       await createNotification({
         userId: requesterId,
         type: 'booking:start_now_rejected',
@@ -915,6 +995,14 @@ router.post('/:bookingId/start-now/respond', requireAuth, async (req, res, next)
 
     const targetUserId = requesterRole === 'customer' ? booking.master_id.user_id : booking.customer_id._id;
     const requesterId = requesterRole === 'customer' ? booking.customer_id._id : booking.master_id.user_id;
+
+    // Emit real-time update before starting session
+    emitToUser(requesterId, 'booking:updated', {
+      bookingId: booking._id.toString(),
+      updates: {
+        start_now_request: booking.start_now_request
+      }
+    });
 
     const { sessionUrl, sessionId } = await startBookingSession({
       booking,
@@ -988,6 +1076,19 @@ router.get('/reservations', requireAuth, async (req, res, next) => {
 
     const total = await Booking.countDocuments(filter);
 
+    // Get review information for completed bookings
+    const completedBookingIds = bookings
+      .filter(b => b.status === 'completed' && b.actual_started_at)
+      .map(b => b._id);
+    
+    const { Review } = await import('../models/review.model.js');
+    const userReviews = await Review.find({
+      booking_id: { $in: completedBookingIds },
+      reviewer_id: userId
+    }).select('booking_id');
+    
+    const reviewedBookingIds = new Set(userReviews.map(r => r.booking_id.toString()));
+
     res.json({
       reservations: bookings.map(booking => ({
         id: booking._id,
@@ -1023,6 +1124,7 @@ router.get('/reservations', requireAuth, async (req, res, next) => {
         reschedule_history: booking.reschedule_history || [],
         original_booking: booking.original_booking,
         user_role: master && booking.master_id._id.toString() === master._id.toString() ? 'master' : 'customer',
+        has_reviewed: reviewedBookingIds.has(booking._id.toString()),
         createdAt: booking.createdAt
       })),
       pagination: {
@@ -1121,6 +1223,18 @@ router.post('/:bookingId/check-session-status', requireAuth, async (req, res, ne
     if (session && session.status === 'ended' && booking.status === 'active') {
       booking.status = 'completed';
       await booking.save();
+      
+      // Emit real-time update
+      const participants = [booking.customer_id._id, booking.master_id.user_id]
+        .filter(Boolean)
+        .map(id => id.toString());
+      
+      participants.forEach(userId => {
+        emitToUser(userId, 'booking:updated', {
+          bookingId: booking._id.toString(),
+          updates: { status: 'completed' }
+        });
+      });
     }
 
     // Check if there's an associated chat thread
@@ -1129,6 +1243,18 @@ router.post('/:bookingId/check-session-status', requireAuth, async (req, res, ne
     if (thread && thread.status === 'expired' && booking.status === 'active') {
       booking.status = 'completed';
       await booking.save();
+      
+      // Emit real-time update
+      const participants = [booking.customer_id._id, booking.master_id.user_id]
+        .filter(Boolean)
+        .map(id => id.toString());
+      
+      participants.forEach(userId => {
+        emitToUser(userId, 'booking:updated', {
+          bookingId: booking._id.toString(),
+          updates: { status: 'completed' }
+        });
+      });
     }
 
     res.json({ status: booking.status });
