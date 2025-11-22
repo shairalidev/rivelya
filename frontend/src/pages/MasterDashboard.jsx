@@ -125,6 +125,7 @@ const bookingStatusLabels = {
   reschedule_requested: 'Riprogrammazione',
   reschedule_accepted: 'Riprogrammazione',
   active: 'In corso',
+  rejected: 'Rifiutata',
   cancelled: 'Annullata',
   completed: 'Completata'
 };
@@ -1125,19 +1126,12 @@ export default function MasterDashboard() {
                         <div className="day-booking-row">
                           <div className="day-booking-time">
                             <strong>{booking.start} – {booking.end}</strong>
-                            <span className="micro muted">{bookingChannelLabels[booking.channel] || booking.channel}</span>
+                            <span className="micro">{booking.customer?.name || 'Cliente'}</span>
                           </div>
 
                           <span className={`status status--${booking.status || 'awaiting_master'}`}>
                             {bookingStatusLabels[booking.status] || booking.status || 'In attesa'}
                           </span>
-                        </div>
-
-                        <div className="day-booking-meta">
-                          <span className="micro">{booking.customer?.name || 'Cliente'}</span>
-                          {typeof booking.amount_cents === 'number' && (
-                            <span className="micro muted">€ {formatCurrency(booking.amount_cents)}</span>
-                          )}
                         </div>
                       </li>
                     ))}
@@ -1155,48 +1149,9 @@ export default function MasterDashboard() {
                   </p>
                 )}
 
-              <div className="modal-section">
-                <div className="modal-section-head">
-                  <p className="micro">Prenotazioni del giorno</p>
-                  <span className="micro muted">
-                    {modalBookings.length > 0
-                      ? `${modalBookings.length} sessione${modalBookings.length > 1 ? 'i' : ''}`
-                      : 'Nessuna prenotazione registrata'}
-                  </span>
-                </div>
-
-                {modalBookings.length === 0 ? (
-                  <p className="muted">Non sono presenti prenotazioni per questa data.</p>
-                ) : (
-                  <ul className="day-booking-list">
-                    {modalBookings.map(booking => (
-                      <li key={booking.id} className="day-booking-item">
-                        <div className="day-booking-row">
-                          <div className="day-booking-time">
-                            <strong>{booking.start} – {booking.end}</strong>
-                            <span className="micro muted">{bookingChannelLabels[booking.channel] || booking.channel}</span>
-                          </div>
-
-                          <span className={`status status--${booking.status || 'awaiting_master'}`}>
-                            {bookingStatusLabels[booking.status] || booking.status || 'In attesa'}
-                          </span>
-                        </div>
-
-                        <div className="day-booking-meta">
-                          <span className="micro">{booking.customer?.name || 'Cliente'}</span>
-                          {typeof booking.amount_cents === 'number' && (
-                            <span className="micro muted">€ {formatCurrency(booking.amount_cents)}</span>
-                          )}
-                        </div>
-                      </li>
-                    ))}
-                  </ul>
-                )}
-              </div>
-
-              <div className="modal-section">
-                <p className="micro">Blocca fascia oraria</p>
-
+                {modalDay.blocks?.length > 0 && (
+                  <div className="modal-section">
+                    <p className="micro">Blocchi attivi</p>
                     <ul className="block-list">
                       {modalDay.blocks.map(b => (
                         <li key={b.id || b._id}>
