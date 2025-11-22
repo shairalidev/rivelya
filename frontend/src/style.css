@@ -3434,6 +3434,53 @@ body.nav-open {
 
 .modal-section { display: grid; gap: 0.6rem; }
 
+.modal-section-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.8rem;
+}
+
+.day-booking-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  gap: 0.6rem;
+}
+
+.day-booking-item {
+  padding: 0.75rem 0.9rem;
+  border-radius: var(--radius-sm);
+  background: rgba(255, 255, 255, 0.04);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  display: grid;
+  gap: 0.35rem;
+}
+
+.day-booking-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 0.75rem;
+}
+
+.day-booking-time {
+  display: flex;
+  flex-direction: column;
+  gap: 0.2rem;
+}
+
+.day-booking-time strong { font-size: 1rem; }
+
+.day-booking-meta {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem;
+  color: var(--muted);
+}
+
 .time-grid {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
