@@ -32,6 +32,7 @@ const profileSchema = Joi.object({
 
 const serializeUser = user => ({
   id: user._id,
+  user_id: user._id,
   email: user.email,
   roles: user.roles,
   phone: user.phone || '',

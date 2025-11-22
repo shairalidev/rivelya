@@ -13,10 +13,11 @@ router.post('/', requireAuth, (req, res) => {
 });
 
 // Get reviews for a user (as reviewee)
+// Get reviews for a master (as reviewee)
 router.get('/user/:userId', async (req, res, next) => {
   try {
     const { userId } = req.params;
-    const { page = 1, limit = 10, reviewer_type } = req.query;
+    const { page = 1, limit = 10 } = req.query;
 
     if (!mongoose.Types.ObjectId.isValid(userId)) {
       return res.status(400).json({ message: 'Invalid user id' });
@@ -25,8 +26,11 @@ router.get('/user/:userId', async (req, res, next) => {
     const parsedLimit = Math.min(Math.max(parseInt(limit, 10) || 10, 1), 100);
     const parsedPage = Math.max(parseInt(page, 10) || 1, 1);
 
-    const filter = { reviewee_id: userId };
-    if (reviewer_type) filter.reviewer_type = reviewer_type;
+    // Always filter: master receives reviews ONLY from clients
+    const filter = {
+      reviewee_id: userId,
+      reviewer_type: 'client'
+    };
 
     const reviews = await Review.find(filter)
       .populate('reviewer_id', 'display_name avatar_url')
@@ -48,6 +52,7 @@ router.get('/user/:userId', async (req, res, next) => {
     });
   } catch (e) { next(e); }
 });
+
 
 // Session review checks are disabled
 router.get('/session/:sessionId/can-review', requireAuth, (req, res) => {
