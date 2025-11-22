@@ -38,15 +38,7 @@ const loadMonth = async ({ masterId, year, month, workingHours }) => {
     date: { $gte: startDate, $lte: endDate }
   }).populate('customer_id', 'display_name first_name last_name email');
 
-  const blockingStatuses = new Set([
-    'awaiting_master',
-    'confirmed',
-    'ready_to_start',
-    'active',
-    'in_progress',
-    'reschedule_requested',
-    'pending'
-  ]);
+  const blockingStatuses = new Set(['awaiting_master', 'confirmed', 'ready_to_start', 'active', 'reschedule_requested']);
   const bookingsForAvailability = bookings.filter(booking => blockingStatuses.has(booking.status));
 
   const monthData = computeMonthAvailability({

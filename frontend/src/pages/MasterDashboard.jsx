@@ -125,8 +125,6 @@ const bookingStatusLabels = {
   reschedule_requested: 'Riprogrammazione',
   reschedule_accepted: 'Riprogrammazione',
   active: 'In corso',
-  in_progress: 'In corso',
-  pending: 'In attesa',
   rejected: 'Rifiutata',
   cancelled: 'Annullata',
   completed: 'Completata'
