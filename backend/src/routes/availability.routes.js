@@ -35,15 +35,25 @@ const loadMonth = async ({ masterId, year, month, workingHours }) => {
   const endDate = `${year}-${String(month).padStart(2, '0')}-${String(lastDay).padStart(2, '0')}`;
   const bookings = await Booking.find({
     master_id: masterId,
-    date: { $gte: startDate, $lte: endDate },
-    status: { $in: ['awaiting_master', 'confirmed'] }
+    date: { $gte: startDate, $lte: endDate }
   }).populate('customer_id', 'display_name first_name last_name email');
+
+  const blockingStatuses = new Set([
+    'awaiting_master',
+    'confirmed',
+    'ready_to_start',
+    'active',
+    'in_progress',
+    'reschedule_requested',
+    'pending'
+  ]);
+  const bookingsForAvailability = bookings.filter(booking => blockingStatuses.has(booking.status));
 
   const monthData = computeMonthAvailability({
     year,
     month,
     blocks: availability?.blocks || [],
-    bookings,
+    bookings: bookingsForAvailability,
     workingHours
   });
 
