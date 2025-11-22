@@ -71,7 +71,7 @@ const toTimeOptions = range => {
   const start = timeToMinutes(range.start);
   const end = timeToMinutes(range.end);
   if (Number.isNaN(start) || Number.isNaN(end) || end <= start) return arr;
-  for (let p = start; p < end; p += 30) arr.push(minutesToTime(p));
+  for (let p = start; p < end; p += 5) arr.push(minutesToTime(p));
   return arr;
 };
 
@@ -83,7 +83,7 @@ const buildEndOptions = (ranges, startVal) => {
     const rs = timeToMinutes(r.start);
     const re = timeToMinutes(r.end);
     if (startMin < rs || startMin >= re) return;
-    for (let p = Math.max(startMin + 30, rs + 30); p <= re; p += 30) {
+    for (let p = Math.max(startMin + 5, rs + 5); p <= re; p += 5) {
       set.add(minutesToTime(p));
     }
   });
@@ -287,7 +287,7 @@ export default function MasterDashboard() {
 
   const weeklyStartOptions = useMemo(() => {
     const values = [];
-    for (let minutes = 0; minutes < 24 * 60; minutes += 30) {
+    for (let minutes = 0; minutes < 24 * 60; minutes += 5) {
       values.push(minutesToTime(minutes));
     }
     return values;
@@ -295,7 +295,7 @@ export default function MasterDashboard() {
 
   const weeklyEndOptions = useMemo(() => {
     const values = [];
-    for (let minutes = 30; minutes <= 24 * 60; minutes += 30) {
+    for (let minutes = 5; minutes <= 24 * 60; minutes += 5) {
       values.push(minutesToTime(minutes));
     }
     return values;
@@ -414,7 +414,7 @@ export default function MasterDashboard() {
       const endOpts = buildEndOptions([first], first.start);
       setBlockForm({
         start,
-        end: endOpts[0] || first.end || minutesToTime(timeToMinutes(start) + 30)
+        end: endOpts[0] || first.end || minutesToTime(timeToMinutes(start) + 5)
       });
     } else {
       setBlockForm(initialBlockForm);

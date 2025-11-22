@@ -3,7 +3,7 @@ const DAY_KEYS = ['sunday', 'monday', 'tuesday', 'wednesday', 'thursday', 'frida
 
 const START_MINUTES = 0; // 00:00
 const END_MINUTES = 24 * 60; // 24:00
-const STEP_MINUTES = 30;
+const STEP_MINUTES = 5;
 const FULL_DAY_RANGE = { start: START_MINUTES, end: END_MINUTES };
 
 export const timeToMinutes = value => {

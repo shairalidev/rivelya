@@ -119,7 +119,7 @@ export default function MasterProfile() {
   const rangeToStarts = () => {
     const options = [];
     for (let hour = 0; hour < 24; hour++) {
-      for (let minute = 0; minute < 60; minute += 30) {
+      for (let minute = 0; minute < 60; minute += 5) {
         options.push(minutesToTime(hour * 60 + minute));
       }
     }
@@ -130,7 +130,7 @@ export default function MasterProfile() {
     if (!/^\d{2}:\d{2}$/.test(startValue)) return [];
     const startMinutes = timeToMinutes(startValue);
     const options = [];
-    for (let pointer = startMinutes + 30; pointer <= 24 * 60; pointer += 30) {
+    for (let pointer = startMinutes + 5; pointer <= 24 * 60; pointer += 5) {
       options.push(minutesToTime(pointer));
     }
     return options;
@@ -378,7 +378,7 @@ export default function MasterProfile() {
         return {
           ...prev,
           start: value,
-          end: nextEndOptions[0] || prev.end || minutesToTime(timeToMinutes(value) + 30)
+          end: nextEndOptions[0] || prev.end || minutesToTime(timeToMinutes(value) + 5)
         };
       }
       if (name === 'date') {
