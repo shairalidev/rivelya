@@ -1914,7 +1914,7 @@ body.nav-open {
   display: flex;
   flex-direction: column;
   min-height: 0;
-  overflow: hidden;
+  overflow: auto;
   padding: 0;
   margin: 0;
   height: 100%;
@@ -3399,10 +3399,11 @@ body.nav-open {
   background: rgba(4, 6, 18, 0.75);
   backdrop-filter: blur(6px);
   display: flex;
-  align-items: center;
+  align-items: flex-start;
   justify-content: center;
-  z-index: 50;
+  z-index: 200;
   padding: 1.5rem;
+  overflow-y: auto;
 }
 
 .modal-card {
@@ -3414,6 +3415,9 @@ body.nav-open {
   display: grid;
   gap: 1.4rem;
   padding: 1.6rem 1.8rem 1.8rem;
+  max-height: calc(100vh - 3rem);
+  margin: 2rem auto;
+  overflow-y: auto;
 }
 
 .modal-head {
@@ -3487,6 +3491,14 @@ body.nav-open {
   }
   .weekly-slot-row button {
     width: 100%;
+  }
+  .modal-card {
+    padding: 1.2rem 1.2rem 1.4rem;
+    border-radius: var(--radius-md);
+    width: min(520px, 96vw);
+  }
+  .modal-backdrop {
+    padding: 1rem;
   }
 }
 
@@ -5658,6 +5670,25 @@ html {
   background: #dc2626;
 }
 
+@media (max-width: 640px) {
+  .call-popup {
+    left: 12px;
+    right: 12px;
+    width: auto;
+    bottom: 12px;
+    max-width: none;
+  }
+
+  .call-popup-content {
+    padding: 16px;
+  }
+
+  .call-info {
+    align-items: flex-start;
+    gap: 10px;
+  }
+}
+
 @media (max-width: 600px) {
   .mobile-nav-panel {
     width: min(280px, 80vw);
@@ -6003,6 +6034,39 @@ html {
   display: flex;
   gap: 0.75rem;
   flex-wrap: wrap;
+}
+
+@media (max-width: 1024px) {
+  .booking-card__header {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 0.75rem;
+  }
+
+  .booking-amount {
+    width: 100%;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+  }
+}
+
+@media (max-width: 768px) {
+  .booking-card {
+    padding: 1.25rem;
+  }
+
+  .booking-info {
+    grid-template-columns: 1fr;
+  }
+
+  .booking-card__actions {
+    flex-direction: column;
+  }
+
+  .booking-card__actions .btn {
+    width: 100%;
+  }
 }
 
 .status {
