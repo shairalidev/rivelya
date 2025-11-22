@@ -39,8 +39,7 @@ export default function ReviewsList({ masterId, masterUserId, limit = 10 }) {
       try {
         setLoading(true);
         // Always use user_id based endpoint since reviews are linked to user_id
-        const res = await client.get(`/review/user/${targetId}?reviewer_type=client&limit=${limit}`);
-        console.log('Loaded reviews:', res.data.reviews); // Debug log
+        const res = await client.get(`/reviews/user/${targetId}?reviewer_type=client&limit=${limit}`);
         setReviews(res.data.reviews || []);
       } catch (err) {
         console.warn('Failed to load reviews:', err);

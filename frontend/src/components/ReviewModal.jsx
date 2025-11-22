@@ -32,7 +32,7 @@ const StarIcon = ({ filled, onClick, onHover }) => (
   </button>
 );
 
-export default function ReviewModal({ isOpen, onClose, sessionId, bookingId, partnerName, partnerType, onReviewSubmitted }) {
+export default function ReviewModal({ isOpen, onClose, bookingId, partnerName, partnerType, onReviewSubmitted }) {
   const [rating, setRating] = useState(0);
   const [hoverRating, setHoverRating] = useState(0);
   const [text, setText] = useState('');
@@ -47,24 +47,19 @@ export default function ReviewModal({ isOpen, onClose, sessionId, bookingId, par
       return;
     }
 
+    if (!bookingId) {
+      toast.error('Non è possibile inviare una recensione senza prenotazione.');
+      return;
+    }
+
     try {
       setIsSubmitting(true);
-      
-      if (bookingId) {
-        // Booking review
-        await client.post('/review/booking', {
-          booking_id: bookingId,
-          rating,
-          text: text.trim()
-        });
-      } else {
-        // Session review
-        await client.post('/review', {
-          session_id: sessionId,
-          rating,
-          text: text.trim()
-        });
-      }
+
+      await client.post('/reviews/booking', {
+        booking_id: bookingId,
+        rating,
+        text: text.trim()
+      });
       
       toast.success('Recensione inviata con successo!');
       if (onReviewSubmitted) onReviewSubmitted();

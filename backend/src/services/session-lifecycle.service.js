@@ -133,20 +133,7 @@ class SessionLifecycleService {
           masterUserId
         });
 
-        // Trigger review prompts for both participants
-        if (booking) {
-          emitToUser(session.user_id, 'session:review:prompt', {
-            sessionId: session._id,
-            partnerName: booking.master_id?.display_name || 'Master',
-            partnerType: 'master'
-          });
-          
-          emitToUser(masterUserId, 'session:review:prompt', {
-            sessionId: session._id,
-            partnerName: booking.customer_id?.display_name || 'Cliente',
-            partnerType: 'client'
-          });
-        }
+        // Session reviews are disabled; review requests are handled via bookings
       }
 
       console.log(`Expired session ${session._id} for booking ${booking?.reservation_id}`);
@@ -230,17 +217,7 @@ class SessionLifecycleService {
             message: 'La sessione è terminata'
           });
 
-          // Trigger review prompt
-          const partnerName = participant.role === 'customer' 
-            ? booking.master_id?.display_name || 'Master'
-            : booking.customer_id?.display_name || 'Cliente';
-          const partnerType = participant.role === 'customer' ? 'master' : 'client';
-          
-          emitToUser(participant.userId, 'session:review:prompt', {
-            sessionId: booking.session_id,
-            partnerName,
-            partnerType
-          });
+          // Session reviews are disabled; review handling is managed from the booking details
         }
       }
 
@@ -316,20 +293,7 @@ class SessionLifecycleService {
         // Create master earning transaction
         await this.createMasterEarningTransaction(session, booking);
         
-        // Trigger review prompts for manual session end
-        const { emitToUser } = await import('../lib/socket.js');
-        
-        emitToUser(booking.customer_id._id, 'session:review:prompt', {
-          sessionId: session._id,
-          partnerName: booking.master_id?.display_name || 'Master',
-          partnerType: 'master'
-        });
-        
-        emitToUser(booking.master_id.user_id, 'session:review:prompt', {
-          sessionId: session._id,
-          partnerName: booking.customer_id?.display_name || 'Cliente',
-          partnerType: 'client'
-        });
+        // Session reviews are disabled; review requests are handled via bookings
       }
 
       return { success: true, message: 'Session ended successfully' };
