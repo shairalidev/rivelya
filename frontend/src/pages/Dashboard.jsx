@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 import toast from 'react-hot-toast';
 import { getBookingHistory, requestReschedule, respondToReschedule } from '../api/dashboard.js';
 import ConfirmModal from '../components/ConfirmModal.jsx';
@@ -116,6 +116,11 @@ export default function Dashboard() {
     return (cents / 100).toFixed(2);
   };
 
+  const resolveMasterProfilePath = (master) => {
+    const masterId = master?._id || master?.id || master?.masterId || master?.user_id;
+    return masterId ? `/masters/${masterId}` : '';
+  };
+
   const canReschedule = (booking) => {
     const sessionStart = booking.start
       ? new Date(`${booking.date}T${booking.start}:00`)
@@ -174,22 +179,38 @@ export default function Dashboard() {
             </button>
           </div>
         ) : (
-          bookings.map(booking => (
-            <div key={booking.id} className="booking-card">
-              <div className="booking-card__header">
-                <div className="booking-master">
-                  <Avatar 
-                    src={booking.master.avatar} 
-                    name={booking.master.name}
-                    size="small"
-                  />
-                  <div>
-                    <h3>{booking.master.name}</h3>
-                    <span className={`status status--${booking.status}`}>
-                      {statusLabels[booking.status]}
-                    </span>
+          bookings.map(booking => {
+            const masterProfilePath = resolveMasterProfilePath(booking.master);
+            return (
+              <div key={booking.id} className="booking-card">
+                <div className="booking-card__header">
+                  <div className="booking-master">
+                    {masterProfilePath ? (
+                      <Link
+                        to={masterProfilePath}
+                        className="avatar-link"
+                        aria-label={`Apri il profilo di ${booking.master.name}`}
+                      >
+                        <Avatar
+                          src={booking.master.avatar}
+                          name={booking.master.name}
+                          size="small"
+                        />
+                      </Link>
+                    ) : (
+                      <Avatar
+                        src={booking.master.avatar}
+                        name={booking.master.name}
+                        size="small"
+                      />
+                    )}
+                    <div>
+                      <h3>{booking.master.name}</h3>
+                      <span className={`status status--${booking.status}`}>
+                        {statusLabels[booking.status]}
+                      </span>
+                    </div>
                   </div>
-                </div>
                 <div className="booking-amount">
                   €{formatAmount(booking.amount_cents)}
                 </div>
@@ -295,7 +316,8 @@ export default function Dashboard() {
                 )}
               </div>
             </div>
-          ))
+            );
+          })
         )}
       </div>
 

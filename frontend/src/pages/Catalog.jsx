@@ -177,11 +177,6 @@ export default function Catalog() {
               const isReallyOnline = master.is_online || isUserOnline(master.user_id);
               const finalStatus = isReallyOnline ? 'online' : 'offline';
               const finalLabel = isReallyOnline ? 'Online' : 'Offline';
-              const sessionChannelLabel = master.active_session_channel === 'voice'
-                ? 'Voce'
-                : master.active_session_channel === 'chat_voice'
-                  ? 'Chat + Voce'
-                  : 'Chat';
               return (
                 <article key={master._id} className="master-card">
                   <div className="master-media">
@@ -192,7 +187,7 @@ export default function Catalog() {
                     <div className="master-header">
                       <div className="master-title">
                         <h3>{master.display_name || 'Esperti Rivelya'}</h3>
-                        <OnlineIndicator 
+                        <OnlineIndicator
                           userId={master.user_id}
                           isOnline={master.is_online}
                           lastSeen={master.last_seen}

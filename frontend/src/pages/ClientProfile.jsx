@@ -94,57 +94,60 @@ export default function ClientProfile() {
         <h1>{clientProfile.displayName}</h1>
         <p className="muted">Dettagli pubblici e richieste inviate a te come Master.</p>
       </div>
-      <div className="account-profile__grid">
-        <div className="account-card account-card--compact">
-          <div className="account-avatar">
-            <div className="account-avatar-preview">
+
+      <div className="account-profile__grid account-profile__grid--balanced">
+        <div className="account-card account-card--profile">
+          <div className="profile-identity">
+            <div className="profile-avatar-large">
               {clientProfile.avatarUrl ? (
                 <img src={clientProfile.avatarUrl} alt={`Avatar di ${clientProfile.displayName}`} />
               ) : (
                 <span>{clientProfile.displayName.slice(0, 2).toUpperCase()}</span>
               )}
             </div>
-            <div className="account-avatar-actions">
-              <p className="micro muted">Questa immagine sarà visibile pubblicamente.</p>
-              <p className="micro muted">Solo le informazioni elencate qui sono mostrate ai Master.</p>
+            <div className="profile-identity__meta">
+              <p className="micro muted">Cliente</p>
+              <h2>{clientProfile.displayName}</h2>
+              <div className="chip-row">
+                <span className="chip ghost">Lingua: {clientProfile.locale || 'non indicata'}</span>
+                {zodiacSign && <span className="chip">{`${zodiacSign.icon} ${zodiacSign.name}`}</span>}
+                {ascendantSign && <span className="chip soft">{`${ascendantSign.icon} ${ascendantSign.name}`}</span>}
+              </div>
+              <p className="micro muted">Le informazioni qui sotto sono pubbliche per i Master.</p>
             </div>
           </div>
-          <div className="public-summary">
-            <div className="public-summary__row">
-              <span>♓ Segno zodiacale</span>
-              <strong>{zodiacSign ? `${zodiacSign.icon} ${zodiacSign.name}` : 'Non disponibile'}</strong>
-            </div>
-            <div className="public-summary__row">
-              <span>⬆ Ascendente</span>
-              <strong>{ascendantSign ? `${ascendantSign.icon} ${ascendantSign.name}` : 'Aggiungi ora e luogo di nascita'}</strong>
-            </div>
-            <div className="public-summary__row">
-              <span>📅 Data di nascita</span>
-              <strong>
+
+          <div className="public-details-grid">
+            <div className="public-detail">
+              <p className="micro muted">Data di nascita</p>
+              <p className="detail-value">
                 {clientProfile.horoscopeBirthDate
                   ? new Date(clientProfile.horoscopeBirthDate).toLocaleDateString('it-IT')
                   : 'Non indicata'}
-              </strong>
+              </p>
             </div>
-            <div className="public-summary__row">
-              <span>🕘 Ora di nascita</span>
-              <strong>{clientProfile.horoscopeBirthTime || 'Non indicata'}</strong>
+            <div className="public-detail">
+              <p className="micro muted">Ora di nascita</p>
+              <p className="detail-value">{clientProfile.horoscopeBirthTime || 'Non indicata'}</p>
             </div>
-            <div className="public-summary__row">
-              <span>📍 Luogo di nascita</span>
-              <strong>{birthLocation || 'Non indicato'}</strong>
+            <div className="public-detail">
+              <p className="micro muted">Luogo di nascita</p>
+              <p className="detail-value">{birthLocation || 'Non indicato'}</p>
             </div>
-            <div className="public-summary__row">
-              <span>📝 Descrizione pubblica</span>
-              <strong>{clientProfile.bio ? 'Presente' : 'Non inserita'}</strong>
+            <div className="public-detail">
+              <p className="micro muted">Segno zodiacale</p>
+              <p className="detail-value">{zodiacSign ? `${zodiacSign.icon} ${zodiacSign.name}` : 'Non disponibile'}</p>
             </div>
-            <div className="public-summary__row">
-              <span>🌐 Lingua</span>
-              <strong>{clientProfile.locale}</strong>
+            <div className="public-detail">
+              <p className="micro muted">Ascendente</p>
+              <p className="detail-value">{ascendantSign ? `${ascendantSign.icon} ${ascendantSign.name}` : 'Aggiungi ora e luogo di nascita'}</p>
+            </div>
+            <div className="public-detail">
+              <p className="micro muted">Descrizione pubblica</p>
+              <p className="detail-value">{clientProfile.bio ? 'Presente' : 'Non inserita'}</p>
             </div>
           </div>
-        </div>
-        <div className="account-card">
+
           <div className="account-section">
             <h2>Descrizione pubblica</h2>
             <p className="muted">Ciò che vedi è ciò che il cliente ha condiviso con i Master.</p>
@@ -156,7 +159,9 @@ export default function ClientProfile() {
               )}
             </div>
           </div>
+        </div>
 
+        <div className="account-card">
           <div className="account-section">
             <h2>Richieste di questo cliente</h2>
             <p className="muted">Consulta le sessioni in arrivo o attive che questo cliente ha prenotato con te.</p>
