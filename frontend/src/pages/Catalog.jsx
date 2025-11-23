@@ -6,6 +6,7 @@ import { resolveAvailabilityStatus } from '../utils/availability.js';
 import FancySelect from '../components/FancySelect.jsx';
 import SessionNotificationButton from '../components/SessionNotificationButton.jsx';
 import OnlineIndicator from '../components/OnlineIndicator.jsx';
+import Avatar from '../components/Avatar.jsx';
 import useSocket from '../hooks/useSocket.js';
 import usePresence from '../hooks/usePresence.js';
 
@@ -177,16 +178,46 @@ export default function Catalog() {
               const isReallyOnline = master.is_online || isUserOnline(master.user_id);
               const finalStatus = isReallyOnline ? 'online' : 'offline';
               const finalLabel = isReallyOnline ? 'Online' : 'Offline';
+              const sessionChannelLabel = master.active_session_channel === 'voice'
+                ? 'Voce'
+                : master.active_session_channel === 'chat_voice'
+                  ? 'Chat + Voce'
+                  : 'Chat';
+              const profilePath = master._id ? `/masters/${master._id}` : undefined;
               return (
                 <article key={master._id} className="master-card">
                   <div className="master-media">
-                    <img src={master.media?.avatar_url || 'https://placehold.co/240x240'} alt="" />
+                    {profilePath ? (
+                      <Link
+                        to={profilePath}
+                        className="master-avatar-link"
+                        aria-label={`Apri il profilo di ${master.display_name || 'Esperti Rivelya'}`}
+                      >
+                        <Avatar
+                          src={master.media?.avatar_url}
+                          name={master.display_name || 'Esperti Rivelya'}
+                          size="large"
+                        />
+                      </Link>
+                    ) : (
+                      <Avatar
+                        src={master.media?.avatar_url}
+                        name={master.display_name || 'Esperti Rivelya'}
+                        size="large"
+                      />
+                    )}
                     <span className={`status-badge ${finalStatus}`}>{finalLabel}</span>
                   </div>
                   <div className="master-content">
                     <div className="master-header">
                       <div className="master-title">
-                        <h3>{master.display_name || 'Esperti Rivelya'}</h3>
+                        {profilePath ? (
+                          <Link to={profilePath} className="master-name-link">
+                            <h3>{master.display_name || 'Esperti Rivelya'}</h3>
+                          </Link>
+                        ) : (
+                          <h3>{master.display_name || 'Esperti Rivelya'}</h3>
+                        )}
                         <OnlineIndicator
                           userId={master.user_id}
                           isOnline={master.is_online}
