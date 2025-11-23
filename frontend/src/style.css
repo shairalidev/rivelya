@@ -6376,6 +6376,7 @@ html {
   padding: 1rem;
   border-radius: 8px;
   border-left: 4px solid var(--accent);
+  margin: 1rem;
 }
 
 .booking-notes p {
