@@ -217,7 +217,19 @@ class SessionLifecycleService {
             message: 'La sessione è terminata'
           });
 
-          // Session reviews are disabled; review handling is managed from the booking details
+          // Prompt the customer to leave a review when the session ends
+          if (participant.role === 'customer') {
+            const partnerName = booking.master_id?.user_id?.display_name
+              || booking.master_id?.display_name
+              || 'Consulente';
+
+            emitToUser(participant.userId, 'session:review:prompt', {
+              bookingId: booking._id.toString(),
+              reservationId: booking.reservation_id,
+              partnerName,
+              partnerType: 'master'
+            });
+          }
         }
       }
 
