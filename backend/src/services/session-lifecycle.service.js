@@ -242,11 +242,15 @@ class SessionLifecycleService {
 
           // Prompt the customer to leave a review when the session ends
           if (participant.role === 'customer') {
+            const partnerName = booking.master_id?.user_id?.display_name
+              || booking.master_id?.display_name
+              || 'Consulente';
+
             emitToUser(participant.userId, 'session:review:prompt', {
               bookingId: booking._id.toString(),
               reservationId: booking.reservation_id,
-              partnerName: participant.partnerName,
-              partnerType: participant.partnerType
+              partnerName,
+              partnerType: 'master'
             });
           }
         }
