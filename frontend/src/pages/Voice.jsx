@@ -375,7 +375,35 @@ export default function Voice() {
       if (payload.sessionId === sessionId) {
         setIsConnected(false);
         stopAudioStream();
+        setShowEndModal(false);
         toastInfo('Chiamata terminata dal partner');
+        queryClient.setQueryData(['voice', 'session', sessionId], previous => {
+          if (!previous?.session) return previous;
+          return {
+            ...previous,
+            session: {
+              ...previous.session,
+              status: 'ended',
+              endTime: payload?.endTime || previous.session.endTime,
+              duration: payload?.duration ?? previous.session.duration,
+              cost: payload?.cost ?? previous.session.cost
+            }
+          };
+        });
+        queryClient.setQueryData(['voice', 'sessions'], previous => {
+          if (!Array.isArray(previous)) return previous;
+          return previous.map(session =>
+            session.id === sessionId
+              ? {
+                ...session,
+                status: 'ended',
+                endTime: payload?.endTime || session.endTime,
+                duration: payload?.duration ?? session.duration,
+                cost: payload?.cost ?? session.cost
+              }
+              : session
+          );
+        });
         queryClient.invalidateQueries({ queryKey: ['voice', 'session', sessionId] });
       }
       queryClient.invalidateQueries({ queryKey: ['voice', 'sessions'] });
@@ -386,7 +414,24 @@ export default function Voice() {
       if (payload.sessionId === sessionId) {
         setIsConnected(false);
         stopAudioStream();
+        setShowEndModal(false);
         toastWarning('⏰ Sessione scaduta automaticamente');
+        queryClient.setQueryData(['voice', 'session', sessionId], previous => {
+          if (!previous?.session) return previous;
+          return {
+            ...previous,
+            session: {
+              ...previous.session,
+              status: 'ended'
+            }
+          };
+        });
+        queryClient.setQueryData(['voice', 'sessions'], previous => {
+          if (!Array.isArray(previous)) return previous;
+          return previous.map(session =>
+            session.id === sessionId ? { ...session, status: 'ended' } : session
+          );
+        });
         queryClient.invalidateQueries({ queryKey: ['voice', 'session', sessionId] });
       }
       queryClient.invalidateQueries({ queryKey: ['voice', 'sessions'] });
@@ -423,6 +468,32 @@ export default function Voice() {
         setActiveCall(null);
         setIsConnected(false);
         endWebRTCCall();
+        setShowEndModal(false);
+        queryClient.setQueryData(['voice', 'session', sessionId], previous => {
+          if (!previous?.session) return previous;
+          return {
+            ...previous,
+            session: {
+              ...previous.session,
+              status: 'ended',
+              duration: payload?.duration ?? previous.session.duration,
+              cost: payload?.cost ?? previous.session.cost
+            }
+          };
+        });
+        queryClient.setQueryData(['voice', 'sessions'], previous => {
+          if (!Array.isArray(previous)) return previous;
+          return previous.map(session =>
+            session.id === sessionId
+              ? {
+                ...session,
+                status: 'ended',
+                duration: payload?.duration ?? session.duration,
+                cost: payload?.cost ?? session.cost
+              }
+              : session
+          );
+        });
       }
     };
 
@@ -678,11 +749,12 @@ export default function Voice() {
   const customerName = activeSession?.customer?.name || 'Cliente Rivelya';
   const customerAvatar = activeSession?.customer?.avatarUrl || '';
   const customerInitial = customerName.charAt(0).toUpperCase();
-  const resolvedViewerRole = viewerRole || 'customer';
+  const resolvedViewerRole = viewerRole || 'client';
   const masterAudioLevel = resolvedViewerRole === 'master' ? localAudioLevel : remoteAudioLevel;
-  const customerAudioLevel = resolvedViewerRole === 'customer' ? localAudioLevel : remoteAudioLevel;
+  const customerAudioLevel = resolvedViewerRole === 'client' ? localAudioLevel : remoteAudioLevel;
   const actuallyConnected = webrtcConnected || isConnected;
   const actuallyMuted = webrtcConnected ? webrtcMuted : isMuted;
+  const canTerminateCall = actuallyConnected && isSessionActive && resolvedViewerRole === 'client';
 
   return (
     <section className="voice-page">
@@ -928,7 +1000,7 @@ export default function Voice() {
                       </button>
                     )}
                     
-                    {actuallyConnected && isSessionActive && (
+                    {canTerminateCall && (
                       <>
                         <button
                           type="button"
