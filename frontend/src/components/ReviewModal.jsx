@@ -37,7 +37,6 @@ export default function ReviewModal({ isOpen, onClose, bookingId, partnerName, p
   const [hoverRating, setHoverRating] = useState(0);
   const [text, setText] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
-  const [hasSkipped, setHasSkipped] = useState(false);
 
   if (!isOpen) return null;
 
@@ -73,7 +72,7 @@ export default function ReviewModal({ isOpen, onClose, bookingId, partnerName, p
   };
 
   const handleSkip = () => {
-    setHasSkipped(true);
+    toast('Puoi lasciare la recensione più tardi nella sezione Prenotazioni.');
     onClose();
   };
 
