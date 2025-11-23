@@ -4,6 +4,7 @@ import { Session } from '../models/session.model.js';
 import { Master } from '../models/master.model.js';
 import { notifyVoiceSessionEnded, notifyVoiceSessionStarted } from '../utils/voice-events.js';
 import { emitSessionStatus } from '../utils/session-events.js';
+import { completeBookingAndPromptReview } from '../utils/booking-events.js';
 
 const router = Router();
 
@@ -343,10 +344,9 @@ router.post('/session/:id/end', requireAuth, async (req, res, next) => {
     }
     await session.save();
 
-    // Update booking status to completed if this session is linked to a booking
+    // Update booking status and notify participants if this session is linked to a booking
     if (session.booking_id) {
-      const { Booking } = await import('../models/booking.model.js');
-      await Booking.findByIdAndUpdate(session.booking_id, { status: 'completed' });
+      await completeBookingAndPromptReview(session.booking_id);
     }
 
     // Emit WebRTC call end events
