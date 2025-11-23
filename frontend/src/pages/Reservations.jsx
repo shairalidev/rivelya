@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 import toast from 'react-hot-toast';
 import client from '../api/client.js';
 import { requestReschedule, respondToReschedule, requestStartNow, respondStartNow } from '../api/dashboard.js';
@@ -694,29 +694,57 @@ export default function Reservations() {
 
             return (
               <div key={reservation.id} className="booking-card">
-              <div className="booking-card__header">
-                <div className="booking-master">
-                  <div>
-                    <h3>
-                      {reservation.user_role === 'master' 
-                        ? `Cliente: ${reservation.customer.name}` 
-                        : `Esperti: ${reservation.master.name}`}
-                    </h3>
-                    <p className="micro muted">ID: {reservation.reservation_id}</p>
-                    <span className={`status status--${reservation.status}`}>
-                      {statusLabels[reservation.status]}
-                    </span>
-                    {reservation.user_role === 'master' && (
-                      <span className="badge-soft" style={{ marginLeft: '0.5rem' }}>
-                        Come Esperti
+                <div className="booking-card__header">
+                  <div className="booking-parties">
+                    <Link to={`/clients/${reservation.customer.id}`} className="booking-party-chip">
+                      <div className="booking-party-avatar">
+                        {reservation.customer?.avatar ? (
+                          <img src={reservation.customer.avatar} alt={reservation.customer.name} />
+                        ) : (
+                          <span>{(reservation.customer?.name || 'CL').slice(0, 2).toUpperCase()}</span>
+                        )}
+                      </div>
+                      <div>
+                        <p className="micro muted">Cliente</p>
+                        <p>{reservation.customer.name}</p>
+                      </div>
+                    </Link>
+                    <Link to={`/masters/${reservation.master.id}`} className="booking-party-chip">
+                      <div className="booking-party-avatar">
+                        {reservation.master?.avatar ? (
+                          <img src={reservation.master.avatar} alt={reservation.master.name} />
+                        ) : (
+                          <span>{(reservation.master?.name || 'MA').slice(0, 2).toUpperCase()}</span>
+                        )}
+                      </div>
+                      <div>
+                        <p className="micro muted">Master</p>
+                        <p>{reservation.master.name}</p>
+                      </div>
+                    </Link>
+                  </div>
+                  <div className="booking-master">
+                    <div>
+                      <h3>
+                        {reservation.user_role === 'master'
+                          ? `Cliente: ${reservation.customer.name}`
+                          : `Esperti: ${reservation.master.name}`}
+                      </h3>
+                      <p className="micro muted">ID: {reservation.reservation_id}</p>
+                      <span className={`status status--${reservation.status}`}>
+                        {statusLabels[reservation.status]}
                       </span>
-                    )}
+                      {reservation.user_role === 'master' && (
+                        <span className="badge-soft" style={{ marginLeft: '0.5rem' }}>
+                          Come Esperti
+                        </span>
+                      )}
+                    </div>
+                  </div>
+                  <div className="booking-amount">
+                    €{formatAmount(reservation.amount_cents)}
                   </div>
                 </div>
-                <div className="booking-amount">
-                  €{formatAmount(reservation.amount_cents)}
-                </div>
-              </div>
 
               <div className="booking-card__details">
                 <div className="booking-info">

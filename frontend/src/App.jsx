@@ -19,6 +19,7 @@ import Voice from './pages/Voice.jsx';
 import Privacy from './pages/Privacy.jsx';
 import Cookie from './pages/Cookie.jsx';
 import Terms from './pages/Terms.jsx';
+import ClientProfile from './pages/ClientProfile.jsx';
 
 export default function App() {
   return (
@@ -44,6 +45,7 @@ export default function App() {
           <Route path="/" element={<Home />} />
           <Route path="/catalog" element={<Catalog />} />
           <Route path="/masters/:id" element={<MasterProfile />} />
+          <Route path="/clients/:id" element={<ClientProfile />} />
           <Route path="/master/dashboard" element={<MasterDashboard />} />
           <Route path="/dashboard" element={<Dashboard />} />
           <Route path="/reservations" element={<Reservations />} />

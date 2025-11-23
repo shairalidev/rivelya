@@ -1044,21 +1044,26 @@ router.post('/:bookingId/start-now/respond', requireAuth, async (req, res, next)
 // Get reservations for both customer and master
 router.get('/reservations', requireAuth, async (req, res, next) => {
   try {
-    const { page = 1, limit = 20, status } = req.query;
+    const { page = 1, limit = 20, status, customerId } = req.query;
     const userId = req.user._id;
-    
+
     // Check if user is a master
     const master = await Master.findOne({ user_id: userId });
-    
+
     let filter = {};
     if (master) {
       // Master can see bookings where they are the master OR the customer
-      filter = {
-        $or: [
-          { master_id: master._id },
-          { customer_id: userId }
-        ]
-      };
+      const masterFilter = { master_id: master._id };
+      if (customerId) masterFilter.customer_id = customerId;
+
+      filter = customerId
+        ? masterFilter
+        : {
+            $or: [
+              masterFilter,
+              { customer_id: userId }
+            ]
+          };
     } else {
       // Regular user sees only their customer bookings
       filter = { customer_id: userId };

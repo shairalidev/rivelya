@@ -1,45 +1,11 @@
 import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import toast from 'react-hot-toast';
-import dayjs from 'dayjs';
 import { fetchProfile, updateProfile, uploadAvatar, removeAvatar } from '../api/profile.js';
 import FancySelect from '../components/FancySelect.jsx';
 import { getToken, notifyAuthChange, setUser as storeUser } from '../lib/auth.js';
 import client from '../api/client.js';
-
-const getZodiacSign = (birthDate) => {
-  if (!birthDate) return null;
-  const date = new Date(birthDate);
-  const month = date.getMonth() + 1;
-  const day = date.getDate();
-  
-  const signs = [
-    { name: 'Capricorno', icon: '♑', start: [12, 22], end: [1, 19] },
-    { name: 'Acquario', icon: '♒', start: [1, 20], end: [2, 18] },
-    { name: 'Pesci', icon: '♓', start: [2, 19], end: [3, 20] },
-    { name: 'Ariete', icon: '♈', start: [3, 21], end: [4, 19] },
-    { name: 'Toro', icon: '♉', start: [4, 20], end: [5, 20] },
-    { name: 'Gemelli', icon: '♊', start: [5, 21], end: [6, 20] },
-    { name: 'Cancro', icon: '♋', start: [6, 21], end: [7, 22] },
-    { name: 'Leone', icon: '♌', start: [7, 23], end: [8, 22] },
-    { name: 'Vergine', icon: '♍', start: [8, 23], end: [9, 22] },
-    { name: 'Bilancia', icon: '♎', start: [9, 23], end: [10, 22] },
-    { name: 'Scorpione', icon: '♏', start: [10, 23], end: [11, 21] },
-    { name: 'Sagittario', icon: '♐', start: [11, 22], end: [12, 21] }
-  ];
-  
-  for (const sign of signs) {
-    const [startMonth, startDay] = sign.start;
-    const [endMonth, endDay] = sign.end;
-    
-    if (startMonth === endMonth) {
-      if (month === startMonth && day >= startDay && day <= endDay) return sign;
-    } else {
-      if ((month === startMonth && day >= startDay) || (month === endMonth && day <= endDay)) return sign;
-    }
-  }
-  return null;
-};
+import { getAscendantSign, getZodiacSign } from '../utils/astrology.js';
 
 const initialForm = {
   firstName: '',
@@ -53,7 +19,13 @@ const initialForm = {
   vatNumber: '',
 
   birthPlace: '',
+  birthProvince: '',
+  birthCountry: '',
   address: '',
+  zipCode: '',
+  city: '',
+  province: '',
+  country: '',
   iban: '',
   taxRegime: 'forfettario',
   horoscopeBirthDate: '',
@@ -94,7 +66,13 @@ export default function Profile() {
           vatNumber: profile.vatNumber || '',
 
           birthPlace: profile.birthPlace || '',
+          birthProvince: profile.birthProvince || '',
+          birthCountry: profile.birthCountry || '',
           address: profile.address || '',
+          zipCode: profile.zipCode || '',
+          city: profile.city || '',
+          province: profile.province || '',
+          country: profile.country || '',
           iban: profile.iban || '',
           taxRegime: profile.taxRegime || 'forfettario',
           horoscopeBirthDate: profile.horoscopeBirthDate ? new Date(profile.horoscopeBirthDate).toISOString().split('T')[0] : '',
@@ -203,6 +181,9 @@ export default function Profile() {
     }
   };
 
+  const zodiacSign = getZodiacSign(form.horoscopeBirthDate);
+  const ascendantSign = getAscendantSign(form.horoscopeBirthDate, form.horoscopeBirthTime);
+
   if (loading) {
     return (
       <section className="container account-profile">
@@ -221,7 +202,7 @@ export default function Profile() {
       <div className="account-profile__header">
         <p className="eyebrow">Profilo</p>
         <h1>La tua identità su Rivelya</h1>
-        <p className="muted">Aggiorna i dati personali, i contatti e la biografia visibile ai Esperti.</p>
+        <p className="muted">Organizza le informazioni pubbliche e private in modo chiaro per i Master e per la documentazione interna.</p>
       </div>
       <div className="account-profile__grid">
         <div className="account-card account-card--compact">
@@ -244,19 +225,29 @@ export default function Profile() {
                 </button>
               )}
               {avatarLoading && <p className="muted">Aggiornamento in corso…</p>}
+              <p className="micro muted">Questa immagine sarà visibile pubblicamente.</p>
             </div>
           </div>
           <div className="account-meta">
             <p className="account-meta-name">{user?.displayName || 'Profilo Rivelya'}</p>
-            {user?.horoscopeBirthDate && (() => {
-              const zodiac = getZodiacSign(user.horoscopeBirthDate);
-              return zodiac ? (
-                <p className="muted" style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', marginBottom: '0.5rem' }}>
-                  <span style={{ fontSize: '1.2rem' }}>{zodiac.icon}</span>
-                  {zodiac.name}
-                </p>
-              ) : null;
-            })()}
+            <div className="public-summary">
+              <div className="public-summary__row">
+                <span>♓ Segno zodiacale</span>
+                <strong>{zodiacSign ? `${zodiacSign.icon} ${zodiacSign.name}` : 'Inserisci la data di nascita'}</strong>
+              </div>
+              <div className="public-summary__row">
+                <span>⬆ Ascendente</span>
+                <strong>{ascendantSign ? `${ascendantSign.icon} ${ascendantSign.name}` : 'Aggiungi l\'ora di nascita per calcolarlo'}</strong>
+              </div>
+              <div className="public-summary__row">
+                <span>📝 Descrizione pubblica</span>
+                <strong>{form.bio ? 'Presente' : 'Non ancora inserita'}</strong>
+              </div>
+              <div className="public-summary__row">
+                <span>🌐 Lingua</span>
+                <strong>{localeOptions.find(option => option.value === form.locale)?.label || 'Non impostata'}</strong>
+              </div>
+            </div>
             <p className="muted">{user?.email}</p>
             <span className={`account-status${user?.isEmailVerified ? ' success' : ''}`}>
               {user?.isEmailVerified ? 'Email verificata' : 'Email non verificata'}
@@ -265,17 +256,9 @@ export default function Profile() {
         </div>
         <form className="account-card" onSubmit={submit}>
           <div className="account-section">
-            <h2>Dati personali</h2>
-            <p className="muted">Personalizza come gli altri vedono il tuo profilo.</p>
+            <h2>Profilo pubblico</h2>
+            <p className="muted">Informazioni visibili ai Master: foto profilo, segno, ascendente, descrizione e lingua.</p>
             <div className="account-form-grid">
-              <label className="input-label">
-                Nome
-                <input name="firstName" value={form.firstName} onChange={updateField} placeholder="Nome" />
-              </label>
-              <label className="input-label">
-                Cognome
-                <input name="lastName" value={form.lastName} onChange={updateField} placeholder="Cognome" />
-              </label>
               <label className="input-label" data-span="2">
                 Nome pubblico
                 <input
@@ -286,10 +269,141 @@ export default function Profile() {
                 />
               </label>
             </div>
+            <label className="input-label">
+              Public description (optional)
+              <textarea
+                name="bio"
+                value={form.bio}
+                onChange={updateField}
+                rows={5}
+                placeholder="Presentati in poche righe"
+              />
+            </label>
+            <div className="account-form-grid">
+              <label className="input-label">
+                Lingua
+                <FancySelect name="locale" value={form.locale} options={localeOptions} onChange={updateField} />
+              </label>
+            </div>
           </div>
           <div className="account-section">
-            <h2>Contatti</h2>
-            <p className="muted">Mantieni aggiornati i canali di contatto per comunicazioni di servizio.</p>
+            <h2>Dettagli personali (non pubblici)</h2>
+            <p className="muted">Usati internamente per documenti, ricevute e verifica identità.</p>
+            <div className="account-form-grid">
+              <label className="input-label">
+                Nome
+                <input name="firstName" value={form.firstName} onChange={updateField} placeholder="Nome" />
+              </label>
+              <label className="input-label">
+                Cognome
+                <input name="lastName" value={form.lastName} onChange={updateField} placeholder="Cognome" />
+              </label>
+              <label className="input-label">
+                Data di nascita
+                <input
+                  type="date"
+                  name="horoscopeBirthDate"
+                  value={form.horoscopeBirthDate}
+                  onChange={updateField}
+                />
+              </label>
+              <label className="input-label">
+                Ora di nascita
+                <input
+                  type="time"
+                  name="horoscopeBirthTime"
+                  value={form.horoscopeBirthTime}
+                  onChange={updateField}
+                  placeholder="Se non ricordi, lascia vuoto"
+                />
+              </label>
+              <label className="input-label">
+                Luogo di nascita
+                <input
+                  name="birthPlace"
+                  value={form.birthPlace}
+                  onChange={updateField}
+                  placeholder="Roma"
+                />
+              </label>
+              <label className="input-label">
+                Provincia di nascita
+                <input
+                  name="birthProvince"
+                  value={form.birthProvince}
+                  onChange={updateField}
+                  placeholder="RM"
+                />
+              </label>
+              <label className="input-label">
+                Paese di nascita
+                <input
+                  name="birthCountry"
+                  value={form.birthCountry}
+                  onChange={updateField}
+                  placeholder="Italia"
+                />
+              </label>
+              <label className="input-label" data-span="2">
+                Indirizzo di residenza
+                <input
+                  name="address"
+                  value={form.address}
+                  onChange={updateField}
+                  placeholder="Via Roma 123"
+                />
+              </label>
+              <label className="input-label">
+                CAP
+                <input
+                  name="zipCode"
+                  value={form.zipCode}
+                  onChange={updateField}
+                  placeholder="00100"
+                />
+              </label>
+              <label className="input-label">
+                Città
+                <input
+                  name="city"
+                  value={form.city}
+                  onChange={updateField}
+                  placeholder="Roma"
+                />
+              </label>
+              <label className="input-label">
+                Provincia
+                <input
+                  name="province"
+                  value={form.province}
+                  onChange={updateField}
+                  placeholder="RM"
+                />
+              </label>
+              <label className="input-label">
+                Paese
+                <input
+                  name="country"
+                  value={form.country}
+                  onChange={updateField}
+                  placeholder="Italia"
+                />
+              </label>
+              <label className="input-label">
+                Codice fiscale
+                <input
+                  name="taxCode"
+                  value={form.taxCode}
+                  onChange={updateField}
+                  placeholder="RSSMRA80A01H501U"
+                  maxLength="16"
+                />
+              </label>
+            </div>
+          </div>
+          <div className="account-section">
+            <h2>Dettagli di contatto</h2>
+            <p className="muted">Non pubblici: aggiornali per supporto e fatturazione.</p>
             <div className="account-form-grid">
               <label className="input-label">
                 Email
@@ -305,7 +419,7 @@ export default function Profile() {
                 />
               </label>
               <label className="input-label">
-                Paese / Città
+                Località di riferimento
                 <input
                   name="location"
                   value={form.location}
@@ -313,41 +427,13 @@ export default function Profile() {
                   placeholder="Milano, Italia"
                 />
               </label>
-              <label className="input-label">
-                Lingua
-                <FancySelect name="locale" value={form.locale} options={localeOptions} onChange={updateField} />
-              </label>
             </div>
-          </div>
-          <div className="account-section">
-            <h2>Biografia</h2>
-            <p className="muted">Racconta chi sei e quali servizi ti interessano.</p>
-            <label className="input-label">
-              Descrizione
-              <textarea
-                name="bio"
-                value={form.bio}
-                onChange={updateField}
-                rows={5}
-                placeholder="Presentati in poche righe"
-              />
-            </label>
           </div>
           {user?.roles?.includes('master') && (
             <div className="account-section">
               <h2>Dati esperti</h2>
-              <p className="muted">Informazioni fiscali e personali per l'attività di consulenza.</p>
+              <p className="muted">Informazioni fiscali dedicate alla tua attività professionale.</p>
               <div className="account-form-grid">
-                <label className="input-label">
-                  Codice fiscale
-                  <input
-                    name="taxCode"
-                    value={form.taxCode}
-                    onChange={updateField}
-                    placeholder="RSSMRA80A01H501U"
-                    maxLength="16"
-                  />
-                </label>
                 <label className="input-label">
                   Partita IVA
                   <input
@@ -356,25 +442,6 @@ export default function Profile() {
                     onChange={updateField}
                     placeholder="12345678901"
                     maxLength="11"
-                  />
-                </label>
-
-                <label className="input-label">
-                  Luogo di nascita
-                  <input
-                    name="birthPlace"
-                    value={form.birthPlace}
-                    onChange={updateField}
-                    placeholder="Roma (RM)"
-                  />
-                </label>
-                <label className="input-label" data-span="2">
-                  Indirizzo
-                  <input
-                    name="address"
-                    value={form.address}
-                    onChange={updateField}
-                    placeholder="Via Roma 123, 00100 Roma (RM)"
                   />
                 </label>
                 <label className="input-label">
@@ -403,32 +470,6 @@ export default function Profile() {
               </div>
             </div>
           )}
-          <div className="account-section">
-            <h2>🔮 Oroscopo</h2>
-            <p className="muted">Informazioni per l'oroscopo personalizzato integrato nella piattaforma.</p>
-            <div className="account-form-grid">
-              <label className="input-label">
-                Data di nascita
-                <input
-                  type="date"
-                  name="horoscopeBirthDate"
-                  value={form.horoscopeBirthDate}
-                  onChange={updateField}
-                />
-              </label>
-              <label className="input-label">
-                Ora di nascita (opzionale)
-                <input
-                  type="time"
-                  name="horoscopeBirthTime"
-                  value={form.horoscopeBirthTime}
-                  onChange={updateField}
-                  placeholder="Se non ricordi, lascia vuoto"
-                />
-              </label>
-            </div>
-            <p className="micro">Questi dati sono utilizzati esclusivamente per generare il tuo oroscopo personalizzato e non sono visibili ad altri utenti.</p>
-          </div>
           <div className="account-actions">
             <button type="submit" className="btn primary" disabled={saving}>
               {saving ? 'Salvataggio…' : 'Salva modifiche'}
