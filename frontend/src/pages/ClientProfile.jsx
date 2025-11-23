@@ -18,8 +18,12 @@ export default function ClientProfile() {
   const [reservations, setReservations] = useState([]);
   const [loading, setLoading] = useState(true);
 
+  const birthLocation = useMemo(
+    () => [clientProfile?.birthPlace, clientProfile?.birthProvince, clientProfile?.birthCountry].filter(Boolean).join(', '),
+    [clientProfile?.birthCountry, clientProfile?.birthPlace, clientProfile?.birthProvince]
+  );
   const zodiacSign = getZodiacSign(clientProfile?.horoscopeBirthDate);
-  const ascendantSign = getAscendantSign(clientProfile?.horoscopeBirthDate, clientProfile?.horoscopeBirthTime);
+  const ascendantSign = getAscendantSign(clientProfile?.horoscopeBirthDate, clientProfile?.horoscopeBirthTime, birthLocation);
 
   useEffect(() => {
     let mounted = true;
@@ -112,7 +116,23 @@ export default function ClientProfile() {
             </div>
             <div className="public-summary__row">
               <span>⬆ Ascendente</span>
-              <strong>{ascendantSign ? `${ascendantSign.icon} ${ascendantSign.name}` : 'Non fornito'}</strong>
+              <strong>{ascendantSign ? `${ascendantSign.icon} ${ascendantSign.name}` : 'Aggiungi ora e luogo di nascita'}</strong>
+            </div>
+            <div className="public-summary__row">
+              <span>📅 Data di nascita</span>
+              <strong>
+                {clientProfile.horoscopeBirthDate
+                  ? new Date(clientProfile.horoscopeBirthDate).toLocaleDateString('it-IT')
+                  : 'Non indicata'}
+              </strong>
+            </div>
+            <div className="public-summary__row">
+              <span>🕘 Ora di nascita</span>
+              <strong>{clientProfile.horoscopeBirthTime || 'Non indicata'}</strong>
+            </div>
+            <div className="public-summary__row">
+              <span>📍 Luogo di nascita</span>
+              <strong>{birthLocation || 'Non indicato'}</strong>
             </div>
             <div className="public-summary__row">
               <span>📝 Descrizione pubblica</span>

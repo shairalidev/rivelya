@@ -181,8 +181,9 @@ export default function Profile() {
     }
   };
 
+  const birthLocation = [form.birthPlace, form.birthProvince, form.birthCountry].filter(Boolean).join(', ');
   const zodiacSign = getZodiacSign(form.horoscopeBirthDate);
-  const ascendantSign = getAscendantSign(form.horoscopeBirthDate, form.horoscopeBirthTime);
+  const ascendantSign = getAscendantSign(form.horoscopeBirthDate, form.horoscopeBirthTime, birthLocation);
 
   if (loading) {
     return (
@@ -237,7 +238,19 @@ export default function Profile() {
               </div>
               <div className="public-summary__row">
                 <span>⬆ Ascendente</span>
-                <strong>{ascendantSign ? `${ascendantSign.icon} ${ascendantSign.name}` : 'Aggiungi l\'ora di nascita per calcolarlo'}</strong>
+                <strong>{ascendantSign ? `${ascendantSign.icon} ${ascendantSign.name}` : 'Aggiungi ora e luogo di nascita'}</strong>
+              </div>
+              <div className="public-summary__row">
+                <span>📅 Data di nascita</span>
+                <strong>{form.horoscopeBirthDate ? new Date(form.horoscopeBirthDate).toLocaleDateString('it-IT') : 'Non indicata'}</strong>
+              </div>
+              <div className="public-summary__row">
+                <span>🕘 Ora di nascita</span>
+                <strong>{form.horoscopeBirthTime || 'Non indicata'}</strong>
+              </div>
+              <div className="public-summary__row">
+                <span>📍 Luogo di nascita</span>
+                <strong>{birthLocation || 'Non indicato'}</strong>
               </div>
               <div className="public-summary__row">
                 <span>📝 Descrizione pubblica</span>

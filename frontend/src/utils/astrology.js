@@ -40,14 +40,18 @@ export const getZodiacSign = (birthDate) => {
   return null;
 };
 
-export const getAscendantSign = (birthDate, birthTime) => {
-  if (!birthDate || !birthTime) return null;
+export const getAscendantSign = (birthDate, birthTime, birthPlace) => {
+  if (!birthDate || !birthTime || !birthPlace) return null;
   const date = new Date(`${birthDate}T${birthTime}`);
   if (Number.isNaN(date.getTime())) return null;
 
+  // Basic approximation: use birth time adjusted by timezone offset as reported by the browser.
+  // Requiring a birth place ensures the ascendant is only shown when the user provides
+  // the context typically needed for a realistic calculation.
   const minutes = date.getHours() * 60 + date.getMinutes();
+  const timezoneAdjustedMinutes = minutes + date.getTimezoneOffset();
   const dayOfYear = getDayOfYear(date);
-  const segment = Math.floor(((minutes / 120) + dayOfYear) % 12);
+  const segment = Math.floor(((timezoneAdjustedMinutes / 120) + dayOfYear) % 12);
   return signs[segment];
 };
 
