@@ -444,7 +444,7 @@ export default function Voice() {
     };
 
     const handleReviewPrompt = payload => {
-      if (!payload?.bookingId) return;
+      if (!payload?.bookingId || payload?.partnerType !== 'master') return;
       setReviewData({
         bookingId: payload.bookingId,
         partnerName: payload.partnerName,
@@ -454,7 +454,7 @@ export default function Voice() {
     };
 
     const handleSessionCompleted = payload => {
-      if (!payload?.bookingId) return;
+      if (!payload?.bookingId || payload?.partnerType !== 'master') return;
       setReviewData({
         bookingId: payload.bookingId,
         partnerName: payload.partnerName,
