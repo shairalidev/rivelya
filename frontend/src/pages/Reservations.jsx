@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { Link, useNavigate } from 'react-router-dom';
+import { useNavigate } from 'react-router-dom';
 import toast from 'react-hot-toast';
 import client from '../api/client.js';
 import { requestReschedule, respondToReschedule, requestStartNow, respondStartNow } from '../api/dashboard.js';
@@ -696,7 +696,7 @@ export default function Reservations() {
               <div key={reservation.id} className="booking-card">
                 <div className="booking-card__header">
                   <div className="booking-parties">
-                    <Link to={`/clients/${reservation.customer.id}`} className="booking-party-chip">
+                    <div className="booking-party-chip" aria-label="Dettagli cliente">
                       <div className="booking-party-avatar">
                         {reservation.customer?.avatar ? (
                           <img src={reservation.customer.avatar} alt={reservation.customer.name} />
@@ -708,8 +708,8 @@ export default function Reservations() {
                         <p className="micro muted">Cliente</p>
                         <p>{reservation.customer.name}</p>
                       </div>
-                    </Link>
-                    <Link to={`/masters/${reservation.master.id}`} className="booking-party-chip">
+                    </div>
+                    <div className="booking-party-chip" aria-label="Dettagli master">
                       <div className="booking-party-avatar">
                         {reservation.master?.avatar ? (
                           <img src={reservation.master.avatar} alt={reservation.master.name} />
@@ -721,7 +721,7 @@ export default function Reservations() {
                         <p className="micro muted">Master</p>
                         <p>{reservation.master.name}</p>
                       </div>
-                    </Link>
+                    </div>
                   </div>
                   <div className="booking-master">
                     <div>

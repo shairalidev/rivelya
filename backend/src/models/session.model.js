@@ -29,7 +29,8 @@ const sessionSchema = new mongoose.Schema({
 
 // Indexes for performance
 sessionSchema.index({ status: 1, end_ts: 1 });
-sessionSchema.index({ booking_id: 1 });
+// Ensure only one session per booking while allowing sessions without a booking
+sessionSchema.index({ booking_id: 1 }, { unique: true, sparse: true });
 sessionSchema.index({ master_id: 1, status: 1 });
 sessionSchema.index({ user_id: 1, status: 1 });
 
