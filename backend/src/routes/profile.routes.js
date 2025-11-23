@@ -190,12 +190,8 @@ router.delete('/me/avatar', requireAuth, async (req, res, next) => {
 
 router.get('/clients/:id', requireAuth, async (req, res, next) => {
   try {
-    if (!req.user.roles?.includes('master')) {
-      return res.status(403).json({ message: 'Solo i master possono visualizzare i profili cliente.' });
-    }
-
     const client = await User.findById(req.params.id).select(
-      'first_name last_name display_name avatar_url locale bio horoscope_birth_date horoscope_birth_time'
+      'first_name last_name display_name avatar_url locale bio horoscope_birth_date horoscope_birth_time birth_place birth_country birth_province'
     );
 
     if (!client) return res.status(404).json({ message: 'Cliente non trovato' });
@@ -210,7 +206,10 @@ router.get('/clients/:id', requireAuth, async (req, res, next) => {
         locale: client.locale || 'it-IT',
         bio: client.bio || '',
         horoscopeBirthDate: client.horoscope_birth_date || null,
-        horoscopeBirthTime: client.horoscope_birth_time || ''
+        horoscopeBirthTime: client.horoscope_birth_time || '',
+        birthPlace: client.birth_place || '',
+        birthCountry: client.birth_country || '',
+        birthProvince: client.birth_province || ''
       }
     });
   } catch (e) {

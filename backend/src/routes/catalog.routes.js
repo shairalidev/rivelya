@@ -71,6 +71,24 @@ const masterUserIds = masters.map(master => master.user_id?._id).filter(Boolean)
       sessionsByMaster.set(String(session.master_id), session.channel);
     });
 
+    // Include active chat threads so "In session" reflects chat activity too
+    const activeChatThreads = await ChatThread.find({
+      master_id: { $in: masterIds },
+      status: 'open',
+      $or: [
+        { expires_at: { $gte: new Date() } },
+        { expires_at: { $exists: false } },
+        { expires_at: null }
+      ]
+    })
+      .select('master_id channel')
+      .lean();
+
+    activeChatThreads.forEach(thread => {
+      const channel = thread.channel || 'chat';
+      sessionsByMaster.set(String(thread.master_id), channel);
+    });
+
     // Calculate real-time review statistics
     const reviewStats = await Review.aggregate([
       {
