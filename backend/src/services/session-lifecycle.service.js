@@ -186,6 +186,17 @@ class SessionLifecycleService {
   async completeBooking(booking) {
     try {
       const wasActive = booking.status === 'active';
+
+      // Ensure we have the required user references for notifications
+      if (!booking.populated?.('master_id') || !booking.populated?.('customer_id')) {
+        await booking.populate([
+          { path: 'master_id', select: 'user_id display_name' },
+          { path: 'customer_id', select: '_id display_name' }
+        ]);
+      }
+
+      const customerUserId = booking.customer_id?._id?.toString?.() || booking.customer_id?.toString?.();
+      const masterUserId = booking.master_id?.user_id?.toString?.() || booking.master_id?.toString?.();
       
       // Update booking status
       booking.status = 'completed';
@@ -195,9 +206,19 @@ class SessionLifecycleService {
       if (wasActive) {
         // Notify participants that session ended
         const participants = [
-          { userId: booking.customer_id._id, role: 'customer' },
-          { userId: booking.master_id.user_id, role: 'master' }
-        ];
+          {
+            userId: customerUserId,
+            role: 'customer',
+            partnerName: getPublicDisplayName(booking.master_id) || 'Consulente',
+            partnerType: 'master'
+          },
+          {
+            userId: masterUserId,
+            role: 'master',
+            partnerName: getPublicDisplayName(booking.customer_id, 'Cliente'),
+            partnerType: 'client'
+          }
+        ].filter(participant => participant.userId);
 
         for (const participant of participants) {
           await createNotification({
@@ -214,7 +235,9 @@ class SessionLifecycleService {
           emitToUser(participant.userId, 'session:completed', {
             bookingId: booking._id.toString(),
             reservationId: booking.reservation_id,
-            message: 'La sessione è terminata'
+            message: 'La sessione è terminata',
+            partnerName: participant.partnerName,
+            partnerType: participant.partnerType
           });
 
           // Prompt the customer to leave a review when the session ends

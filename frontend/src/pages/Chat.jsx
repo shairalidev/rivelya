@@ -285,6 +285,16 @@ export default function Chat() {
       }
     };
 
+    const handleSessionCompleted = payload => {
+      if (!payload?.bookingId || payload?.partnerType !== 'master') return;
+      setReviewData({
+        bookingId: payload.bookingId,
+        partnerName: payload.partnerName,
+        partnerType: payload.partnerType
+      });
+      setShowReviewModal(true);
+    };
+
     const handleReviewPrompt = payload => {
       if (!payload?.bookingId) return;
       setReviewData({
@@ -305,7 +315,8 @@ export default function Chat() {
     socket.on('chat:call:signal', handleCallSignal);
     socket.on('chat:call:connection:status', handleConnectionStatus);
     socket.on('session:review:prompt', handleReviewPrompt);
-    
+    socket.on('session:completed', handleSessionCompleted);
+
     return () => {
       socket.off('chat:message', handleMessage);
       socket.off('chat:thread:updated', handleThreadUpdate);
@@ -318,6 +329,7 @@ export default function Chat() {
       socket.off('chat:call:signal', handleCallSignal);
       socket.off('chat:call:connection:status', handleConnectionStatus);
       socket.off('session:review:prompt', handleReviewPrompt);
+      socket.off('session:completed', handleSessionCompleted);
     };
   }, [socket, queryClient, threadId, viewerId]);
 
