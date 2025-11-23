@@ -241,16 +241,38 @@ export default function Reservations() {
       });
     };
 
+    const handleReviewPrompt = (payload) => {
+      if (!payload?.bookingId || payload?.partnerType !== 'master') return;
+
+      toast('La tua sessione è terminata. Lascia una recensione?');
+      setReviewModal({
+        bookingId: payload.bookingId,
+        partnerName: payload.partnerName,
+        partnerType: payload.partnerType
+      });
+
+      loadReservations(pagination.page, { showLoader: false });
+    };
+
+    const handleSessionCompleted = (payload) => {
+      if (!payload?.bookingId) return;
+      loadReservations(pagination.page, { showLoader: false });
+    };
+
     socket.on('booking:start_now', handleStartNowSocket);
     socket.on('session:status', handleSessionStatus);
     socket.on('booking:session_started', handleSessionStarted);
     socket.on('session:upcoming', handleUpcomingSession);
+    socket.on('session:review:prompt', handleReviewPrompt);
+    socket.on('session:completed', handleSessionCompleted);
 
     return () => {
       socket.off('booking:start_now', handleStartNowSocket);
       socket.off('session:status', handleSessionStatus);
       socket.off('booking:session_started', handleSessionStarted);
       socket.off('session:upcoming', handleUpcomingSession);
+      socket.off('session:review:prompt', handleReviewPrompt);
+      socket.off('session:completed', handleSessionCompleted);
     };
   }, [loadReservations, navigate, pagination.page, socket]);
 

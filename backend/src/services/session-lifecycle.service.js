@@ -4,6 +4,7 @@ import { Session } from '../models/session.model.js';
 import { ChatThread } from '../models/chat-thread.model.js';
 import { SessionNotification } from '../models/session-notification.model.js';
 import { createNotification } from '../utils/notifications.js';
+import { emitBookingCompletionEvents } from '../utils/booking-events.js';
 import { emitToUser } from '../lib/socket.js';
 import { getPublicDisplayName } from '../utils/privacy.js';
 
@@ -204,56 +205,7 @@ class SessionLifecycleService {
       await booking.save();
 
       if (wasActive) {
-        // Notify participants that session ended
-        const participants = [
-          {
-            userId: customerUserId,
-            role: 'customer',
-            partnerName: getPublicDisplayName(booking.master_id) || 'Consulente',
-            partnerType: 'master'
-          },
-          {
-            userId: masterUserId,
-            role: 'master',
-            partnerName: getPublicDisplayName(booking.customer_id, 'Cliente'),
-            partnerType: 'client'
-          }
-        ].filter(participant => participant.userId);
-
-        for (const participant of participants) {
-          await createNotification({
-            userId: participant.userId,
-            type: 'session:completed',
-            title: 'Sessione completata',
-            body: `La sessione ${booking.reservation_id} è terminata.`,
-            meta: { 
-              bookingId: booking._id, 
-              reservationId: booking.reservation_id
-            }
-          });
-
-          emitToUser(participant.userId, 'session:completed', {
-            bookingId: booking._id.toString(),
-            reservationId: booking.reservation_id,
-            message: 'La sessione è terminata',
-            partnerName: participant.partnerName,
-            partnerType: participant.partnerType
-          });
-
-          // Prompt the customer to leave a review when the session ends
-          if (participant.role === 'customer') {
-            const partnerName = booking.master_id?.user_id?.display_name
-              || booking.master_id?.display_name
-              || 'Consulente';
-
-            emitToUser(participant.userId, 'session:review:prompt', {
-              bookingId: booking._id.toString(),
-              reservationId: booking.reservation_id,
-              partnerName,
-              partnerType: 'master'
-            });
-          }
-        }
+        await emitBookingCompletionEvents(booking);
       }
 
       console.log(`Completed booking ${booking.reservation_id}`);
