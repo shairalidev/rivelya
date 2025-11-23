@@ -1,6 +1,5 @@
 import { emitToUser } from '../lib/socket.js';
 import { Booking } from '../models/booking.model.js';
-import { Review } from '../models/review.model.js';
 import { createNotification } from './notifications.js';
 import { getPublicDisplayName } from './privacy.js';
 
@@ -27,13 +26,6 @@ export const emitBookingCompletionEvents = async booking => {
     }
   ].filter(participant => participant.userId);
 
-  const hasExistingCustomerReview = booking.customer_id
-    ? await Review.exists({
-        booking_id: booking._id,
-        reviewer_id: booking.customer_id._id || booking.customer_id
-      })
-    : false;
-
   for (const participant of participants) {
     await createNotification({
       userId: participant.userId,
@@ -54,7 +46,7 @@ export const emitBookingCompletionEvents = async booking => {
       partnerType: participant.partnerType
     });
 
-    if (participant.role === 'customer' && !hasExistingCustomerReview) {
+    if (participant.role === 'customer') {
       const partnerName = booking.master_id?.user_id?.display_name
         || booking.master_id?.display_name
         || 'Consulente';
