@@ -286,7 +286,7 @@ export default function Chat() {
     };
 
     const handleSessionCompleted = payload => {
-      if (!payload?.bookingId || payload?.partnerType !== 'master') return;
+      if (!payload?.bookingId) return;
       setReviewData({
         bookingId: payload.bookingId,
         partnerName: payload.partnerName,
