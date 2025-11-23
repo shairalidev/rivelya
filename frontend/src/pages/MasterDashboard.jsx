@@ -694,26 +694,6 @@ export default function MasterDashboard() {
                 </button>
               </div>
 
-              <div className={`visibility-toggle${profileForm.acceptingRequests ? ' active' : ''}`}>
-                <div className="visibility-header">
-                  <p className="micro muted">Visibilità profilo</p>
-                  <span className="visibility-status">
-                    {profileForm.acceptingRequests ? 'Visibile nel catalogo' : 'Nascosto dal catalogo'}
-                  </span>
-                </div>
-                <label className="switch">
-                  <input
-                    type="checkbox"
-                    checked={profileForm.acceptingRequests}
-                    onChange={toggleAcceptingRequests}
-                  />
-                  <span className="slider" />
-                </label>
-                <p className="micro muted">
-                  Disattiva per prendere una pausa: i clienti non potranno inviarti nuove richieste finché non riattiverai il
-                  profilo.
-                </p>
-              </div>
 
               <div className="profile-section services">
                 <span className="section-title">Servizi attivi</span>
