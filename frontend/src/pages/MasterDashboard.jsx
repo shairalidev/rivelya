@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState, useRef } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import toast from 'react-hot-toast';
 import {
@@ -10,46 +10,35 @@ import client from '../api/client.js';
 import FancySelect from '../components/FancySelect.jsx';
 import { getUser as getStoredUser, subscribeAuthChange } from '../lib/auth.js';
 import { fetchMasterProfile, updateMasterProfile } from '../api/master.js';
+import { fetchProfile, updateProfile } from '../api/profile.js';
 import useSocket from '../hooks/useSocket.js';
 import { DAY_ORDER, DAY_LABELS } from '../utils/schedule.js';
 import ReviewsList from '../components/ReviewsList.jsx';
 
 const weekdays = ['Lun', 'Mar', 'Mer', 'Gio', 'Ven', 'Sab', 'Dom'];
-const formatCurrency = c => (c / 100).toFixed(2);
-
-const formatCentsInput = value => {
-  if (typeof value !== 'number') return '';
-  return (value / 100).toFixed(2);
-};
-
-const parseEuroInput = value => {
-  if (!value) return 0;
-  const normalized = value.replace(',', '.');
-  const parsed = Number(normalized);
-  if (Number.isNaN(parsed) || parsed < 0) return 0;
-  return Math.round(parsed * 100);
-};
-
-const parseListInput = value =>
-  value
-    .split(',')
-    .map(v => v.trim())
-    .filter(Boolean);
-
 const initialProfileForm = {
-  displayName: '',
-  headline: '',
-  bio: '',
-  introVideoUrl: '',
-  languages: '',
-  specialties: '',
-  categories: '',
-  experienceYears: '',
-  rateChat: '',
-  rateVoice: '',
-  rateChatVoice: '',
-  services: { chat: true, voice: false, chatVoice: false },
-  acceptingRequests: true
+  firstName: '',
+  lastName: '',
+  birthDate: '',
+  birthPlace: '',
+  birthProvince: '',
+  birthCountry: '',
+  address: '',
+  zipCode: '',
+  city: '',
+  province: '',
+  country: '',
+  legalAddress: '',
+  legalZipCode: '',
+  legalCity: '',
+  legalProvince: '',
+  legalCountry: '',
+  phone: '',
+  email: '',
+  taxCode: '',
+  vatNumber: '',
+  taxRegime: 'forfettario',
+  iban: ''
 };
 
 const formatDateLabel = (year, month) => {
@@ -152,7 +141,6 @@ const mapWorkingHoursToForm = workingHours => {
 
 export default function MasterDashboard() {
   const navigate = useNavigate();
-  const avatarInputRef = useRef(null);
   const [user, setUser] = useState(() => getStoredUser());
   const [monthCursor, setMonthCursor] = useState(() => {
     const now = new Date();
@@ -182,26 +170,30 @@ export default function MasterDashboard() {
   const masterId = user?.masterId;
 
   const buildProfileForm = useCallback(data => ({
-    displayName: data?.displayName || '',
-    headline: data?.headline || '',
-    bio: data?.bio || '',
-    introVideoUrl: data?.media?.introVideoUrl || '',
-    languages: (data?.languages || []).join(', '),
-    specialties: (data?.specialties || []).join(', '),
-    categories: (data?.categories || []).join(', '),
-    experienceYears:
-      data?.experienceYears != null && !Number.isNaN(data.experienceYears)
-        ? String(data.experienceYears)
-        : '',
-    rateChat: formatCentsInput(data?.rateChatCpm ?? 0),
-    rateVoice: formatCentsInput(data?.rateVoiceCpm ?? 0),
-    rateChatVoice: formatCentsInput(data?.rateChatVoiceCpm ?? 0),
-    services: {
-      chat: data?.services?.chat !== false,
-      voice: data?.services?.voice ?? false,
-      chatVoice: data?.services?.chatVoice ?? false
-    },
-    acceptingRequests: data?.isAcceptingRequests !== false
+    firstName: data?.firstName || '',
+    lastName: data?.lastName || '',
+    birthDate: data?.horoscopeBirthDate
+      ? new Date(data.horoscopeBirthDate).toISOString().split('T')[0]
+      : '',
+    birthPlace: data?.birthPlace || '',
+    birthProvince: data?.birthProvince || '',
+    birthCountry: data?.birthCountry || '',
+    address: data?.address || '',
+    zipCode: data?.zipCode || '',
+    city: data?.city || '',
+    province: data?.province || '',
+    country: data?.country || '',
+    legalAddress: data?.legalAddress || '',
+    legalZipCode: data?.legalZipCode || '',
+    legalCity: data?.legalCity || '',
+    legalProvince: data?.legalProvince || '',
+    legalCountry: data?.legalCountry || '',
+    phone: data?.phone || '',
+    email: data?.email || '',
+    taxCode: data?.taxCode || '',
+    vatNumber: data?.vatNumber || '',
+    taxRegime: data?.taxRegime || 'forfettario',
+    iban: data?.iban || ''
   }), []);
 
   const buildWorkingHoursForm = useCallback(data => mapWorkingHoursToForm(data?.workingHours), []);
@@ -210,10 +202,13 @@ export default function MasterDashboard() {
     try {
       setProfileLoading(true);
       setProfileError('');
-      const data = await fetchMasterProfile();
-      setProfile(data);
-      setProfileForm(buildProfileForm(data));
-      setWorkingHoursForm(buildWorkingHoursForm(data));
+      const [userProfile, masterData] = await Promise.all([
+        fetchProfile(),
+        fetchMasterProfile()
+      ]);
+      setProfile(userProfile);
+      setProfileForm(buildProfileForm(userProfile));
+      setWorkingHoursForm(buildWorkingHoursForm(masterData));
     } catch (err) {
       const msg = err?.response?.data?.message || 'Errore durante il caricamento profilo.';
       setProfileError(msg);
@@ -479,98 +474,42 @@ export default function MasterDashboard() {
     setProfileForm(prev => ({ ...prev, [name]: value }));
   };
 
-  const toggleService = s => {
-    setProfileForm(prev => ({
-      ...prev,
-      services: { ...prev.services, [s]: !prev.services[s] }
-    }));
-  };
-
-  const toggleAcceptingRequests = () => {
-    setProfileForm(prev => ({
-      ...prev,
-      acceptingRequests: !prev.acceptingRequests
-    }));
-  };
-
   const saveProfile = async () => {
     try {
       setProfileSaving(true);
 
       const payload = {
-        displayName: profileForm.displayName.trim(),
-        headline: profileForm.headline.trim(),
-        bio: profileForm.bio.trim(),
-        introVideoUrl: profileForm.introVideoUrl.trim() || null,
-        experienceYears: profileForm.experienceYears ? Number(profileForm.experienceYears) : 0,
-        languages: parseListInput(profileForm.languages),
-        specialties: parseListInput(profileForm.specialties),
-        categories: parseListInput(profileForm.categories),
-        acceptingRequests: profileForm.acceptingRequests,
-        services: {
-          chat: profileForm.services.chat,
-          voice: profileForm.services.voice,
-          chatVoice: profileForm.services.chatVoice
-        },
-        rates: {
-          chat: parseEuroInput(profileForm.rateChat),
-          voice: parseEuroInput(profileForm.rateVoice),
-          chatVoice: parseEuroInput(profileForm.rateChatVoice)
-        }
+        firstName: profileForm.firstName.trim(),
+        lastName: profileForm.lastName.trim(),
+        phone: profileForm.phone.trim(),
+        taxCode: profileForm.taxCode.trim(),
+        vatNumber: profileForm.vatNumber.trim(),
+        taxRegime: profileForm.taxRegime,
+        address: profileForm.address.trim(),
+        zipCode: profileForm.zipCode.trim(),
+        city: profileForm.city.trim(),
+        province: profileForm.province.trim(),
+        country: profileForm.country.trim(),
+        legalAddress: profileForm.legalAddress.trim(),
+        legalZipCode: profileForm.legalZipCode.trim(),
+        legalCity: profileForm.legalCity.trim(),
+        legalProvince: profileForm.legalProvince.trim(),
+        legalCountry: profileForm.legalCountry.trim(),
+        birthPlace: profileForm.birthPlace.trim(),
+        birthProvince: profileForm.birthProvince.trim(),
+        birthCountry: profileForm.birthCountry.trim(),
+        horoscopeBirthDate: profileForm.birthDate ? new Date(profileForm.birthDate) : null,
+        iban: profileForm.iban.trim()
       };
 
-      if (Number.isNaN(payload.experienceYears) || payload.experienceYears < 0) {
-        payload.experienceYears = 0;
-      }
-
-      const updated = await updateMasterProfile(payload);
+      const updated = await updateProfile(payload);
       setProfile(updated);
       setProfileForm(buildProfileForm(updated));
-      setWorkingHoursForm(buildWorkingHoursForm(updated));
       toast.success('Profilo aggiornato.');
     } catch (err) {
       toast.error('Errore aggiornamento profilo.');
     } finally {
       setProfileSaving(false);
-    }
-  };
-
-  const handleAvatarUpload = async (event) => {
-    const file = event.target.files?.[0];
-    if (!file) return;
-
-    if (!file.type.startsWith('image/')) {
-      toast.error('Seleziona un file immagine valido');
-      return;
-    }
-
-    try {
-      setProfileSaving(true);
-      const formData = new FormData();
-      formData.append('avatar', file);
-
-      const response = await client.post('/master/me/avatar', formData, {
-        headers: { 'Content-Type': 'multipart/form-data' }
-      });
-
-      const updatedProfile = response.data.master;
-      setProfile(updatedProfile);
-      setProfileForm(buildProfileForm(updatedProfile));
-      toast.success('Foto profilo aggiornata');
-      
-      // Force image refresh by adding timestamp
-      const avatarImg = document.querySelector('.avatar-preview img');
-      if (avatarImg && updatedProfile.media?.avatarUrl) {
-        avatarImg.src = updatedProfile.media.avatarUrl + '?t=' + Date.now();
-      }
-    } catch (err) {
-      const msg = err?.response?.data?.message || 'Errore durante il caricamento';
-      toast.error(msg);
-    } finally {
-      setProfileSaving(false);
-      if (avatarInputRef.current) {
-        avatarInputRef.current.value = '';
-      }
     }
   };
 
@@ -647,11 +586,12 @@ export default function MasterDashboard() {
         </div>
       </div>
 
+      
       {/* PROFILE BLOCK FULL WIDTH */}
       <div className="profile-settings-card" style={{ width: '100%' }}>
         <div className="profile-settings-head">
-          <h2>Profilo pubblico</h2>
-          <p className="muted">Personalizza le informazioni mostrate ai clienti.</p>
+          <h2>Profilo</h2>
+          <p className="muted">These details are strictly for internal use and are not visible to the public.</p>
         </div>
 
         {profileLoading ? (
@@ -660,253 +600,256 @@ export default function MasterDashboard() {
           <div className="alert small">{profileError}</div>
         ) : (
           <div className="profile-settings-grid">
-            {/* LEFT COLUMN */}
-            <div className="profile-settings-column">
-              <div className="profile-avatar-card profile-section media">
-                <span className="section-title">Foto profilo</span>
-                <div className="avatar-preview">
-                  <img
-                    src={
-                      profile?.media?.avatarUrl ||
-                      user?.avatarUrl ||
-                      'https://placehold.co/300x300'
-                    }
-                    alt="Avatar"
-                    onError={(e) => {
-                      e.target.src = 'https://placehold.co/300x300';
-                    }}
-                  />
-                </div>
-                <input
-                  type="file"
-                  accept="image/*"
-                  onChange={handleAvatarUpload}
-                  style={{ display: 'none' }}
-                  ref={avatarInputRef}
-                />
-                <button
-                  type="button"
-                  className="btn outline small"
-                  onClick={() => avatarInputRef.current?.click()}
-                  disabled={profileSaving}
-                >
-                  Carica foto
-                </button>
-              </div>
-
-              <div className={`visibility-toggle${profileForm.acceptingRequests ? ' active' : ''}`}>
-                <div className="visibility-header">
-                  <p className="micro muted">Visibilità profilo</p>
-                  <span className="visibility-status">
-                    {profileForm.acceptingRequests ? 'Visibile nel catalogo' : 'Nascosto dal catalogo'}
-                  </span>
-                </div>
-                <label className="switch">
-                  <input
-                    type="checkbox"
-                    checked={profileForm.acceptingRequests}
-                    onChange={toggleAcceptingRequests}
-                  />
-                  <span className="slider" />
-                </label>
-                <p className="micro muted">
-                  Disattiva per prendere una pausa: i clienti non potranno inviarti nuove richieste finché non riattiverai il
-                  profilo.
-                </p>
-              </div>
-
-              <div className="profile-section services">
-                <span className="section-title">Servizi attivi</span>
-                <div className="service-toggle-group">
-                  <label className={`service-toggle${profileForm.services.chat ? ' active' : ''}`}>
-                    <input
-                      type="checkbox"
-                      checked={profileForm.services.chat}
-                      onChange={() => toggleService('chat')}
-                    />
-                    <span>Solo Chat</span>
-                  </label>
-
-                  <label className={`service-toggle${profileForm.services.voice ? ' active' : ''}`}>
-                    <input
-                      type="checkbox"
-                      checked={profileForm.services.voice}
-                      onChange={() => toggleService('voice')}
-                    />
-                    <span>Solo Voce</span>
-                  </label>
-
-                  <label className={`service-toggle${profileForm.services.chatVoice ? ' active' : ''}`}>
-                    <input
-                      type="checkbox"
-                      checked={profileForm.services.chatVoice}
-                      onChange={() => toggleService('chatVoice')}
-                    />
-                    <span>Chat e Voce</span>
-                  </label>
-                </div>
-              </div>
-
-              <div className="profile-section">
-                <div className={`visibility-toggle${profileForm.acceptingRequests ? ' active' : ''}`}>
-                  <div className="visibility-header">
-                    <p className="micro muted">Visibilità profilo</p>
-                    <span className="visibility-status">
-                      {profileForm.acceptingRequests ? 'Visibile nel catalogo' : 'Nascosto dal catalogo'}
-                    </span>
-                  </div>
-                  <label className="switch">
-                    <input
-                      type="checkbox"
-                      checked={profileForm.acceptingRequests}
-                      onChange={toggleAcceptingRequests}
-                    />
-                    <span className="slider" />
-                  </label>
-                  <p className="micro muted">
-                    Disattiva per prendere una pausa: i clienti non potranno inviarti nuove richieste finché non riattiverai il
-                    profilo.
-                  </p>
-                </div>
-              </div>
-            </div>
-
-            {/* RIGHT COLUMN */}
             <div className="profile-settings-column">
               <div className="profile-section">
-                <span className="section-title">Informazioni principali</span>
+                <span className="section-title">A. Dettagli personali</span>
                 <div className="field-grid">
                   <label className="input-label">
-                    Nome pubblico
+                    Nome
                     <input
                       type="text"
-                      name="displayName"
-                      value={profileForm.displayName}
+                      name="firstName"
+                      value={profileForm.firstName}
                       onChange={updateProfileField}
                     />
                   </label>
 
                   <label className="input-label">
-                    Headline
+                    Cognome
                     <input
                       type="text"
-                      name="headline"
-                      value={profileForm.headline}
+                      name="lastName"
+                      value={profileForm.lastName}
+                      onChange={updateProfileField}
+                    />
+                  </label>
+
+                  <label className="input-label">
+                    Data di nascita
+                    <input
+                      type="date"
+                      name="birthDate"
+                      value={profileForm.birthDate}
+                      onChange={updateProfileField}
+                    />
+                  </label>
+
+                  <label className="input-label">
+                    Luogo di nascita
+                    <input
+                      type="text"
+                      name="birthPlace"
+                      value={profileForm.birthPlace}
+                      onChange={updateProfileField}
+                      placeholder="Città"
+                    />
+                  </label>
+
+                  <label className="input-label">
+                    Provincia di nascita
+                    <input
+                      type="text"
+                      name="birthProvince"
+                      value={profileForm.birthProvince}
+                      onChange={updateProfileField}
+                      placeholder="Provincia"
+                    />
+                  </label>
+
+                  <label className="input-label">
+                    Paese di nascita
+                    <input
+                      type="text"
+                      name="birthCountry"
+                      value={profileForm.birthCountry}
+                      onChange={updateProfileField}
+                      placeholder="Italia"
+                    />
+                  </label>
+
+                  <label className="input-label" data-span="2">
+                    Indirizzo di residenza
+                    <input
+                      type="text"
+                      name="address"
+                      value={profileForm.address}
+                      onChange={updateProfileField}
+                      placeholder="Via e numero civico"
+                    />
+                  </label>
+
+                  <label className="input-label">
+                    CAP
+                    <input
+                      type="text"
+                      name="zipCode"
+                      value={profileForm.zipCode}
+                      onChange={updateProfileField}
+                      placeholder="00000"
+                    />
+                  </label>
+
+                  <label className="input-label">
+                    Città
+                    <input
+                      type="text"
+                      name="city"
+                      value={profileForm.city}
+                      onChange={updateProfileField}
+                      placeholder="Città"
+                    />
+                  </label>
+
+                  <label className="input-label">
+                    Provincia
+                    <input
+                      type="text"
+                      name="province"
+                      value={profileForm.province}
+                      onChange={updateProfileField}
+                      placeholder="Provincia"
+                    />
+                  </label>
+
+                  <label className="input-label">
+                    Paese
+                    <input
+                      type="text"
+                      name="country"
+                      value={profileForm.country}
+                      onChange={updateProfileField}
+                      placeholder="Italia"
+                    />
+                  </label>
+                </div>
+              </div>
+
+              <div className="profile-section">
+                <span className="section-title">B. Dettagli di contatto</span>
+                <div className="field-grid">
+                  <label className="input-label">
+                    Email
+                    <input type="text" name="email" value={profileForm.email} disabled />
+                  </label>
+
+                  <label className="input-label">
+                    Numero di telefono
+                    <input
+                      type="text"
+                      name="phone"
+                      value={profileForm.phone}
+                      onChange={updateProfileField}
+                      placeholder="+39"
+                    />
+                  </label>
+                </div>
+              </div>
+
+              <div className="profile-section">
+                <span className="section-title">C. Dettagli fiscali / legali</span>
+                <div className="field-grid">
+                  <label className="input-label">
+                    Codice fiscale
+                    <input
+                      type="text"
+                      name="taxCode"
+                      value={profileForm.taxCode}
+                      onChange={updateProfileField}
+                    />
+                  </label>
+
+                  <label className="input-label">
+                    Partita IVA
+                    <input
+                      type="text"
+                      name="vatNumber"
+                      value={profileForm.vatNumber}
+                      onChange={updateProfileField}
+                    />
+                  </label>
+
+                  <label className="input-label">
+                    Regime fiscale
+                    <FancySelect
+                      name="taxRegime"
+                      value={profileForm.taxRegime}
+                      options={[
+                        { value: 'forfettario', label: 'Forfettario' },
+                        { value: 'ordinario', label: 'Ordinario' },
+                        { value: 'ritenuta_acconto', label: "Ritenuta d'acconto" }
+                      ]}
+                      onChange={updateProfileField}
+                    />
+                  </label>
+
+                  <label className="input-label" data-span="2">
+                    Indirizzo legale
+                    <input
+                      type="text"
+                      name="legalAddress"
+                      value={profileForm.legalAddress}
+                      onChange={updateProfileField}
+                      placeholder="Se diverso dalla residenza"
+                    />
+                  </label>
+
+                  <label className="input-label">
+                    CAP indirizzo legale
+                    <input
+                      type="text"
+                      name="legalZipCode"
+                      value={profileForm.legalZipCode}
+                      onChange={updateProfileField}
+                    />
+                  </label>
+
+                  <label className="input-label">
+                    Città indirizzo legale
+                    <input
+                      type="text"
+                      name="legalCity"
+                      value={profileForm.legalCity}
+                      onChange={updateProfileField}
+                    />
+                  </label>
+
+                  <label className="input-label">
+                    Provincia indirizzo legale
+                    <input
+                      type="text"
+                      name="legalProvince"
+                      value={profileForm.legalProvince}
+                      onChange={updateProfileField}
+                    />
+                  </label>
+
+                  <label className="input-label">
+                    Paese indirizzo legale
+                    <input
+                      type="text"
+                      name="legalCountry"
+                      value={profileForm.legalCountry}
+                      onChange={updateProfileField}
+                    />
+                  </label>
+
+                  <label className="input-label" data-span="2">
+                    IBAN
+                    <input
+                      type="text"
+                      name="iban"
+                      value={profileForm.iban}
                       onChange={updateProfileField}
                     />
                   </label>
                 </div>
-
-                <label className="input-label">
-                  Biografia
-                  <textarea
-                    rows="4"
-                    name="bio"
-                    value={profileForm.bio}
-                    onChange={updateProfileField}
-                  />
-                </label>
-              </div>
-
-              <div className="profile-section">
-                <span className="section-title">Competenze</span>
-                <label className="input-label">
-                  Lingue (separa con virgola)
-                  <input
-                    type="text"
-                    name="languages"
-                    value={profileForm.languages}
-                    onChange={updateProfileField}
-                    placeholder="Italiano, Inglese"
-                  />
-                </label>
-
-                <label className="input-label">
-                  Specializzazioni (separa con virgola)
-                  <input
-                    type="text"
-                    name="specialties"
-                    value={profileForm.specialties}
-                    onChange={updateProfileField}
-                    placeholder="Meditazione, Coaching"
-                  />
-                </label>
-
-                <label className="input-label">
-                  Categorie (separa con virgola)
-                  <input
-                    type="text"
-                    name="categories"
-                    value={profileForm.categories}
-                    onChange={updateProfileField}
-                    placeholder="Mindfulness, Crescita personale"
-                  />
-                </label>
-
-                <label className="input-label">
-                  Anni di esperienza
-                  <input
-                    type="number"
-                    min="0"
-                    name="experienceYears"
-                    value={profileForm.experienceYears}
-                    onChange={updateProfileField}
-                  />
-                </label>
-              </div>
-
-              <div className="rate-grid">
-                <label className="input-label">
-                  Tariffa solo chat (€ al minuto)
-                  <div className={`input-with-prefix${profileForm.services.chat ? '' : ' disabled'}`}>
-                    <span>€</span>
-                    <input
-                      type="text"
-                      name="rateChat"
-                      value={profileForm.rateChat}
-                      disabled={!profileForm.services.chat}
-                      onChange={updateProfileField}
-                      placeholder="0.00"
-                    />
-                    <span className="suffix">/min</span>
-                  </div>
-                </label>
-
-                <label className="input-label">
-                  Tariffa solo voce (€ al minuto)
-                  <div className={`input-with-prefix${profileForm.services.voice ? '' : ' disabled'}`}>
-                    <span>€</span>
-                    <input
-                      type="text"
-                      name="rateVoice"
-                      value={profileForm.rateVoice}
-                      disabled={!profileForm.services.voice}
-                      onChange={updateProfileField}
-                      placeholder="0.00"
-                    />
-                    <span className="suffix">/min</span>
-                  </div>
-                </label>
-
-                <label className="input-label">
-                  Tariffa chat e voce (€ al minuto)
-                  <div className={`input-with-prefix${profileForm.services.chatVoice ? '' : ' disabled'}`}>
-                    <span>€</span>
-                    <input
-                      type="text"
-                      name="rateChatVoice"
-                      value={profileForm.rateChatVoice}
-                      disabled={!profileForm.services.chatVoice}
-                      onChange={updateProfileField}
-                      placeholder="0.00"
-                    />
-                    <span className="suffix">/min</span>
-                  </div>
-                </label>
               </div>
 
               <div className="profile-section action-bar">
                 <div className="profile-actions-row">
+                  <button type="button" className="btn ghost" onClick={loadProfile} disabled={profileSaving}>
+                    Annulla
+                  </button>
                   <button
                     type="button"
                     className="btn primary"
@@ -916,6 +859,7 @@ export default function MasterDashboard() {
                     {profileSaving ? 'Salvataggio' : 'Salva modifiche'}
                   </button>
                 </div>
+                <p className="micro muted">Dati riservati, usati solo per documenti e verifiche interne.</p>
               </div>
             </div>
           </div>
