@@ -125,7 +125,7 @@ export default function Home() {
       <section className="container section" id="supporto">
         <div className="section-head">
           <span className="badge-soft">Stories</span>
-          <h2>Aziende e professionisti che hanno scelto Rivelya</h2>
+          <h2>Esperienze su Rivelya</h2>
         </div>
         <div className="testimonials">
           {testimonials.map(item => (
