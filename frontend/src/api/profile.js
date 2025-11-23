@@ -1,15 +1,17 @@
-import client from './client.js';
+import { serviceClients } from './client.js';
 
-export const fetchProfile = () => client.get('/profile/me').then(res => res.data.user);
+const identityClient = serviceClients.identity;
 
-export const updateProfile = payload => client.put('/profile/me', payload).then(res => res.data.user);
+export const fetchProfile = () => identityClient.get('/profile/me').then(res => res.data.user);
+
+export const updateProfile = payload => identityClient.put('/profile/me', payload).then(res => res.data.user);
 
 export const uploadAvatar = file => {
   const formData = new FormData();
   formData.append('avatar', file);
-  return client.post('/profile/me/avatar', formData, {
+  return identityClient.post('/profile/me/avatar', formData, {
     headers: { 'Content-Type': 'multipart/form-data' }
   }).then(res => res.data.user);
 };
 
-export const removeAvatar = () => client.delete('/profile/me/avatar').then(res => res.data.user);
+export const removeAvatar = () => identityClient.delete('/profile/me/avatar').then(res => res.data.user);

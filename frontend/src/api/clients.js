@@ -1,8 +1,11 @@
-import client from './client.js';
+import { serviceClients } from './client.js';
 
-export const fetchClientProfile = (id) => client.get(`/profile/clients/${id}`).then(res => res.data.client);
+const identityClient = serviceClients.identity;
+const commerceClient = serviceClients.commerce;
+
+export const fetchClientProfile = (id) => identityClient.get(`/profile/clients/${id}`).then(res => res.data.client);
 
 export const fetchClientReservations = (customerId) =>
-  client
+  commerceClient
     .get('/bookings/reservations', { params: { customerId, limit: 50 } })
     .then(res => res.data.reservations);
