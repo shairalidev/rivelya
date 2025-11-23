@@ -257,7 +257,7 @@ export default function Profile() {
         <form className="account-card" onSubmit={submit}>
           <div className="account-section">
             <h2>Profilo pubblico</h2>
-            <p className="muted">Informazioni visibili ai Master: foto profilo, segno, ascendente, descrizione e lingua.</p>
+            <p className="muted">Informazioni visibili ai Esperti: foto profilo, segno, ascendente, descrizione e lingua.</p>
             <div className="account-form-grid">
               <label className="input-label" data-span="2">
                 Nome pubblico
