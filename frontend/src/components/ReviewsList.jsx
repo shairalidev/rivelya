@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react';
+import { Link } from 'react-router-dom';
 import dayjs from 'dayjs';
 import client from '../api/client.js';
 import Avatar from './Avatar.jsx';
@@ -29,6 +30,11 @@ export default function ReviewsList({ masterId, masterUserId, limit = 10 }) {
     if (typeof value === 'string') return value;
     if (typeof value === 'object') return value._id || value.id || value.user_id || '';
     return '';
+  };
+
+  const resolveProfilePath = (value) => {
+    const id = resolveUserId(value);
+    return id ? `/clients/${id}` : '';
   };
 
   useEffect(() => {
@@ -83,15 +89,35 @@ export default function ReviewsList({ masterId, masterUserId, limit = 10 }) {
         <div key={review._id} className="review-item-enhanced">
           <div className="review-item-header">
             <div className="review-author-section">
-              <Avatar 
-                src={review.reviewer_id?.avatar_url} 
-                name={review.reviewer_id?.display_name || 'Cliente'}
-                size="small"
-              />
+              {resolveProfilePath(review.reviewer_id) ? (
+                <Link
+                  to={resolveProfilePath(review.reviewer_id)}
+                  className="avatar-link"
+                  aria-label={`Apri il profilo di ${review.reviewer_id?.display_name || 'Cliente Rivelya'}`}
+                >
+                  <Avatar
+                    src={review.reviewer_id?.avatar_url}
+                    name={review.reviewer_id?.display_name || 'Cliente'}
+                    size="small"
+                  />
+                </Link>
+              ) : (
+                <Avatar
+                  src={review.reviewer_id?.avatar_url}
+                  name={review.reviewer_id?.display_name || 'Cliente'}
+                  size="small"
+                />
+              )}
               <div className="review-author-details">
-                <p className="review-author-name">
-                  {review.reviewer_id?.display_name || 'Cliente Rivelya'}
-                </p>
+                {resolveProfilePath(review.reviewer_id) ? (
+                  <Link to={resolveProfilePath(review.reviewer_id)} className="review-author-name">
+                    {review.reviewer_id?.display_name || 'Cliente Rivelya'}
+                  </Link>
+                ) : (
+                  <p className="review-author-name">
+                    {review.reviewer_id?.display_name || 'Cliente Rivelya'}
+                  </p>
+                )}
                 <p className="review-date-text">
                   {dayjs(review.createdAt).format('DD MMM YYYY')}
                 </p>
