@@ -9,6 +9,7 @@ import { ChatThreadNote } from '../models/chat-thread-note.model.js';
 import { ChatCall } from '../models/chat-call.model.js';
 import { createNotification } from '../utils/notifications.js';
 import { getPublicDisplayName } from '../utils/privacy.js';
+import { completeBookingAndPromptReview } from '../utils/booking-events.js';
 
 const router = Router();
 
@@ -21,6 +22,14 @@ const resolveDisplayName = user => getPublicDisplayName(user, 'Cliente');
 const noteSchema = Joi.object({
   note: Joi.string().allow('', null).max(4000)
 });
+
+const completeBookingForThread = async bookingId => {
+  try {
+    await completeBookingAndPromptReview(bookingId);
+  } catch (error) {
+    console.error('Failed to complete booking for thread', { bookingId, error: error.message });
+  }
+};
 
 const buildThreadPayload = (thread, { lastMessage = null, unreadCount = 0 } = {}) => {
   const now = Date.now();
@@ -183,11 +192,10 @@ router.get('/threads/:threadId', requireAuth, async (req, res, next) => {
     if (thread.expires_at && thread.expires_at <= now && thread.status !== 'expired') {
       thread.status = 'expired';
       await thread.save();
-      
+
       // Update booking status to completed when chat thread expires
       if (thread.booking_id) {
-        const { Booking } = await import('../models/booking.model.js');
-        await Booking.findByIdAndUpdate(thread.booking_id, { status: 'completed' });
+        await completeBookingForThread(thread.booking_id);
       }
     }
 
@@ -268,11 +276,10 @@ router.post('/threads/:threadId/messages', requireAuth, async (req, res, next) =
       if (thread.status !== 'expired') {
         thread.status = 'expired';
         await thread.save();
-        
+
         // Update booking status to completed when chat thread expires
         if (thread.booking_id) {
-          const { Booking } = await import('../models/booking.model.js');
-          await Booking.findByIdAndUpdate(thread.booking_id, { status: 'completed' });
+          await completeBookingForThread(thread.booking_id);
         }
       }
       return res.status(403).json({ message: 'Il tempo a disposizione per la chat è terminato.' });
@@ -348,11 +355,10 @@ router.post('/threads/:threadId/call/start', requireAuth, async (req, res, next)
       if (thread.status !== 'expired') {
         thread.status = 'expired';
         await thread.save();
-        
+
         // Update booking status to completed when chat thread expires
         if (thread.booking_id) {
-          const { Booking } = await import('../models/booking.model.js');
-          await Booking.findByIdAndUpdate(thread.booking_id, { status: 'completed' });
+          await completeBookingForThread(thread.booking_id);
         }
       }
       return res.status(403).json({ message: 'Il tempo a disposizione per la chat è terminato.' });
