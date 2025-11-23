@@ -30,6 +30,11 @@ const profileSchema = Joi.object({
   city: Joi.string().max(120).allow('', null),
   province: Joi.string().max(120).allow('', null),
   country: Joi.string().max(120).allow('', null),
+  legalAddress: Joi.string().max(200).allow('', null),
+  legalZipCode: Joi.string().max(20).allow('', null),
+  legalCity: Joi.string().max(120).allow('', null),
+  legalProvince: Joi.string().max(120).allow('', null),
+  legalCountry: Joi.string().max(120).allow('', null),
   iban: Joi.string().max(34).allow('', null),
   taxRegime: Joi.string().valid('forfettario', 'ordinario', 'ritenuta_acconto').allow(null),
   horoscopeBirthDate: Joi.date().allow(null),
@@ -59,6 +64,11 @@ const serializeUser = user => ({
   city: user.city || '',
   province: user.province || '',
   country: user.country || '',
+  legalAddress: user.legal_address || '',
+  legalZipCode: user.legal_zip_code || '',
+  legalCity: user.legal_city || '',
+  legalProvince: user.legal_province || '',
+  legalCountry: user.legal_country || '',
   iban: user.iban || '',
   taxRegime: user.tax_regime || 'forfettario',
   horoscopeBirthDate: user.horoscope_birth_date || null,
@@ -113,6 +123,11 @@ router.put('/me', requireAuth, async (req, res, next) => {
     user.city = payload.city?.trim() ?? '';
     user.province = payload.province?.trim() ?? '';
     user.country = payload.country?.trim() ?? '';
+    user.legal_address = payload.legalAddress?.trim() ?? '';
+    user.legal_zip_code = payload.legalZipCode?.trim() ?? '';
+    user.legal_city = payload.legalCity?.trim() ?? '';
+    user.legal_province = payload.legalProvince?.trim() ?? '';
+    user.legal_country = payload.legalCountry?.trim() ?? '';
     user.iban = payload.iban?.trim() ?? '';
     if (payload.taxRegime) user.tax_regime = payload.taxRegime;
     user.horoscope_birth_date = payload.horoscopeBirthDate || null;
