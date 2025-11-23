@@ -201,8 +201,8 @@ export default function Catalog() {
                         {master.active_session && (
                           <span className="live-indicator">
                             <span className="live-pulse" aria-hidden="true" />
-                            In sessione{master.active_session_channel ? ` · ${sessionChannelLabel}` : ''}
-                          </span>
+                            In Sessione
+                            </span>
                         )}
                         {master.active_session && (
                           <SessionNotificationButton 
