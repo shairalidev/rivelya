@@ -23,7 +23,13 @@ const profileSchema = Joi.object({
   vatNumber: Joi.string().max(11).allow('', null),
 
   birthPlace: Joi.string().max(120).allow('', null),
+  birthProvince: Joi.string().max(80).allow('', null),
+  birthCountry: Joi.string().max(80).allow('', null),
   address: Joi.string().max(200).allow('', null),
+  zipCode: Joi.string().max(20).allow('', null),
+  city: Joi.string().max(120).allow('', null),
+  province: Joi.string().max(120).allow('', null),
+  country: Joi.string().max(120).allow('', null),
   iban: Joi.string().max(34).allow('', null),
   taxRegime: Joi.string().valid('forfettario', 'ordinario', 'ritenuta_acconto').allow(null),
   horoscopeBirthDate: Joi.date().allow(null),
@@ -46,7 +52,13 @@ const serializeUser = user => ({
   vatNumber: user.vat_number || '',
 
   birthPlace: user.birth_place || '',
+  birthProvince: user.birth_province || '',
+  birthCountry: user.birth_country || '',
   address: user.address || '',
+  zipCode: user.zip_code || '',
+  city: user.city || '',
+  province: user.province || '',
+  country: user.country || '',
   iban: user.iban || '',
   taxRegime: user.tax_regime || 'forfettario',
   horoscopeBirthDate: user.horoscope_birth_date || null,
@@ -94,7 +106,13 @@ router.put('/me', requireAuth, async (req, res, next) => {
     user.vat_number = payload.vatNumber?.trim() ?? '';
     user.birth_date = payload.horoscopeBirthDate || null;
     user.birth_place = payload.birthPlace?.trim() ?? '';
+    user.birth_province = payload.birthProvince?.trim() ?? '';
+    user.birth_country = payload.birthCountry?.trim() ?? '';
     user.address = payload.address?.trim() ?? '';
+    user.zip_code = payload.zipCode?.trim() ?? '';
+    user.city = payload.city?.trim() ?? '';
+    user.province = payload.province?.trim() ?? '';
+    user.country = payload.country?.trim() ?? '';
     user.iban = payload.iban?.trim() ?? '';
     if (payload.taxRegime) user.tax_regime = payload.taxRegime;
     user.horoscope_birth_date = payload.horoscopeBirthDate || null;
@@ -165,6 +183,36 @@ router.delete('/me/avatar', requireAuth, async (req, res, next) => {
       await user.save();
     }
     res.json({ user: await decorateWithMaster(user) });
+  } catch (e) {
+    next(e);
+  }
+});
+
+router.get('/clients/:id', requireAuth, async (req, res, next) => {
+  try {
+    if (!req.user.roles?.includes('master')) {
+      return res.status(403).json({ message: 'Solo i master possono visualizzare i profili cliente.' });
+    }
+
+    const client = await User.findById(req.params.id).select(
+      'first_name last_name display_name avatar_url locale bio horoscope_birth_date horoscope_birth_time'
+    );
+
+    if (!client) return res.status(404).json({ message: 'Cliente non trovato' });
+
+    res.json({
+      client: {
+        id: client._id,
+        displayName: client.display_name
+          || [client.first_name, client.last_name].filter(Boolean).join(' ')
+          || 'Cliente',
+        avatarUrl: client.avatar_url || '',
+        locale: client.locale || 'it-IT',
+        bio: client.bio || '',
+        horoscopeBirthDate: client.horoscope_birth_date || null,
+        horoscopeBirthTime: client.horoscope_birth_time || ''
+      }
+    });
   } catch (e) {
     next(e);
   }
