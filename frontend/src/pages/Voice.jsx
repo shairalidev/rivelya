@@ -452,6 +452,16 @@ export default function Voice() {
       });
       setShowReviewModal(true);
     };
+
+    const handleSessionCompleted = payload => {
+      if (!payload?.bookingId || payload?.partnerType !== 'master') return;
+      setReviewData({
+        bookingId: payload.bookingId,
+        partnerName: payload.partnerName,
+        partnerType: payload.partnerType
+      });
+      setShowReviewModal(true);
+    };
     
     socket.on('voice:session:updated', handleSessionUpdate);
     socket.on('voice:session:started', handleSessionStarted);
@@ -466,6 +476,7 @@ export default function Voice() {
     socket.on('voice:session:connection:status', handleConnectionStatus);
     socket.on('voice:session:sync', handleSessionSync);
     socket.on('session:review:prompt', handleReviewPrompt);
+    socket.on('session:completed', handleSessionCompleted);
 
     return () => {
       socket.off('voice:session:updated', handleSessionUpdate);
@@ -481,6 +492,7 @@ export default function Voice() {
       socket.off('voice:session:connection:status', handleConnectionStatus);
       socket.off('voice:session:sync', handleSessionSync);
       socket.off('session:review:prompt', handleReviewPrompt);
+      socket.off('session:completed', handleSessionCompleted);
     };
   }, [socket, queryClient, sessionId, activeSession, viewerId, signalHandler]);
 
