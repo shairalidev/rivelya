@@ -70,6 +70,8 @@ export default function Reservations() {
   const [reservations, setReservations] = useState([]);
   const [isUpdating, setIsUpdating] = useState(false);
   const [lastUpdate, setLastUpdate] = useState(Date.now());
+  const startNoticeRef = useRef(new Map());
+  const activeSignatureRef = useRef('');
 
   const myRole = useCallback(
     (reservation) => (reservation.user_role === 'customer' ? 'customer' : 'master'),
@@ -116,7 +118,14 @@ export default function Reservations() {
 
   const checkActiveBookingsStatus = useCallback(async (reservations) => {
     const activeBookings = reservations.filter(r => r.status === 'active');
-    if (activeBookings.length === 0) return;
+    if (activeBookings.length === 0) {
+      activeSignatureRef.current = '';
+      return;
+    }
+
+    const signature = activeBookings.map(b => b.id).sort().join(',');
+    if (signature === activeSignatureRef.current) return;
+    activeSignatureRef.current = signature;
 
     try {
       await Promise.all(
@@ -167,13 +176,24 @@ export default function Reservations() {
       if (!isUpdating) {
         loadReservations(pagination.page, { showLoader: false });
       }
-    }, 5000);
+    }, socket?.connected ? 12000 : 7000);
 
     return () => clearInterval(interval);
-  }, [pagination.page, isUpdating]);
+  }, [pagination.page, isUpdating, socket?.connected]);
 
   useEffect(() => {
     if (!socket) return undefined;
+
+    const markStartNotice = (reservationId) => {
+      if (!reservationId) return;
+      startNoticeRef.current.set(reservationId, Date.now());
+    };
+
+    const isRecentStart = (reservationId) => {
+      if (!reservationId) return false;
+      const ts = startNoticeRef.current.get(reservationId);
+      return ts && Date.now() - ts < 5000;
+    };
 
     const handleStartNowSocket = (payload) => {
       if (payload?.action === 'request') {
@@ -184,6 +204,7 @@ export default function Reservations() {
       if (payload?.action === 'response') {
         if (payload.status === 'accepted') {
           toast.success('Avvio immediato accettato: la sessione parte ora');
+          markStartNotice(payload.reservationId || payload.bookingId);
           if (payload.sessionUrl) {
             navigate(payload.sessionUrl);
           }
@@ -205,26 +226,30 @@ export default function Reservations() {
     const handleSessionStarted = (payload) => {
       if (!payload) return;
 
+      const reservationId = payload.reservationId || payload.bookingId;
       const message = payload.autoStarted 
-        ? `La sessione ${payload.reservationId || ''} è iniziata automaticamente`
+        ? `La sessione ${payload.reservationId || ''} e' iniziata automaticamente`
         : `Sessione ${payload.reservationId || ''} avviata`;
       
-      toast.success(message);
-      setConfirmModal({
-        title: payload.autoStarted ? 'Sessione iniziata automaticamente' : 'Sessione attiva',
-        message: payload.reservationId
-          ? `La sessione ${payload.reservationId} è stata avviata. Vuoi aprirla ora?`
-          : 'Una delle tue sessioni è stata avviata. Vuoi aprirla ora?',
-        confirmText: 'Apri sessione',
-        cancelText: 'Chiudi',
-        onConfirm: () => {
-          if (payload.sessionUrl) {
-            navigate(payload.sessionUrl);
-          }
-          setConfirmModal(null);
-        },
-        onClose: () => setConfirmModal(null)
-      });
+      if (!isRecentStart(reservationId)) {
+        toast.success(message);
+        setConfirmModal({
+          title: payload.autoStarted ? 'Sessione iniziata automaticamente' : 'Sessione attiva',
+          message: payload.reservationId
+            ? `La sessione ${payload.reservationId} e' stata avviata. Vuoi aprirla ora?`
+            : "Una delle tue sessioni e' stata avviata. Vuoi aprirla ora?",
+          confirmText: 'Apri sessione',
+          cancelText: 'Chiudi',
+          onConfirm: () => {
+            if (payload.sessionUrl) {
+              navigate(payload.sessionUrl);
+            }
+            setConfirmModal(null);
+          },
+          onClose: () => setConfirmModal(null)
+        });
+      }
+      markStartNotice(reservationId);
 
       loadReservations(pagination.page, { showLoader: false });
     };
@@ -232,7 +257,7 @@ export default function Reservations() {
     const handleUpcomingSession = (payload) => {
       if (!payload) return;
       
-      toast(`🔔 La tua sessione ${payload.reservationId} inizierà tra 10 minuti!`, {
+      toast(`La tua sessione ${payload.reservationId} iniziera tra 10 minuti!`, {
         duration: 8000,
         style: {
           background: 'rgba(255, 159, 67, 0.9)',
@@ -244,7 +269,7 @@ export default function Reservations() {
     const handleReviewPrompt = (payload) => {
       if (!payload?.bookingId || payload?.partnerType !== 'master') return;
 
-      toast('La tua sessione è terminata. Lascia una recensione?');
+      toast("La tua sessione e' terminata. Lascia una recensione?");
       setReviewModal({
         bookingId: payload.bookingId,
         partnerName: payload.partnerName,
@@ -276,7 +301,7 @@ export default function Reservations() {
     };
   }, [loadReservations, navigate, pagination.page, socket]);
 
-  const handleReschedule = (reservation) => {
+const handleReschedule = (reservation) => {
     setRescheduleModal(reservation);
     const calculatedEnd = calculateEndTime(reservation.start, reservation.duration_minutes);
     setRescheduleForm({

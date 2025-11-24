@@ -2,6 +2,7 @@ import { Link, NavLink, Outlet, useLocation, useNavigate } from 'react-router-do
 import { useEffect, useMemo, useRef, useState } from 'react';
 import NotificationBell from './NotificationBell.jsx';
 import PageTransition from './PageTransition.jsx';
+import SessionStartNotice from './SessionStartNotice.jsx';
 import {
   clearAuth,
   getUser as getStoredUser,
@@ -269,6 +270,7 @@ export default function Layout() {
 
   return (
     <div className={`app-shell${isChat ? ' chat-shell' : ''}`}>
+      <SessionStartNotice />
       <div className="app-glow" aria-hidden="true" />
       <header className="site-header">
         <div className="container header-bar">
