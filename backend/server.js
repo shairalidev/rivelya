@@ -40,6 +40,7 @@ const server = http.createServer(app);
 initSocket(server);
 // Session services are now started in app.js to avoid duplication
 
-server.listen(port, () => {
+server.listen(port, '0.0.0.0', () => {
   console.log(`✅ API running on port ${port} - Mode: ${process.env.NODE_ENV}`);
 });
+
