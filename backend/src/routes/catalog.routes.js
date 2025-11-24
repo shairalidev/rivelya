@@ -236,16 +236,34 @@ router.get('/:id', async (req, res, next) => {
       avg_rating: Math.round(reviewStats[0].avg_rating * 10) / 10,
       count: reviewStats[0].count
     } : { avg_rating: 0, count: 0 };
-    
-    // Calculate session counts
-    const [voiceSessions, chatSessions] = await Promise.all([
+
+    // Calculate session counts and active state
+    const [voiceSessions, chatSessions, activeVoiceOrChat, activeChatThread] = await Promise.all([
       Session.countDocuments({ master_id: master._id, status: 'ended', channel: { $in: ['voice', 'chat_voice'] } }),
-      ChatThread.countDocuments({ master_id: master._id, status: 'expired' })
+      ChatThread.countDocuments({ master_id: master._id, status: 'expired' }),
+      Session.findOne({ master_id: master._id, status: 'active', start_ts: { $ne: null } }).select('channel'),
+      ChatThread.findOne({
+        master_id: master._id,
+        status: 'open',
+        $or: [
+          { expires_at: { $gte: new Date() } },
+          { expires_at: { $exists: false } },
+          { expires_at: null }
+        ]
+      }).select('channel')
     ]);
     
     const sessions = { voice: voiceSessions, chat: chatSessions };
-    
-    res.json({ ...master, reviews, sessions, ...onlineStatus });
+    const activeChannel = activeVoiceOrChat?.channel || activeChatThread?.channel || null;
+
+    res.json({
+      ...master,
+      reviews,
+      sessions,
+      ...onlineStatus,
+      active_session: Boolean(activeChannel),
+      active_session_channel: activeChannel
+    });
   } catch (e) { next(e); }
 });
 

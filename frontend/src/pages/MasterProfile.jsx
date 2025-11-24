@@ -1,5 +1,5 @@
 import { useNavigate, useParams } from 'react-router-dom';
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useState, useCallback } from 'react';
 import toast from 'react-hot-toast';
 import dayjs from 'dayjs';
 import 'dayjs/locale/it.js';
@@ -10,10 +10,12 @@ import FancySelect from '../components/FancySelect.jsx';
 import Avatar from '../components/Avatar.jsx';
 import ReviewsList from '../components/ReviewsList.jsx';
 import { buildDailySchedule, resolveTimezoneLabel } from '../utils/schedule.js';
-import { resolveAvailabilityStatus } from '../utils/availability.js';
 import usePresence from '../hooks/usePresence.js';
+import useSocket from '../hooks/useSocket.js';
 import { createBooking, fetchMasterMonthAvailability } from '../api/booking.js';
 import { getToken, getUser } from '../lib/auth.js';
+import OnlineIndicator from '../components/OnlineIndicator.jsx';
+import SessionNotificationButton from '../components/SessionNotificationButton.jsx';
 
 const ChatGlyph = props => (
   <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true" {...props}>
@@ -81,22 +83,50 @@ export default function MasterProfile() {
   const [availabilityLoading, setAvailabilityLoading] = useState(false);
   const [booking, setBooking] = useState({ date: '', start: '', end: '', channel: 'chat', notes: '' });
   const [bookingLoading, setBookingLoading] = useState(false);
+  const socket = useSocket();
+
+  const loadMaster = useCallback(async ({ showLoader = true, trackView = false } = {}) => {
+    if (showLoader) setLoading(true);
+    setError('');
+    try {
+      const res = await client.get(`/catalog/${id}`);
+      setMaster(res.data);
+      if (trackView) {
+        client.post(`/catalog/${id}/view`).catch(() => {});
+      }
+    } catch (err) {
+      setMaster(null);
+      setError('Esperti non trovato o non disponibile.');
+    } finally {
+      if (showLoader) setLoading(false);
+    }
+  }, [id]);
 
   useEffect(() => {
-    setLoading(true);
-    setError('');
-    client.get(`/catalog/${id}`)
-      .then(res => {
-        setMaster(res.data);
-        // Track profile view
-        client.post(`/catalog/${id}/view`).catch(() => {});
-      })
-      .catch(() => {
-        setMaster(null);
-        setError('Esperti non trovato o non disponibile.');
-      })
-      .finally(() => setLoading(false));
-  }, [id]);
+    loadMaster({ trackView: true });
+  }, [loadMaster]);
+
+  useEffect(() => {
+    if (!socket) return undefined;
+
+    const handleSessionUpdate = () => loadMaster({ showLoader: false });
+
+    socket.on('voice:session:started', handleSessionUpdate);
+    socket.on('voice:session:ended', handleSessionUpdate);
+    socket.on('voice:session:expired', handleSessionUpdate);
+    socket.on('chat:session:started', handleSessionUpdate);
+    socket.on('chat:session:ended', handleSessionUpdate);
+    socket.on('chat:session:expired', handleSessionUpdate);
+
+    return () => {
+      socket.off('voice:session:started', handleSessionUpdate);
+      socket.off('voice:session:ended', handleSessionUpdate);
+      socket.off('voice:session:expired', handleSessionUpdate);
+      socket.off('chat:session:started', handleSessionUpdate);
+      socket.off('chat:session:ended', handleSessionUpdate);
+      socket.off('chat:session:expired', handleSessionUpdate);
+    };
+  }, [loadMaster, socket]);
 
   const ensureAuth = () => {
     if (!getToken()) {
@@ -458,8 +488,14 @@ export default function MasterProfile() {
   const hasCustomSchedule = (master.working_hours?.slots || []).length > 0;
   const timezoneLabel = resolveTimezoneLabel(master.working_hours);
   const isReallyOnline = master?.is_online || isUserOnline(master?.user_id);
-  const finalStatus = isReallyOnline ? 'online' : 'offline';
-  const finalLabel = isReallyOnline ? 'Online' : 'Offline';
+  const isBusy = Boolean(master.active_session);
+  const sessionChannelLabel = master.active_session_channel === 'voice'
+    ? 'Voce'
+    : master.active_session_channel === 'chat_voice'
+      ? 'Chat + Voce'
+      : 'Chat';
+  const finalStatus = isBusy ? 'busy' : isReallyOnline ? 'online' : 'offline';
+  const finalLabel = isBusy ? 'In sessione' : isReallyOnline ? 'Online' : 'Offline';
   
   const currentUser = getUser();
   const isMaster = Boolean(currentUser?.roles?.includes('master'));
@@ -478,6 +514,26 @@ export default function MasterProfile() {
         <div className="profile-content">
           <span className="badge-soft">Esperti {master.categories?.[0] || 'Rivelya'}</span>
           <h1>{master.display_name || 'Esperti Rivelya'}</h1>
+          <div className="profile-meta">
+            <OnlineIndicator
+              userId={master.user_id}
+              isOnline={master.is_online}
+              lastSeen={master.last_seen}
+            />
+            {isBusy && (
+              <>
+                <span className="live-indicator">
+                  <span className="live-pulse" aria-hidden="true" />
+                  In Sessione
+                </span>
+                <SessionNotificationButton
+                  masterId={master._id}
+                  masterName={master.display_name}
+                  isBusy={isBusy}
+                />
+              </>
+            )}
+          </div>
           <p className="muted">{master.headline || 'Professionista certificato del network Rivelya.'}</p>
           <div className="profile-rating">
             <span className="rating-large">★ {rating}</span>

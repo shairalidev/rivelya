@@ -112,15 +112,7 @@ export default function ReviewModal({ isOpen, onClose, bookingId, partnerName, p
                 />
               ))}
             </div>
-            {displayRating > 0 && (
-              <p className="rating-text">
-                {displayRating === 1 && '⭐ Molto insoddisfacente'}
-                {displayRating === 2 && '⭐⭐ Insoddisfacente'}
-                {displayRating === 3 && '⭐⭐⭐ Nella media'}
-                {displayRating === 4 && '⭐⭐⭐⭐ Buona esperienza'}
-                {displayRating === 5 && '⭐⭐⭐⭐⭐ Esperienza eccellente'}
-              </p>
-            )}
+           
           </div>
 
           <div className="review-text-section">
