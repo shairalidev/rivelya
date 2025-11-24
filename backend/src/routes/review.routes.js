@@ -3,6 +3,8 @@ import { requireAuth } from '../middleware/auth.js';
 import { Review } from '../models/review.model.js';
 import { Booking } from '../models/booking.model.js';
 import { syncMasterReviewKPIs } from '../utils/review-sync.js';
+import { createNotification } from '../utils/notifications.js';
+import { getPublicDisplayName } from '../utils/privacy.js';
 import mongoose from 'mongoose';
 
 const router = Router();
@@ -66,7 +68,7 @@ router.post('/booking', requireAuth, async (req, res, next) => {
     
     const booking = await Booking.findById(booking_id)
       .populate('master_id', 'user_id')
-      .populate('customer_id', '_id');
+      .populate('customer_id', '_id display_name first_name last_name');
     
     if (!booking) {
       return res.status(404).json({ message: 'Booking not found' });
@@ -103,6 +105,25 @@ router.post('/booking', requireAuth, async (req, res, next) => {
     // Update master KPIs if this is a client reviewing a master
     if (reviewerType === 'client') {
       await syncMasterReviewKPIs(revieweeId);
+    }
+
+    // Notify the master that a new review has been submitted
+    try {
+      const reviewerName = getPublicDisplayName(booking.customer_id, 'Cliente Rivelya');
+      await createNotification({
+        userId: revieweeId,
+        type: 'review:new',
+        title: 'Nuova recensione ricevuta',
+        body: `${reviewerName} ha lasciato una recensione (${rating}/5).`,
+        meta: {
+          reviewId: review._id,
+          bookingId: booking._id,
+          reviewerId: req.user._id,
+          rating
+        }
+      });
+    } catch (notifyError) {
+      console.warn('Failed to create review notification', notifyError);
     }
     
     res.json(review);

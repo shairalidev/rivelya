@@ -189,6 +189,10 @@ export default function MasterDashboard() {
   const [replySubmitting, setReplySubmitting] = useState(false);
 
   const masterId = user?.masterId;
+  const resolveUserId = useCallback(
+    value => value?._id || value?.id || value?.user_id || '',
+    []
+  );
 
   const buildProfileForm = useCallback(data => ({
     displayName: data?.displayName || '',
@@ -233,17 +237,23 @@ export default function MasterDashboard() {
   }, [buildProfileForm, buildWorkingHoursForm]);
 
   const loadReviews = useCallback(async () => {
-    if (!user?._id) return;
+    const targetId = resolveUserId(user);
+    if (!targetId) {
+      setReviews([]);
+      setReviewsLoading(false);
+      return;
+    }
     try {
       setReviewsLoading(true);
-      const res = await client.get(`/reviews/user/${user._id}?reviewer_type=client&limit=20`);
+      const res = await client.get(`/reviews/user/${targetId}?reviewer_type=client&limit=20`);
       setReviews(res.data.reviews || []);
     } catch (err) {
       console.warn('Failed to load reviews:', err);
+      setReviews([]);
     } finally {
       setReviewsLoading(false);
     }
-  }, [user?._id]);
+  }, [resolveUserId, user]);
 
   const handleReplySubmit = async () => {
     if (!replyModal || !replyText.trim()) return;
