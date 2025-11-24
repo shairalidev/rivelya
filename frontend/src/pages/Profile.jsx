@@ -35,7 +35,7 @@ const initialForm = {
 const localeOptions = [
   { value: 'it-IT', label: 'Italiano' },
   { value: 'en-GB', label: 'English' },
-  { value: 'es-ES', label: 'Español' }
+  { value: 'es-ES', label: 'Espanol' }
 ];
 
 export default function Profile() {
@@ -43,9 +43,9 @@ export default function Profile() {
   const [user, setUser] = useState(null);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
-  const [avatarLoading, setAvatarLoading] = useState(false);
   const [reviews, setReviews] = useState([]);
   const [reviewsLoading, setReviewsLoading] = useState(false);
+  const [avatarLoading, setAvatarLoading] = useState(false);
   const navigate = useNavigate();
 
   useEffect(() => {
@@ -80,12 +80,10 @@ export default function Profile() {
         });
         // Load user reviews only for masters
         loadReviews(profile.user_id);
-
-
       })
       .catch(err => {
         if (err?.response?.status === 401) {
-          toast.error('La sessione è scaduta. Accedi nuovamente.');
+          toast.error("La sessione e' scaduta. Accedi nuovamente.");
           navigate('/login', { replace: true });
           return;
         }
@@ -150,7 +148,7 @@ export default function Profile() {
       return;
     }
     if (file.size > 5 * 1024 * 1024) {
-      toast.error('L\'immagine deve essere inferiore a 5MB.');
+      toast.error('L immagine deve essere inferiore a 5MB.');
       return;
     }
     try {
@@ -175,7 +173,7 @@ export default function Profile() {
       syncUser(updated);
       toast.success('Foto profilo rimossa.');
     } catch (error) {
-      toast.error('Impossibile rimuovere l\'immagine.');
+      toast.error('Impossibile rimuovere l immagine.');
     } finally {
       setAvatarLoading(false);
     }
@@ -184,6 +182,7 @@ export default function Profile() {
   const birthLocation = [form.birthPlace, form.birthProvince, form.birthCountry].filter(Boolean).join(', ');
   const zodiacSign = getZodiacSign(form.horoscopeBirthDate);
   const ascendantSign = getAscendantSign(form.horoscopeBirthDate, form.horoscopeBirthTime, birthLocation);
+  const isMaster = Boolean(user?.roles?.includes('master'));
 
   if (loading) {
     return (
@@ -191,7 +190,7 @@ export default function Profile() {
         <div className="account-profile__header">
           <p className="eyebrow">Profilo</p>
           <h1>Gestione profilo</h1>
-          <p className="muted">Carichiamo le tue informazioni…</p>
+          <p className="muted">Carichiamo le tue informazioni...</p>
         </div>
         <div className="account-profile__skeleton" />
       </section>
@@ -202,10 +201,10 @@ export default function Profile() {
     <section className="container account-profile">
       <div className="account-profile__header">
         <p className="eyebrow">Profilo</p>
-        <h1>La tua identità su Rivelya</h1>
-        <p className="muted">Organizza le informazioni pubbliche e private in modo chiaro per i Master e per la documentazione interna.</p>
+        <h1>La tua identita su Rivelya</h1>
+        <p className="muted">Gestisci i tuoi dati personali e fiscali. Le informazioni pubbliche (foto, nome e biografia) si modificano dall'Area Master.</p>
       </div>
-      <div className="account-profile__grid">
+      <div className="account-profile__grid account-profile__grid--stacked">
         <div className="account-card account-card--compact">
           <div className="account-avatar">
             <div className="account-avatar-preview">
@@ -215,51 +214,59 @@ export default function Profile() {
                 <span>{(user?.displayName || user?.email || 'RV').slice(0, 2).toUpperCase()}</span>
               )}
             </div>
-            <div className="account-avatar-actions">
-              <label className="btn outline">
-                Cambia immagine
-                <input type="file" accept="image/*" onChange={changeAvatar} disabled={avatarLoading} hidden />
-              </label>
-              {user?.avatarUrl && (
-                <button type="button" className="btn ghost" onClick={deleteAvatar} disabled={avatarLoading}>
-                  Rimuovi
-                </button>
-              )}
-              {avatarLoading && <p className="muted">Aggiornamento in corso…</p>}
-              <p className="micro muted">Questa immagine sarà visibile pubblicamente.</p>
-            </div>
+            {isMaster ? (
+              <p className="micro muted">La foto profilo pubblica si aggiorna solo dall'Area Master.</p>
+            ) : (
+              <div className="account-avatar-actions">
+                <label className="btn outline">
+                  Cambia immagine
+                  <input type="file" accept="image/*" onChange={changeAvatar} disabled={avatarLoading} hidden />
+                </label>
+                {user?.avatarUrl && (
+                  <button type="button" className="btn ghost" onClick={deleteAvatar} disabled={avatarLoading}>
+                    Rimuovi
+                  </button>
+                )}
+                {avatarLoading && <p className="muted">Aggiornamento in corso...</p>}
+                <p className="micro muted">Questa immagine sara visibile pubblicamente.</p>
+              </div>
+            )}
           </div>
           <div className="account-meta">
             <p className="account-meta-name">{user?.displayName || 'Profilo Rivelya'}</p>
             <div className="public-summary">
               <div className="public-summary__row">
-                <span>♓ Segno zodiacale</span>
+                <span>Segno zodiacale</span>
                 <strong>{zodiacSign ? `${zodiacSign.icon} ${zodiacSign.name}` : 'Inserisci la data di nascita'}</strong>
               </div>
               <div className="public-summary__row">
-                <span>⬆ Ascendente</span>
+                <span>Ascendente</span>
                 <strong>{ascendantSign ? `${ascendantSign.icon} ${ascendantSign.name}` : 'Aggiungi ora e luogo di nascita'}</strong>
               </div>
               <div className="public-summary__row">
-                <span>📅 Data di nascita</span>
+                <span>Data di nascita</span>
                 <strong>{form.horoscopeBirthDate ? new Date(form.horoscopeBirthDate).toLocaleDateString('it-IT') : 'Non indicata'}</strong>
               </div>
               <div className="public-summary__row">
-                <span>🕘 Ora di nascita</span>
+                <span>Ora di nascita</span>
                 <strong>{form.horoscopeBirthTime || 'Non indicata'}</strong>
               </div>
               <div className="public-summary__row">
-                <span>📍 Luogo di nascita</span>
+                <span>Luogo di nascita</span>
                 <strong>{birthLocation || 'Non indicato'}</strong>
               </div>
-              <div className="public-summary__row">
-                <span>📝 Descrizione pubblica</span>
-                <strong>{form.bio ? 'Presente' : 'Non ancora inserita'}</strong>
-              </div>
-              <div className="public-summary__row">
-                <span>🌐 Lingua</span>
-                <strong>{localeOptions.find(option => option.value === form.locale)?.label || 'Non impostata'}</strong>
-              </div>
+              {!isMaster && (
+                <>
+                  <div className="public-summary__row">
+                    <span>Descrizione pubblica</span>
+                    <strong>{form.bio ? 'Presente' : 'Non ancora inserita'}</strong>
+                  </div>
+                  <div className="public-summary__row">
+                    <span>Lingua</span>
+                    <strong>{localeOptions.find(option => option.value === form.locale)?.label || 'Non impostata'}</strong>
+                  </div>
+                </>
+              )}
             </div>
             <p className="muted">{user?.email}</p>
             <span className={`account-status${user?.isEmailVerified ? ' success' : ''}`}>
@@ -268,40 +275,47 @@ export default function Profile() {
           </div>
         </div>
         <form className="account-card" onSubmit={submit}>
-          <div className="account-section">
-            <h2>Profilo pubblico</h2>
-            <p className="muted">Informazioni visibili ai Esperti: foto profilo, segno, ascendente, descrizione e lingua.</p>
-            <div className="account-form-grid">
-              <label className="input-label" data-span="2">
-                Nome pubblico
-                <input
-                  name="displayName"
-                  value={form.displayName}
+          {isMaster ? (
+            <div className="account-section">
+              <h2>Informazioni pubbliche</h2>
+              <p className="muted">Foto, nome pubblico e biografia si gestiscono esclusivamente dall'Area Master.</p>
+            </div>
+          ) : (
+            <div className="account-section">
+              <h2>Profilo pubblico</h2>
+              <p className="muted">Informazioni visibili agli esperti: foto profilo, descrizione e lingua.</p>
+              <div className="account-form-grid">
+                <label className="input-label" data-span="2">
+                  Nome pubblico
+                  <input
+                    name="displayName"
+                    value={form.displayName}
+                    onChange={updateField}
+                    placeholder="Come apparirai agli altri"
+                  />
+                </label>
+              </div>
+              <label className="input-label">
+                Descrizione pubblica (opzionale)
+                <textarea
+                  name="bio"
+                  value={form.bio}
                   onChange={updateField}
-                  placeholder="Come apparirai agli altri"
+                  rows={5}
+                  placeholder="Presentati in poche righe"
                 />
               </label>
+              <div className="account-form-grid">
+                <label className="input-label">
+                  Lingua
+                  <FancySelect name="locale" value={form.locale} options={localeOptions} onChange={updateField} />
+                </label>
+              </div>
             </div>
-            <label className="input-label">
-              Public description (optional)
-              <textarea
-                name="bio"
-                value={form.bio}
-                onChange={updateField}
-                rows={5}
-                placeholder="Presentati in poche righe"
-              />
-            </label>
-            <div className="account-form-grid">
-              <label className="input-label">
-                Lingua
-                <FancySelect name="locale" value={form.locale} options={localeOptions} onChange={updateField} />
-              </label>
-            </div>
-          </div>
+          )}
           <div className="account-section">
             <h2>Dettagli personali (non pubblici)</h2>
-            <p className="muted">Usati internamente per documenti, ricevute e verifica identità.</p>
+            <p className="muted">Usati internamente per documenti, ricevute e verifica identita.</p>
             <div className="account-form-grid">
               <label className="input-label">
                 Nome
@@ -376,7 +390,7 @@ export default function Profile() {
                 />
               </label>
               <label className="input-label">
-                Città
+                Citta
                 <input
                   name="city"
                   value={form.city}
@@ -432,7 +446,7 @@ export default function Profile() {
                 />
               </label>
               <label className="input-label">
-                Località di riferimento
+                Localita di riferimento
                 <input
                   name="location"
                   value={form.location}
@@ -445,7 +459,7 @@ export default function Profile() {
           {user?.roles?.includes('master') && (
             <div className="account-section">
               <h2>Dati esperti</h2>
-              <p className="muted">Informazioni fiscali dedicate alla tua attività professionale.</p>
+              <p className="muted">Informazioni fiscali dedicate alla tua attivita professionale.</p>
               <div className="account-form-grid">
                 <label className="input-label">
                   Partita IVA
@@ -485,13 +499,11 @@ export default function Profile() {
           )}
           <div className="account-actions">
             <button type="submit" className="btn primary" disabled={saving}>
-              {saving ? 'Salvataggio…' : 'Salva modifiche'}
+              {saving ? 'Salvataggio...' : 'Salva modifiche'}
             </button>
           </div>
         </form>
       </div>
-     
-  
     </section>
   );
 }

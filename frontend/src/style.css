@@ -1298,6 +1298,11 @@ body.nav-open {
   grid-template-columns: repeat(auto-fit, minmax(360px, 1fr));
 }
 
+.account-profile__grid--stacked {
+  grid-template-columns: 1fr;
+  gap: 1.6rem;
+}
+
 .account-profile__skeleton {
   height: 320px;
   border-radius: var(--radius-lg);
