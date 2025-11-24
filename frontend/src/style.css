@@ -3573,6 +3573,12 @@ body.nav-open {
   border-color: rgba(61, 216, 182, 0.75);
   box-shadow: 0 0 0 1px rgba(61, 216, 182, 0.2);
 }
+.calendar-day.has-confirmed {
+  background: rgba(255, 214, 102, 0.22);
+  border-color: rgba(255, 214, 102, 0.85);
+  box-shadow: 0 0 0 1px rgba(255, 214, 102, 0.35);
+  color: #fff5d1;
+}
 .calendar-day.blocked { border-color: rgba(255, 123, 123, 0.5); background: rgba(255, 123, 123, 0.12); }
 .calendar-day:hover { transform: translateY(-2px); }
 .calendar-day.empty { visibility: hidden; pointer-events: none; }
@@ -3645,7 +3651,7 @@ body.nav-open {
   justify-content: center;
   padding: 1.2rem;
   overflow-y: auto;
-  z-index: 11000;
+  z-index: 13000;
   background: radial-gradient(circle at 15% 20%, rgba(109, 91, 255, 0.14), rgba(4, 6, 18, 0.75));
   backdrop-filter: blur(10px);
 }
@@ -3666,7 +3672,7 @@ body.nav-open {
   max-height: calc(100vh - 2.4rem);
   margin: auto;
   overflow: hidden;
-  z-index: 11001;
+  z-index: 13001;
 }
 
 .modal-card::after,
@@ -3766,6 +3772,74 @@ body.nav-open {
   align-items: center;
   justify-content: space-between;
   gap: 0.8rem;
+}
+
+.day-slot-timeline {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+  max-height: 360px;
+  overflow-y: auto;
+  padding-right: 4px;
+}
+
+.day-slot-timeline::-webkit-scrollbar { width: 8px; }
+.day-slot-timeline::-webkit-scrollbar-thumb { background: rgba(255, 255, 255, 0.15); border-radius: 999px; }
+
+.day-slot-pill {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.9rem;
+  padding: 0.85rem 1rem;
+  border-radius: var(--radius-md);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  background: rgba(255, 255, 255, 0.04);
+}
+
+.day-slot-pill.available {
+  border-color: rgba(61, 216, 182, 0.4);
+  background: rgba(61, 216, 182, 0.08);
+}
+
+.day-slot-pill.booked {
+  border-color: rgba(255, 214, 102, 0.6);
+  background: rgba(255, 214, 102, 0.08);
+}
+
+.day-slot-time {
+  display: flex;
+  flex-direction: column;
+  gap: 0.2rem;
+}
+
+.day-slot-time strong {
+  font-size: 1rem;
+}
+
+.day-slot-meta {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+}
+
+.slot-channel {
+  padding: 0.25rem 0.6rem;
+  border-radius: 12px;
+  background: rgba(255, 255, 255, 0.08);
+  font-size: 0.8rem;
+  color: var(--muted);
+}
+
+.slot-chip {
+  padding: 0.25rem 0.65rem;
+  background: rgba(61, 216, 182, 0.18);
+  border-radius: 999px;
+  color: #3dd8b6;
+  font-weight: 600;
+  font-size: 0.82rem;
 }
 
 .day-booking-list {
@@ -6608,7 +6682,7 @@ html {
   display: flex;
   align-items: center;
   justify-content: center;
-  z-index: 10000;
+  z-index: 13000;
 }
 
 .modal {

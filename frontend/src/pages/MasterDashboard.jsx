@@ -136,6 +136,14 @@ const bookingChannelLabels = {
   chat_voice: 'Chat + Chiamata'
 };
 
+const CONFIRMED_BOOKING_STATUSES = [
+  'confirmed',
+  'ready_to_start',
+  'active',
+  'reschedule_requested',
+  'reschedule_accepted'
+];
+
 const mapWorkingHoursToForm = workingHours => {
   const source = workingHours && typeof workingHours === 'object' ? workingHours : {};
   const slots = Array.isArray(source.slots) ? source.slots : [];
@@ -153,6 +161,7 @@ const mapWorkingHoursToForm = workingHours => {
 export default function MasterDashboard() {
   const navigate = useNavigate();
   const avatarInputRef = useRef(null);
+  const slotListRef = useRef(null);
   const [user, setUser] = useState(() => getStoredUser());
   const [monthCursor, setMonthCursor] = useState(() => {
     const now = new Date();
@@ -284,6 +293,30 @@ export default function MasterDashboard() {
     if (!modalDay?.bookings) return [];
     return [...modalDay.bookings].sort((a, b) => a.start.localeCompare(b.start));
   }, [modalDay]);
+
+  const modalAvailableRanges = useMemo(() => modalDay?.availableRanges || [], [modalDay]);
+
+  const modalDaySlots = useMemo(() => {
+    const slots = [];
+    modalAvailableRanges.forEach(range => {
+      slots.push({
+        type: 'available',
+        start: range.start,
+        end: range.end
+      });
+    });
+    modalBookings.forEach(booking => {
+      slots.push({
+        type: 'booking',
+        start: booking.start,
+        end: booking.end,
+        status: booking.status,
+        channel: booking.channel,
+        customerName: booking.customer?.name || 'Cliente'
+      });
+    });
+    return slots.sort((a, b) => a.start.localeCompare(b.start));
+  }, [modalAvailableRanges, modalBookings]);
 
   const weeklyStartOptions = useMemo(() => {
     const values = [];
@@ -930,6 +963,9 @@ export default function MasterDashboard() {
                   const isBlocked = day.fullDayBlocked;
                   const hasAvail = day.availableRanges?.length > 0;
                   const hasBookings = (day.bookings || []).length > 0;
+                  const hasConfirmed = (day.bookings || []).some(b =>
+                    CONFIRMED_BOOKING_STATUSES.includes(b.status)
+                  );
                   const label = Number(day.date.split('-')[2]);
 
                   return (
@@ -937,6 +973,7 @@ export default function MasterDashboard() {
                       key={day.date}
                       className={`calendar-day${isBlocked ? ' blocked' : ''}${hasAvail ? ' available' : ''}${
                         hasBookings ? ' has-bookings' : ''
+                      }${hasConfirmed ? ' has-confirmed' : ''
                       }`}
                       onClick={() => openDayModal(day)}
                     >
@@ -1089,33 +1126,45 @@ export default function MasterDashboard() {
             <div className="day-modal-body">
               <div className="day-modal-column day-modal-bookings">
                 <div className="modal-section-head">
-                  <p className="micro">Prenotazioni del giorno</p>
+                  <p className="micro">Agenda del giorno</p>
                   <span className="micro muted">
-                    {modalBookings.length > 0
-                      ? `${modalBookings.length} sessione${modalBookings.length > 1 ? 'i' : ''}`
-                      : 'Nessuna prenotazione registrata'}
+                    {modalDaySlots.length > 0
+                      ? `Disponibili ${modalAvailableRanges.length} / Prenotate ${modalBookings.length}`
+                      : 'Nessuna fascia disponibile o prenotata'}
                   </span>
                 </div>
 
-                {modalBookings.length === 0 ? (
-                  <p className="muted">Non sono presenti prenotazioni per questa data.</p>
+                {modalDaySlots.length === 0 ? (
+                  <p className="muted">Non ci sono fasce disponibili o prenotate per questa data.</p>
                 ) : (
-                  <ul className="day-booking-list">
-                    {modalBookings.map(booking => (
-                      <li key={booking.id} className="day-booking-item">
-                        <div className="day-booking-row">
-                          <div className="day-booking-time">
-                            <strong>{booking.start} – {booking.end}</strong>
-                            <span className="micro">{booking.customer?.name || 'Cliente'}</span>
-                          </div>
-
-                          <span className={`status status--${booking.status || 'awaiting_master'}`}>
-                            {bookingStatusLabels[booking.status] || booking.status || 'In attesa'}
+                  <div className="day-slot-timeline" ref={slotListRef}>
+                    {modalDaySlots.map(slot => (
+                      <div
+                        key={`${slot.type}-${slot.start}-${slot.end}-${slot.status || 'free'}`}
+                        className={`day-slot-pill ${slot.type === 'booking' ? 'booked' : 'available'}`}
+                      >
+                        <div className="day-slot-time">
+                          <strong>{slot.start} - {slot.end}</strong>
+                          <span className="micro">
+                            {slot.type === 'booking' ? slot.customerName : 'Fascia prenotabile'}
                           </span>
                         </div>
-                      </li>
+
+                        {slot.type === 'booking' ? (
+                          <div className="day-slot-meta">
+                            <span className={`status status--${slot.status || 'awaiting_master'}`}>
+                              {bookingStatusLabels[slot.status] || slot.status || 'In attesa'}
+                            </span>
+                            {slot.channel && (
+                              <span className="slot-channel">{bookingChannelLabels[slot.channel] || slot.channel}</span>
+                            )}
+                          </div>
+                        ) : (
+                          <span className="slot-chip">Disponibile</span>
+                        )}
+                      </div>
                     ))}
-                  </ul>
+                  </div>
                 )}
               </div>
 
