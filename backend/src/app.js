@@ -31,9 +31,6 @@ import { notFound, errorHandler } from './middleware/error.js';
 
 export const app = express();
 
-// Support both root and /api mount (covers nginx configurations that keep or strip /api)
-const routePrefixes = ['', '/api'];
-
 const defaultOrigins = [
   process.env.FRONTEND_URL,
   process.env.FRONTEND_URL?.replace('http://', 'https://'),
@@ -75,30 +72,37 @@ app.use(express.json({ limit: '1mb' }));
 app.use(morgan('tiny'));
 app.use(rateLimit({ windowMs: 60_000, max: 300 }));
 
-app.get('/health', (req, res) => res.json({ status: 'ok' }));
+const registerRoutes = router => {
+  router.get('/health', (req, res) => res.json({ status: 'ok' }));
+  router.use('/auth', authRoutes);
+  router.use('/catalog', catalogRoutes);
+  router.use('/wallet', walletRoutes);
+  router.use('/session', sessionRoutes);
+  router.use('/reviews', reviewRoutes);
+  router.use('/admin', adminRoutes);
+  router.use('/cms', cmsRoutes);
+  router.use('/webhooks', webhookRoutes);
+  router.use('/profile', profileRoutes);
+  router.use('/availability', availabilityRoutes);
+  router.use('/bookings', bookingRoutes);
+  router.use('/chat', chatRoutes);
+  router.use('/voice', voiceRoutes);
+  router.use('/notifications', notificationRoutes);
+  router.use('/session-notifications', sessionNotificationRoutes);
+  router.use('/master', masterRoutes);
+  router.use('/media', mediaRoutes);
+  router.use('/session-management', sessionManagementRoutes);
+  router.use('/presence', presenceRoutes);
+};
 
-routePrefixes.forEach(prefix => {
-  const mount = path => `${prefix}${path}`;
-  app.use(mount('/auth'), authRoutes);
-  app.use(mount('/catalog'), catalogRoutes);
-  app.use(mount('/wallet'), walletRoutes);
-  app.use(mount('/session'), sessionRoutes);
-  app.use(mount('/reviews'), reviewRoutes);
-  app.use(mount('/admin'), adminRoutes);
-  app.use(mount('/cms'), cmsRoutes);
-  app.use(mount('/webhooks'), webhookRoutes);
-  app.use(mount('/profile'), profileRoutes);
-  app.use(mount('/availability'), availabilityRoutes);
-  app.use(mount('/bookings'), bookingRoutes);
-  app.use(mount('/chat'), chatRoutes);
-  app.use(mount('/voice'), voiceRoutes);
-  app.use(mount('/notifications'), notificationRoutes);
-  app.use(mount('/session-notifications'), sessionNotificationRoutes);
-  app.use(mount('/master'), masterRoutes);
-  app.use(mount('/media'), mediaRoutes);
-  app.use(mount('/session-management'), sessionManagementRoutes);
-  app.use(mount('/presence'), presenceRoutes);
-});
+// Mount routes both at root and under /api to match nginx proxy behavior
+const rootRouter = express.Router();
+registerRoutes(rootRouter);
+app.use(rootRouter);
+
+const apiRouter = express.Router();
+registerRoutes(apiRouter);
+app.use('/api', apiRouter);
 
 app.use(notFound);
 app.use(errorHandler);
