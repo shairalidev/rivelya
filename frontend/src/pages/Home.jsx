@@ -11,24 +11,24 @@ const stats = [
 
 const pillars = [
   {
-    title: 'Cartomancy & Divination',
-    description: 'Tarocchi, sibille, oracoli, rune e pendolo per risposte chiare e guidate dai migliori cartomanti.',
+    title: 'Cartomanzia e Divinazione',
+    description: 'Tarocchi, sibille, oracoli, rune e pendolo per risposte chiare guidate dai migliori cartomanti.',
     icon: '🔮'
   },
   {
-    title: 'Spirituality & Intuition',
+    title: 'Spiritualità e Intuizione',
     description: "Channeling, letture energetiche, numerologia, missione dell'anima e interpretazione dei sogni per una guida autentica.",
     icon: '✨'
   },
   {
-    title: 'Inner Wellness & Life Coaching',
-    description: 'Percorsi di rebalancing, mindfulness, gestione emotiva e law of attraction con coach certificati.',
-    icon: '🌿'
+    title: 'Benessere interiore e Life Coaching',
+    description: 'Percorsi di riequilibrio, mindfulness, gestione emotiva e legge di attrazione con coach certificati.',
+    icon: '🧘'
   }
 ];
 
 const steps = [
-  { title: 'Scegli il Esperti', description: 'Filtra per categoria, lingua e disponibilità in tempo reale.' },
+  { title: "Scegli l'esperto giusto", description: 'Filtra per categoria, lingua e disponibilità in tempo reale.' },
   { title: 'Prenota in 1 click', description: 'Attiva sessioni telefoniche o chat con tariffa chiara al minuto.' },
   { title: 'Ricevi report e follow-up', description: 'Ritrova note, registri e consigli nella tua area personale.' }
 ];
@@ -70,7 +70,7 @@ export default function Home() {
             Attiva in pochi secondi una sessione con cartomanti, guide spirituali e coach del benessere certificati. Ricariche smart, report automatici e supporto 24/7.
           </p>
           <div className="hero-actions">
-            <Link to="/catalog" className="btn primary">Esplora i Esperti</Link>
+            <Link to="/catalog" className="btn primary">Esplora gli Esperti</Link>
             {!user && <Link to="/register" className="btn outline">Attiva account</Link>}
           </div>
           <div className="hero-stats">
@@ -109,7 +109,7 @@ export default function Home() {
             <span className="info-icon">{pillar.icon}</span>
             <h3>{pillar.title}</h3>
             <p className="muted">{pillar.description}</p>
-            <Link to="/catalog" className="link">Scopri gli specialisti →</Link>
+            <Link to="/catalog" className="link">Scopri gli specialisti</Link>
           </article>
         ))}
       </section>
@@ -118,7 +118,7 @@ export default function Home() {
         <div className="section-head">
           <span className="badge-soft">Per aziende</span>
           <h2>Soluzione enterprise con SLA dedicati</h2>
-          <p className="muted">Integra i Esperti Rivelya nel tuo servizio clienti o offri benefit esclusivi al tuo team con wallet condivisi e fatturazione centralizzata.</p>
+          <p className="muted">Integra gli Esperti Rivelya nel tuo servizio clienti o offri benefit esclusivi al tuo team con wallet condivisi e fatturazione centralizzata.</p>
         </div>
         <div className="grid-two">
           {steps.map(step => (
@@ -132,20 +132,18 @@ export default function Home() {
 
       <section className="container section" id="supporto">
         <div className="section-head">
-          <span className="badge-soft">Stories</span>
+          <span className="badge-soft">Storie</span>
           <h2>Esperienze su Rivelya</h2>
         </div>
         <div className="testimonials">
           {testimonials.map(item => (
             <blockquote key={item.author} className="testimonial">
-              <p>“{item.quote}”</p>
+              <p>{item.quote}</p>
               <footer>— {item.author}</footer>
             </blockquote>
           ))}
         </div>
       </section>
-
-      
     </div>
   );
 }
