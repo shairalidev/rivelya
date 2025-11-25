@@ -108,7 +108,16 @@ export default function Wallet() {
         instance = await dropin.create({
           authorization: tokenRes.data.clientToken,
           container: dropInRef.current,
-          translations: 'it_IT',
+          locale: 'it_IT',
+          translations: {
+            cardNumberLabel: 'Numero carta',
+            cardNumberPlaceholder: '1234 5678 9012 3456',
+            expirationDateLabel: 'Scadenza',
+            expirationDatePlaceholder: 'MM/AA',
+            cardholderNameLabel: 'Intestatario carta',
+            cvvLabel: 'CVV/CVC',
+            postalCodeLabel: 'CAP (se richiesto)'
+          },
           paymentOptionPriority: ['card'],
           card: {
             cardholderName: true,
