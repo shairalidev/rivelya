@@ -15,7 +15,12 @@ const badRequest = message => {
 let braintreeGateway;
 function getBraintreeGateway() {
   if (braintreeGateway) return braintreeGateway;
-  const { BRAINTREE_MERCHANT_ID, BRAINTREE_PUBLIC_KEY, BRAINTREE_PRIVATE_KEY, BRAINTREE_ENVIRONMENT } = process.env;
+  const {
+    BRAINTREE_MERCHANT_ID,
+    BRAINTREE_PUBLIC_KEY,
+    BRAINTREE_PRIVATE_KEY,
+    BRAINTREE_ENVIRONMENT
+  } = process.env;
   const missing = [];
   if (!BRAINTREE_MERCHANT_ID) missing.push('BRAINTREE_MERCHANT_ID');
   if (!BRAINTREE_PUBLIC_KEY) missing.push('BRAINTREE_PUBLIC_KEY');
@@ -24,7 +29,9 @@ function getBraintreeGateway() {
     const err = badRequest(`Braintree non configurato: manca ${missing.join(', ')}`);
     throw err;
   }
-  const environment = (BRAINTREE_ENVIRONMENT || 'Sandbox').toLowerCase() === 'production'
+  // Default to Production when the backend runs in production unless explicitly overridden
+  const envName = (BRAINTREE_ENVIRONMENT || (process.env.NODE_ENV === 'production' ? 'Production' : 'Sandbox')).trim();
+  const environment = envName.toLowerCase() === 'production'
     ? braintree.Environment.Production
     : braintree.Environment.Sandbox;
   braintreeGateway = new braintree.BraintreeGateway({
