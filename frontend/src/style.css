@@ -3520,6 +3520,7 @@ body.nav-open {
 .wallet-dropin-container .braintree-form__label,
 .wallet-dropin-container .braintree-sheet__subtitle {
   color: var(--text);
+  font-family: 'Manrope', system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
 }
 
 .wallet-dropin-container .braintree-form__field-group {
@@ -3527,6 +3528,26 @@ body.nav-open {
   background: rgba(255, 255, 255, 0.04);
   border: 1px solid rgba(255, 255, 255, 0.08);
   padding: 0.4rem 0.6rem;
+}
+
+.wallet-dropin-container .braintree-form__instructions,
+.wallet-dropin-container .braintree-form__descriptor {
+  color: var(--muted);
+}
+
+.wallet-dropin-container .braintree-option__card,
+.wallet-dropin-container .braintree-option__card .braintree-option__label {
+  color: var(--text);
+}
+
+.wallet-dropin-container .braintree-sheet--form {
+  background: transparent;
+  border: 1px solid rgba(255, 255, 255, 0.06);
+  border-radius: 14px;
+}
+
+.wallet-dropin-container .braintree-sheet__header {
+  border-bottom: 1px solid rgba(255, 255, 255, 0.06);
 }
 
 .wallet-dropin-container .braintree-toggle {
@@ -3540,6 +3561,14 @@ body.nav-open {
 
 .wallet-dropin-container .braintree-toggle:disabled {
   opacity: 0.6;
+}
+
+.wallet-dropin-container .braintree-sheet__section:not(:last-child) {
+  border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+}
+
+.wallet-dropin-container .braintree-option__label {
+  color: var(--text);
 }
 
 .wallet-payment-actions {

@@ -110,7 +110,33 @@ export default function Wallet() {
           container: dropInRef.current,
           translations: 'it_IT',
           paymentOptionPriority: ['card'],
-          card: { cardholderName: true }
+          card: {
+            cardholderName: true,
+            overrides: {
+              styles: {
+                input: {
+                  color: '#f6f8ff',
+                  'font-family': '\'Manrope\', system-ui, -apple-system, BlinkMacSystemFont, \'Segoe UI\', sans-serif',
+                  'font-size': '16px',
+                  'line-height': '22px',
+                  'letter-spacing': '0.02em'
+                },
+                ':focus': {
+                  color: '#ffffff',
+                  'box-shadow': '0 0 0 2px rgba(109, 91, 255, 0.5)'
+                },
+                '::placeholder': {
+                  color: 'rgba(246, 248, 255, 0.7)'
+                },
+                '.invalid': {
+                  color: '#ff7b7b'
+                },
+                '.valid': {
+                  color: '#3dd8b6'
+                }
+              }
+            }
+          }
         });
         if (active) setBtInstance(instance);
       } catch (err) {
