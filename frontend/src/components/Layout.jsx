@@ -181,105 +181,102 @@ export default function Layout() {
   };
 
   const authControls = user ? (
-    <>
-      <NotificationBell />
-      <div className={`auth-avatar${profileOpen ? ' open' : ''}`} ref={profileRef}>
+    <div className={`auth-avatar${profileOpen ? ' open' : ''}`} ref={profileRef}>
+      <button
+        type="button"
+        className="avatar-trigger"
+        aria-haspopup="true"
+        aria-expanded={profileOpen}
+        aria-label="Menu utente"
+        onClick={toggleProfileMenu}
+      >
+        {user.avatarUrl ? (
+          <span className="avatar-circle avatar-image">
+            <img src={user.avatarUrl} alt={user.displayName || user.email} />
+          </span>
+        ) : (
+          <span className="avatar-circle">{(user.displayName || user.email)?.slice(0, 2).toUpperCase()}</span>
+        )}
+        <span className="avatar-caret" aria-hidden="true" />
+      </button>
+
+      {/* Stop outside-closer from eating events inside the dropdown */}
+      <div
+        className="auth-dropdown"
+        role="menu"
+        onMouseDown={e => e.stopPropagation()}
+        onTouchStart={e => e.stopPropagation()}
+      >
+        <div className="auth-dropdown-header">
+          <p className="auth-name">{user.displayName || user.email}</p>
+          <p className="auth-email">{user.email}</p>
+        </div>
+        <div className="auth-divider" aria-hidden="true" />
+        <div className="auth-dropdown-actions">
+          {user?.roles?.includes('master') && (
+            <Link
+              to="/master/dashboard"
+              role="menuitem"
+              className="dropdown-link"
+              onMouseDown={handleProfileNavMouseDown('/master/dashboard')}
+            >
+              Area Esperti
+            </Link>
+          )}
+          <Link
+            to="/reservations"
+            role="menuitem"
+            className="dropdown-link"
+            onMouseDown={handleProfileNavMouseDown('/reservations')}
+          >
+            Gestione Prenotazioni
+          </Link>
+          <Link
+            to="/chat"
+            role="menuitem"
+            className="dropdown-link"
+            onMouseDown={handleProfileNavMouseDown('/chat')}
+          >
+            Chat
+          </Link>
+          <Link
+            to="/voice"
+            role="menuitem"
+            className="dropdown-link"
+            onMouseDown={handleProfileNavMouseDown('/voice')}
+          >
+            Chiamate
+          </Link>
+          <Link
+            to="/profile"
+            role="menuitem"
+            className="dropdown-link"
+            onMouseDown={handleProfileNavMouseDown('/profile')}
+          >
+            Profilo
+          </Link>
+          <Link
+            to="/wallet"
+            role="menuitem"
+            className="dropdown-link"
+            onMouseDown={handleProfileNavMouseDown('/wallet')}
+          >
+            Wallet
+          </Link>
+        </div>
         <button
           type="button"
-          className="avatar-trigger"
-          aria-haspopup="true"
-          aria-expanded={profileOpen}
-          aria-label="Menu utente"
-          onClick={toggleProfileMenu}
+          className="btn outline full-width"
+          onMouseDown={e => {
+            e.preventDefault();
+            e.stopPropagation();
+            logout();
+          }}
         >
-          {user.avatarUrl ? (
-            <span className="avatar-circle avatar-image">
-              <img src={user.avatarUrl} alt={user.displayName || user.email} />
-            </span>
-          ) : (
-            <span className="avatar-circle">{(user.displayName || user.email)?.slice(0, 2).toUpperCase()}</span>
-          )}
-          <span className="avatar-caret" aria-hidden="true" />
+          Esci
         </button>
-
-        {/* Stop outside-closer from eating events inside the dropdown */}
-        <div
-          className="auth-dropdown"
-          role="menu"
-          onMouseDown={e => e.stopPropagation()}
-          onTouchStart={e => e.stopPropagation()}
-        >
-          <div className="auth-dropdown-header">
-            <p className="auth-name">{user.displayName || user.email}</p>
-            <p className="auth-email">{user.email}</p>
-          </div>
-          <div className="auth-divider" aria-hidden="true" />
-          <div className="auth-dropdown-actions">
-            {user?.roles?.includes('master') && (
-              <Link
-                to="/master/dashboard"
-                role="menuitem"
-                className="dropdown-link"
-                onMouseDown={handleProfileNavMouseDown('/master/dashboard')}
-              >
-                Area Esperti
-              </Link>
-            )}
-            <Link
-              to="/reservations"
-              role="menuitem"
-              className="dropdown-link"
-              onMouseDown={handleProfileNavMouseDown('/reservations')}
-            >
-              Gestione Prenotazioni
-            </Link>
-            <Link
-              to="/chat"
-              role="menuitem"
-              className="dropdown-link"
-              onMouseDown={handleProfileNavMouseDown('/chat')}
-            >
-              Chat
-            </Link>
-            <Link
-              to="/voice"
-              role="menuitem"
-              className="dropdown-link"
-              onMouseDown={handleProfileNavMouseDown('/voice')}
-            >
-              Chiamate
-            </Link>
-            <Link
-              to="/profile"
-              role="menuitem"
-              className="dropdown-link"
-              onMouseDown={handleProfileNavMouseDown('/profile')}
-            >
-              Profilo
-            </Link>
-            <Link
-              to="/wallet"
-              role="menuitem"
-              className="dropdown-link"
-              onMouseDown={handleProfileNavMouseDown('/wallet')}
-            >
-              Wallet
-            </Link>
-          </div>
-          <button
-            type="button"
-            className="btn outline full-width"
-            onMouseDown={e => {
-              e.preventDefault();
-              e.stopPropagation();
-              logout();
-            }}
-          >
-            Esci
-          </button>
-        </div>
       </div>
-    </>
+    </div>
   ) : (
     <div className="auth-buttons">
       <Link to="/login" className="btn ghost" onClick={handleNavClick}>
@@ -301,20 +298,6 @@ export default function Layout() {
             <span className="brand-mark">Rivelya</span>
             <span className="brand-sub">Consulenze in tempo reale</span>
           </Link>
-          <button
-            type="button"
-            className="menu-toggle"
-            aria-expanded={menuOpen}
-            aria-controls="mobile-navigation"
-            onClick={toggleMenu}
-          >
-            <span className="menu-icon" aria-hidden="true">
-              <span />
-              <span />
-              <span />
-            </span>
-            <span className="menu-label">Menu</span>
-          </button>
           <nav className="primary-nav">
             {navItems.map(item =>
               item.anchor ? (
@@ -334,7 +317,24 @@ export default function Layout() {
               )
             )}
           </nav>
-          <div className="auth-actions">{authControls}</div>
+          <div className="header-actions">
+            {user && <NotificationBell />}
+            <div className="auth-actions">{authControls}</div>
+            <button
+              type="button"
+              className="menu-toggle"
+              aria-expanded={menuOpen}
+              aria-controls="mobile-navigation"
+              onClick={toggleMenu}
+            >
+              <span className="menu-icon" aria-hidden="true">
+                <span />
+                <span />
+                <span />
+              </span>
+              <span className="menu-label">Menu</span>
+            </button>
+          </div>
         </div>
 
         <div className={`mobile-nav${menuOpen ? ' open' : ''}`} aria-hidden={!menuOpen}>
@@ -378,9 +378,6 @@ export default function Layout() {
                     <span className="chip-name">{user.displayName || user.email}</span>
                     <span className="chip-role">{user?.roles?.includes('master') ? 'Esperto' : 'Cliente'}</span>
                   </div>
-                </div>
-                <div className="mobile-nav-actions">
-                  <NotificationBell />
                 </div>
               </div>
             )}
