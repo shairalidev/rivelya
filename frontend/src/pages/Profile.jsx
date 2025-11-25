@@ -416,16 +416,6 @@ export default function Profile() {
                   placeholder="Italia"
                 />
               </label>
-              <label className="input-label">
-                Codice fiscale
-                <input
-                  name="taxCode"
-                  value={form.taxCode}
-                  onChange={updateField}
-                  placeholder="RSSMRA80A01H501U"
-                  maxLength="16"
-                />
-              </label>
             </div>
           </div>
           <div className="account-section">
@@ -470,7 +460,18 @@ export default function Profile() {
                     placeholder="12345678901"
                     maxLength="11"
                   />
+                  
                 </label>
+                <label className="input-label">
+                Codice fiscale
+                <input
+                  name="taxCode"
+                  value={form.taxCode}
+                  onChange={updateField}
+                  placeholder="RSSMRA80A01H501U"
+                  maxLength="16"
+                />
+              </label>
                 <label className="input-label">
                   IBAN
                   <input
