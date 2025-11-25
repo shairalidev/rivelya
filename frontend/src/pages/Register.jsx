@@ -178,10 +178,7 @@ export default function Register() {
             Pagamenti sicuri, cronologia movimenti e promozioni dedicate.
           </li>
         </ul>
-        <div className="sidecard-cta">
-          <p className="muted">Password demo suggerita: <code>Rivelya!2024</code></p>
-          <p className="muted">Potrai modificarla in seguito dalla tua area personale.</p>
-        </div>
+      
       </div>
     </section>
   );

@@ -113,9 +113,6 @@ export default function Login() {
         <p className="muted">
           Nuovo su Rivelya? <Link to={registerLink}>Crea un account</Link>
         </p>
-        <div className="auth-hint">
-          <p className="muted">Demo rapida: <code>client@rivelya.com</code> / <code>Rivelya!2024</code></p>
-        </div>
       </div>
       <div className="auth-sidecard">
         <div className="sidecard-headline">

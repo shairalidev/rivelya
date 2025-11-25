@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import client from '../api/client.js';
+import { getUser as getStoredUser, subscribeAuthChange } from '../lib/auth.js';
 
 const stats = [
   { label: 'Esperti certificati', value: '120+' },
@@ -45,11 +46,18 @@ const testimonials = [
 
 export default function Home() {
   const [featured, setFeatured] = useState([]);
+  const [user, setUser] = useState(() => getStoredUser());
 
   useEffect(() => {
     client.get('/catalog', { params: { sort: 'rating' } })
       .then(res => setFeatured(res.data.slice(0, 3)))
       .catch(() => setFeatured([]));
+  }, []);
+
+  useEffect(() => {
+    const sync = () => setUser(getStoredUser());
+    const unsubscribe = subscribeAuthChange(sync);
+    return () => unsubscribe();
   }, []);
 
   return (
@@ -63,7 +71,7 @@ export default function Home() {
           </p>
           <div className="hero-actions">
             <Link to="/catalog" className="btn primary">Esplora i Esperti</Link>
-            <Link to="/register" className="btn outline">Attiva account</Link>
+            {!user && <Link to="/register" className="btn outline">Attiva account</Link>}
           </div>
           <div className="hero-stats">
             {stats.map(stat => (
