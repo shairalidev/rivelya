@@ -3505,6 +3505,43 @@ body.nav-open {
   box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.04);
 }
 
+/* Braintree drop-in theming */
+.wallet-dropin-container .braintree-dropin,
+.wallet-dropin-container .braintree-dropin.braintree-loaded {
+  background: linear-gradient(150deg, rgba(14, 20, 36, 0.95), rgba(6, 9, 20, 0.92));
+  border-radius: var(--radius-sm);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  box-shadow: 0 16px 40px -28px rgba(0, 0, 0, 0.8);
+  color: var(--text);
+}
+
+.wallet-dropin-container .braintree-heading,
+.wallet-dropin-container .braintree-sheet__text,
+.wallet-dropin-container .braintree-form__label,
+.wallet-dropin-container .braintree-sheet__subtitle {
+  color: var(--text);
+}
+
+.wallet-dropin-container .braintree-form__field-group {
+  border-radius: 12px;
+  background: rgba(255, 255, 255, 0.04);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  padding: 0.4rem 0.6rem;
+}
+
+.wallet-dropin-container .braintree-toggle {
+  border-radius: 12px;
+  background: var(--brand);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  color: #040612;
+  font-weight: 700;
+  padding: 0.85rem 1rem;
+}
+
+.wallet-dropin-container .braintree-toggle:disabled {
+  opacity: 0.6;
+}
+
 .wallet-payment-actions {
   display: flex;
   gap: 0.8rem;
