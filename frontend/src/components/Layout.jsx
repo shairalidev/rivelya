@@ -30,6 +30,8 @@ export default function Layout() {
   const [menuOpen, setMenuOpen] = useState(false);
   const [profileOpen, setProfileOpen] = useState(false);
   const profileRef = useRef(null);
+  const menuScrollRef = useRef(0);
+  const wasMenuOpenRef = useRef(false);
   const [user, setUser] = useState(() => getStoredUser());
 
   useEffect(() => {
@@ -58,7 +60,24 @@ export default function Layout() {
   }, [location.pathname, location.hash]);
 
   useEffect(() => {
-    document.body.classList.toggle('nav-open', menuOpen);
+    const body = document.body;
+
+    if (menuOpen) {
+      menuScrollRef.current = window.scrollY;
+      body.classList.add('nav-open');
+      body.style.top = `-${menuScrollRef.current}px`;
+    } else {
+      if (wasMenuOpenRef.current) {
+        body.classList.remove('nav-open');
+        body.style.top = '';
+        window.scrollTo(0, menuScrollRef.current);
+      } else {
+        body.classList.remove('nav-open');
+        body.style.top = '';
+      }
+    }
+
+    wasMenuOpenRef.current = menuOpen;
 
     if (!menuOpen) return undefined;
 
@@ -76,6 +95,10 @@ export default function Layout() {
 
   useEffect(() => () => {
     document.body.classList.remove('nav-open');
+    document.body.style.top = '';
+    if (menuScrollRef.current) {
+      window.scrollTo(0, menuScrollRef.current);
+    }
   }, []);
 
   useEffect(() => {
