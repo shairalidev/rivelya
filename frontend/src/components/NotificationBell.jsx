@@ -95,6 +95,7 @@ export default function NotificationBell() {
   if (!token) return null;
 
   const toggle = () => setOpen(prev => !prev);
+  const close = () => setOpen(false);
   const notifications = notificationsQuery.data || [];
 
   const handleMark = id => {
@@ -114,10 +115,13 @@ export default function NotificationBell() {
         {unreadCount > 0 && <span className="badge">{unreadCount > 9 ? '9+' : unreadCount}</span>}
       </button>
       {open && (
-        <div className="notification-panel" role="menu">
-          <div className="notification-header">
+        <>
+          <div className="notification-backdrop" onClick={close} role="presentation" />
+          <div className="notification-panel" role="menu">
+            <div className="notification-header">
             <h3>Notifiche</h3>
-            <button
+            <div className="notification-actions">
+              <button
               type="button"
               className="mark-all"
               onClick={handleMarkAll}
@@ -125,7 +129,16 @@ export default function NotificationBell() {
             >
               Segna tutte come lette
             </button>
-          </div>
+              <button
+                type="button"
+                className="notification-close"
+                aria-label="Chiudi pannello notifiche"
+                onClick={close}
+              >
+                ×
+              </button>
+            </div>
+            </div>
           <div className="notification-list">
             {notifications.length === 0 && (
               <p className="notification-empty">Nessuna notifica al momento.</p>
@@ -150,7 +163,8 @@ export default function NotificationBell() {
               </div>
             ))}
           </div>
-        </div>
+          </div>
+        </>
       )}
     </div>
   );

@@ -698,7 +698,7 @@ export default function Chat() {
                   setMobileDetailsOpen(false);
                 }}
               >
-                �z(" Conversazioni
+              Conversazioni
               </button>
               <button
                 type="button"
@@ -708,7 +708,7 @@ export default function Chat() {
                   setMobileThreadsOpen(false);
                 }}
               >
-                {activeCall ? '�z�" Chiamata/Note' : '�?" Note & chiamata'}
+                {activeCall ? ' Chiamata/Note' : ' Note & chiamata'}
               </button>
             </div>
           )}

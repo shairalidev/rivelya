@@ -696,6 +696,112 @@ body.nav-open {
   color: rgba(198, 206, 240, 0.7);
 }
 
+.notification-backdrop {
+  display: none;
+}
+
+.notification-actions {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.notification-close {
+  border: none;
+  background: rgba(255, 255, 255, 0.08);
+  color: var(--text);
+  width: 32px;
+  height: 32px;
+  border-radius: 10px;
+  font-size: 1.2rem;
+  line-height: 1;
+  cursor: pointer;
+  transition: background 0.2s ease, transform 0.2s ease;
+}
+
+.notification-close:hover {
+  background: rgba(255, 255, 255, 0.14);
+  transform: translateY(-1px);
+}
+
+@media (max-width: 768px) {
+  .notification-bell {
+    width: 100%;
+    justify-content: center;
+  }
+
+  .notification-backdrop {
+    position: fixed;
+    inset: 0;
+    background: rgba(4, 6, 18, 0.65);
+    backdrop-filter: blur(6px);
+    z-index: 250;
+  }
+
+  .notification-panel {
+    position: fixed;
+    top: 50%;
+    left: 50%;
+    right: auto;
+    transform: translate(-50%, -50%);
+    width: min(420px, 92vw);
+    max-height: 80vh;
+    padding: 1.05rem;
+    animation: notificationSlideInMobile 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+    z-index: 260;
+  }
+
+  .notification-list {
+    max-height: calc(80vh - 160px);
+  }
+
+  @keyframes notificationSlideInMobile {
+    from {
+      opacity: 0;
+      transform: translate(-50%, -60%) scale(0.96);
+    }
+    to {
+      opacity: 1;
+      transform: translate(-50%, -50%) scale(1);
+    }
+  }
+}
+
+@media (max-width: 768px) {
+  .notification-bell {
+    width: 100%;
+    justify-content: center;
+  }
+
+  .notification-panel {
+    position: fixed;
+    top: 50%;
+    left: 50%;
+    right: auto;
+    transform: translate(-50%, -50%);
+    width: min(420px, 92vw);
+    max-height: 80vh;
+    padding: 1.05rem;
+    animation: notificationSlideInMobile 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+    z-index: 260;
+  }
+
+  .notification-list {
+    max-height: calc(80vh - 160px);
+  }
+
+  @keyframes notificationSlideInMobile {
+    from {
+      opacity: 0;
+      transform: translate(-50%, -60%) scale(0.96);
+    }
+    to {
+      opacity: 1;
+      transform: translate(-50%, -50%) scale(1);
+    }
+  }
+}
+
 .avatar-trigger {
   border: none;
   background: rgba(17, 24, 38, 0.65);
