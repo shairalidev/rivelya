@@ -1,11 +1,6 @@
 const fs = require('fs');
 const path = require('path');
 
-// Allow PM2 to automatically load environment variables from .env files
-const envFiles = ['.env', '.env.production']
-  .map(file => path.join(__dirname, file))
-  .filter(filePath => fs.existsSync(filePath));
-
 const appConfig = {
   name: "rivelya-backend",
   script: "server.js",
@@ -23,9 +18,14 @@ const appConfig = {
   }
 };
 
-if (envFiles.length > 0) {
-  appConfig.env_file = envFiles;
-}
+// Load env per environment (PM2 expects a string or object, not an array)
+const envFileDev = path.join(__dirname, '.env');
+const envFileProd = path.join(__dirname, '.env.production');
+
+appConfig.env_file = {
+  development: fs.existsSync(envFileDev) ? envFileDev : undefined,
+  production: fs.existsSync(envFileProd) ? envFileProd : undefined
+};
 
 module.exports = {
   apps: [appConfig]
