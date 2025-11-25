@@ -26,6 +26,7 @@ const currencyFormatter = new Intl.NumberFormat('it-IT', {
 });
 
 const formatCurrency = cents => currencyFormatter.format((cents || 0) / 100);
+const quickAmounts = [10, 30, 50];
 
 export default function Wallet() {
   const navigate = useNavigate();
@@ -130,6 +131,7 @@ export default function Wallet() {
     return () => {
       active = false;
       if (instance?.teardown) instance.teardown();
+      setBtInstance(null);
     };
   }, [isMaster, showDropin]);
 
@@ -164,7 +166,10 @@ export default function Wallet() {
     }
   };
 
-  const balance = (data.balance_cents / 100).toFixed(2);
+  const balanceValue = ((data.balance_cents || 0) / 100).toLocaleString('it-IT', {
+    minimumFractionDigits: 2,
+    maximumFractionDigits: 2
+  });
   const monthLabel = masterStats
     ? new Date(Date.UTC(masterStats.year, (masterStats.month || 1) - 1, 1)).toLocaleString('it-IT', {
       month: 'long',
@@ -172,6 +177,7 @@ export default function Wallet() {
     })
     : '';
   const totals = masterStats?.totals || { count: 0, minutes: 0, earnings_cents: 0 };
+  const ledgerEntries = Array.isArray(data.ledger) ? data.ledger : [];
 
   return (
     <section className="container wallet">
@@ -183,15 +189,56 @@ export default function Wallet() {
 
       {error && <div className="alert">{error}</div>}
 
-      <div className="wallet-rows">
-        <div className="wallet-summary" style={{ marginBottom: '2rem' }}>
-          <p>Saldo disponibile</p>
-          <h2>{balance} €</h2>
-          <p className="muted">Valuta: {data.currency || 'EUR'}</p>
+      <div className="wallet-layout">
+        <div className="wallet-main">
+          <div className="wallet-summary-card wallet-card">
+            <div className="wallet-card-head">
+              <div>
+                <p className="micro">Saldo disponibile</p>
+                <h2 className="wallet-balance-amount">
+                  <span className="currency">€</span>
+                  <span>{balanceValue}</span>
+                </h2>
+                <p className="muted">Valuta: {data.currency || 'EUR'}</p>
+              </div>
+              <div className="wallet-badge">
+                <span className="pill">Rivelya</span>
+              </div>
+            </div>
+            {!isMaster && (
+              <div className="wallet-quick-amounts">
+                {quickAmounts.map(amount => (
+                  <button
+                    key={amount}
+                    className={`pill ${Number(btAmount) === amount ? 'active' : ''}`}
+                    type="button"
+                    onClick={() => {
+                      setBtAmount(String(amount));
+                      setShowDropin(true);
+                    }}
+                  >
+                    + {amount} €
+                  </button>
+                ))}
+              </div>
+            )}
+            {isMaster && (
+              <p className="micro">Il tuo saldo rappresenta i guadagni dalle sessioni completate (30% delle tariffe).</p>
+            )}
+          </div>
+
           {!isMaster && (
-            <>
-              <div className="wallet-actions">
-                <label className="input-label" style={{ minWidth: '140px' }}>
+            <div className="wallet-payment-card wallet-card">
+              <div className="wallet-card-head">
+                <div>
+                  <p className="micro">Ricarica con carta</p>
+                  <h3>Pagamento Braintree protetto</h3>
+                  <p className="muted">Apriamo il modulo di pagamento inline, senza reindirizzamenti.</p>
+                </div>
+                <span className="pill badge-soft">PCI-DSS</span>
+              </div>
+              <div className="wallet-payment-grid">
+                <label className="input-label">
                   Importo (EUR)
                   <input
                     type="number"
@@ -201,76 +248,112 @@ export default function Wallet() {
                     onChange={evt => setBtAmount(evt.target.value)}
                   />
                 </label>
-                <button
-                  className="btn primary"
-                  type="button"
-                  onClick={() => setShowDropin(true)}
-                  disabled={btLoading}
-                >
-                  {btLoading ? 'Preparazione...' : 'Paga con Braintree'}
-                </button>
-                <button className="btn outline" type="button" onClick={() => setBtAmount('10')}>10 €</button>
-                <button className="btn outline" type="button" onClick={() => setBtAmount('30')}>30 €</button>
-                <button className="btn outline" type="button" onClick={() => setBtAmount('50')}>50 €</button>
-              </div>
-              {showDropin && (
-                <div className="card" style={{ marginTop: '1rem', padding: '1rem' }}>
-                  <p className="micro" style={{ marginBottom: '0.5rem' }}>Pagamento sicuro gestito da Braintree.</p>
-                  <div ref={dropInRef} />
-                  {btError && <p className="micro danger" style={{ marginTop: '0.5rem' }}>{btError}</p>}
-                  <button
-                    className="btn primary"
-                    style={{ marginTop: '0.75rem' }}
-                    onClick={() => topup(btAmount)}
-                    disabled={btLoading || !btInstance}
-                  >
-                    {btLoading ? 'Elaborazione...' : 'Completa il pagamento'}
-                  </button>
+                <div className="wallet-quick-amounts compact">
+                  {quickAmounts.map(amount => (
+                    <button
+                      key={amount}
+                      className={`pill ${Number(btAmount) === amount ? 'active' : ''}`}
+                      type="button"
+                      onClick={() => {
+                        setBtAmount(String(amount));
+                        setShowDropin(true);
+                      }}
+                    >
+                      {amount} €
+                    </button>
+                  ))}
                 </div>
-              )}
-              {!showDropin && (
-                <p className="micro" style={{ marginTop: '0.5rem' }}>
-                  Clicca “Paga con Braintree” per aprire il form di carta in una sezione sicura.
-                </p>
-              )}
-            </>
-          )}
-          {isMaster && (
-            <p className="micro">Il tuo saldo rappresenta i guadagni dalle sessioni completate (30% delle tariffe).</p>
+              </div>
+              <div className="wallet-dropin-shell">
+                {!showDropin ? (
+                  <div className="wallet-dropin-placeholder">
+                    <div>
+                      <p className="ledger-title" style={{ margin: 0 }}>Aggiungi i dati della carta</p>
+                      <p className="muted micro">Il form appare qui sotto in un contenitore sicuro di Braintree.</p>
+                    </div>
+                    <div className="wallet-payment-actions">
+                      <button
+                        className="btn primary"
+                        type="button"
+                        onClick={() => setShowDropin(true)}
+                        disabled={btLoading}
+                      >
+                        {btLoading ? 'Preparazione...' : 'Apri il form carta'}
+                      </button>
+                      <button className="btn ghost" type="button" onClick={() => setBtAmount('10')}>Reimposta a 10 €</button>
+                    </div>
+                  </div>
+                ) : (
+                  <>
+                    <div className="wallet-dropin-container" ref={dropInRef} />
+                    {btError && <p className="micro danger" style={{ marginTop: '0.5rem' }}>{btError}</p>}
+                    <div className="wallet-payment-actions">
+                      <button
+                        className="btn primary"
+                        onClick={() => topup(btAmount)}
+                        disabled={btLoading || !btInstance}
+                      >
+                        {btLoading ? 'Elaborazione...' : `Ricarica ${btAmount || 0} €`}
+                      </button>
+                      <button
+                        className="btn ghost"
+                        type="button"
+                        onClick={() => {
+                          setShowDropin(false);
+                          setBtError('');
+                        }}
+                        disabled={btLoading}
+                      >
+                        Chiudi modulo
+                      </button>
+                    </div>
+                  </>
+                )}
+              </div>
+            </div>
           )}
         </div>
 
-        {!isMaster && (
-          <div className="wallet-ledger" style={{ marginBottom: '2rem' }}>
-            <h3>Movimenti recenti</h3>
+        <div className="wallet-side">
+          <div className="wallet-ledger wallet-card">
+            <div className="wallet-card-head">
+              <div>
+                <p className="micro">Movimenti recenti</p>
+                <h3>Transazioni {isMaster ? 'master' : 'wallet'}</h3>
+              </div>
+            </div>
             {loading ? (
               <div className="skeleton-list">
                 {Array.from({ length: 4 }).map((_, idx) => (
                   <div key={idx} className="skeleton-item" />
                 ))}
               </div>
+            ) : ledgerEntries.length === 0 ? (
+              <p className="muted">Nessuna transazione disponibile.</p>
             ) : (
               <ul className="ledger-list">
-                {data.ledger.map(entry => (
+                {ledgerEntries.map(entry => (
                   <li key={entry._id} className={`ledger-item ${entry.type}`}>
                     <div>
                       <p className="ledger-title">{entry.meta?.description || entry.meta?.master || entry.type}</p>
                       <p className="muted">
                         {formatDate(entry.createdAt)}
-                        {entry.meta?.master ? ` · ${entry.meta.master}` : ''}
-                        {entry.meta?.channel ? ` · ${entry.meta.channel}` : ''}
+                        {entry.meta?.master ? ` - ${entry.meta.master}` : ''}
+                        {entry.meta?.channel ? ` - ${entry.meta.channel}` : ''}
                       </p>
                     </div>
-                    <span className="ledger-amount">{(entry.amount / 100).toFixed(2)} €</span>
+                    <span className="ledger-amount">{formatCurrency(entry.amount_cents ?? entry.amount)}</span>
                   </li>
                 ))}
               </ul>
             )}
           </div>
-        )}
+        </div>
+      </div>
 
-        {isMaster && (
-          <div className="wallet-master-panel" style={{ marginBottom: '2rem' }}>
+      {isMaster && (
+        <div className="wallet-master-grid">
+          <div className="wallet-master-panel">
             <div className="wallet-master-head">
               <div>
                 <span className="badge-soft">Riepilogo master</span>
@@ -329,44 +412,49 @@ export default function Wallet() {
                     <h4>{formatCurrency(totals.earnings_cents)}</h4>
                   </div>
                   <p className="micro">
-                    {totals.minutes} minuti · {totals.count} sessioni totali
+                    {totals.minutes} minuti - {totals.count} sessioni totali
                   </p>
                 </div>
 
               </>
             )}
           </div>
-        )}
 
-        {isMaster && (
-          <div className="wallet-ledger" style={{ marginBottom: '2rem' }}>
-            <h3>Movimenti recenti</h3>
-            {loading ? (
+          <div className="wallet-card wallet-earnings-card">
+            <div className="wallet-card-head">
+              <div>
+                <p className="micro">Ultimi accrediti</p>
+                <h3>Pagamenti recenti</h3>
+              </div>
+              <span className="pill badge-soft">Live</span>
+            </div>
+            {earningsLoading ? (
               <div className="skeleton-list">
-                {Array.from({ length: 4 }).map((_, idx) => (
+                {Array.from({ length: 3 }).map((_, idx) => (
                   <div key={idx} className="skeleton-item" />
                 ))}
               </div>
+            ) : recentEarnings.length === 0 ? (
+              <p className="muted">Ancora nessun accredito registrato.</p>
             ) : (
-              <ul className="ledger-list">
-                {data.ledger.map(entry => (
-                  <li key={entry._id} className={`ledger-item ${entry.type}`}>
+              <ul className="wallet-earnings-list">
+                {recentEarnings.map(tx => (
+                  <li key={tx._id} className="wallet-earning">
                     <div>
-                      <p className="ledger-title">{entry.meta?.description || entry.meta?.master || entry.type}</p>
-                      <p className="muted">
-                        {formatDate(entry.createdAt)}
-                        {entry.meta?.master ? ` · ${entry.meta.master}` : ''}
-                        {entry.meta?.channel ? ` · ${entry.meta.channel}` : ''}
+                      <p className="ledger-title">{tx.meta?.master || tx.meta?.description || 'Pagamento'}</p>
+                      <p className="micro muted">
+                        {formatDate(tx.createdAt)}
+                        {tx.meta?.channel ? ` - ${tx.meta.channel}` : ''}
                       </p>
                     </div>
-                    <span className="ledger-amount">{(entry.amount / 100).toFixed(2)} €</span>
+                    <span className="wallet-earning-amount">{formatCurrency(tx.amount_cents ?? tx.amount)}</span>
                   </li>
                 ))}
               </ul>
             )}
           </div>
-        )}
-      </div>
+        </div>
+      )}
     </section>
   );
 }
