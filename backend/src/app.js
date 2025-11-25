@@ -54,6 +54,9 @@ if (process.env.CORS_ALLOWED_ORIGINS) {
 
 export const allowedOrigins = [...new Set(defaultOrigins.filter(Boolean))];
 
+// Behind nginx/PM2: trust proxy so rate limit and IP detection work correctly
+app.set('trust proxy', true);
+
 app.use(helmet());
 app.use(cors({
   origin(origin, callback) {
