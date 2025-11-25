@@ -285,6 +285,17 @@ export default function Wallet() {
                   </div>
                 ) : (
                   <>
+                    <div className="wallet-dropin-head">
+                      <div>
+                        <p className="ledger-title" style={{ margin: 0 }}>Inserisci i dati della carta</p>
+                        <p className="micro muted">Visa, Mastercard, Amex. Il form A8 ospitato da Braintree e cifrato.</p>
+                      </div>
+                      <div className="wallet-card-brands">
+                        <span>VISA</span>
+                        <span>MC</span>
+                        <span>AMEX</span>
+                      </div>
+                    </div>
                     <div className="wallet-dropin-container" ref={dropInRef} />
                     {btError && <p className="micro danger" style={{ marginTop: '0.5rem' }}>{btError}</p>}
                     <div className="wallet-payment-actions">

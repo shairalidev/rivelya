@@ -129,8 +129,7 @@ export const payments = {
       amount,
       paymentMethodNonce,
       customerId,
-      options: { submitForSettlement: true },
-      customFields: { origin: 'wallet_topup' }
+      options: { submitForSettlement: true }
     });
 
     if (!saleResult.success) {
