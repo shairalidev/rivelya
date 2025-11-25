@@ -1541,6 +1541,227 @@ body.nav-open {
   gap: 1.6rem;
 }
 
+.profile-mobile {
+  gap: 1.6rem;
+}
+
+.profile-mobile__intro h1 {
+  margin: 0;
+}
+
+.profile-mobile__grid {
+  gap: 1.2rem;
+}
+
+.profile-hero-card {
+  background: radial-gradient(circle at 20% 0%, rgba(109, 91, 255, 0.18), transparent 45%), rgba(10, 16, 26, 0.86);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  position: relative;
+  overflow: hidden;
+}
+
+.profile-hero-card::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(135deg, rgba(19, 209, 255, 0.08), rgba(109, 91, 255, 0.05));
+  opacity: 0.8;
+  pointer-events: none;
+}
+
+.profile-hero-card > * {
+  position: relative;
+  z-index: 1;
+}
+
+.profile-hero__row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 1rem;
+}
+
+.profile-hero__identity {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  flex-wrap: nowrap;
+  min-width: 0;
+}
+
+.profile-hero__avatar {
+  width: 92px;
+  height: 92px;
+  border-radius: 24px;
+  background: radial-gradient(circle at 30% 30%, rgba(109, 91, 255, 0.4), rgba(19, 209, 255, 0.25));
+  display: grid;
+  place-items: center;
+  font-size: 1.8rem;
+  font-weight: 800;
+  color: #040612;
+  overflow: hidden;
+  border: 1px solid rgba(138, 153, 198, 0.25);
+}
+
+.profile-hero__avatar img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.profile-hero__meta {
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+  min-width: 0;
+}
+
+.profile-hero__meta .muted {
+  margin: 0;
+}
+
+.profile-hero__chips {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.profile-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  padding: 0.35rem 0.75rem;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.07);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  font-weight: 700;
+  font-size: 0.8rem;
+  color: var(--text);
+}
+
+.profile-hero__actions {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+  gap: 0.6rem;
+  width: min(360px, 100%);
+}
+
+.profile-hero__note {
+  margin: 0;
+  max-width: 320px;
+}
+
+.profile-quick-stats {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+  gap: 0.8rem;
+  margin-top: 1rem;
+}
+
+.profile-quick-stat {
+  padding: 0.9rem 1rem;
+  border-radius: var(--radius-sm);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  background: rgba(255, 255, 255, 0.02);
+  display: grid;
+  gap: 0.35rem;
+}
+
+.profile-quick-stat strong {
+  font-size: 1.05rem;
+  line-height: 1.2;
+}
+
+.profile-quick-stat--accent {
+  border-color: rgba(109, 91, 255, 0.45);
+  background: rgba(109, 91, 255, 0.12);
+}
+
+.profile-form-card {
+  gap: 1.4rem;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+.profile-form-card .account-section {
+  padding: 1.1rem;
+  border-radius: var(--radius-md);
+  background: rgba(255, 255, 255, 0.02);
+  border: 1px solid rgba(255, 255, 255, 0.05);
+}
+
+.profile-form-card .account-section h2 {
+  font-size: 1.1rem;
+}
+
+@media (max-width: 1024px) {
+  .personal-grid {
+    grid-template-columns: 1fr;
+    gap: 1rem;
+  }
+
+  .personal-grid [data-span="2"] {
+    grid-column: span 1;
+  }
+}
+
+@media (max-width: 780px) {
+  .profile-mobile .account-card {
+    padding: 1.5rem;
+  }
+
+  .profile-hero__row {
+    align-items: flex-start;
+    gap: 1.1rem;
+  }
+
+  .profile-hero__identity {
+    width: 100%;
+    flex-wrap: wrap;
+  }
+
+  .profile-hero__avatar {
+    width: 84px;
+    height: 84px;
+  }
+
+  .profile-hero__actions {
+    width: 100%;
+  }
+
+  .profile-quick-stats {
+    grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+    gap: 0.75rem;
+  }
+
+  .profile-form-card .account-section {
+    padding: 1rem;
+  }
+
+  .account-form-grid {
+    grid-template-columns: 1fr;
+    gap: 0.95rem;
+  }
+
+  .account-form-grid [data-span="2"] {
+    grid-column: span 1;
+  }
+
+  .account-actions {
+    position: sticky;
+    bottom: calc(var(--safe-bottom) + 12px);
+    padding-top: 0.5rem;
+    background: linear-gradient(180deg, rgba(4, 6, 18, 0), rgba(4, 6, 18, 0.7));
+    border-top: 1px solid rgba(255, 255, 255, 0.08);
+  }
+
+  .account-actions .btn {
+    width: 100%;
+    justify-content: center;
+  }
+}
+
 
 .profile-identity {
   display: flex;
@@ -1808,6 +2029,10 @@ body.nav-open {
 .account-form-grid select,
 .account-section textarea {
   width: 100%;
+}
+
+.personal-grid {
+  gap: 1.2rem;
 }
 
 .account-section textarea {

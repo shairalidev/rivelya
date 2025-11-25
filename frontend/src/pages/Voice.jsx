@@ -977,7 +977,7 @@ export default function Voice() {
                   setMobileNotesOpen(false);
                 }}
               >
-                �z(" Chiamate
+              Chiamate
               </button>
               <button
                 type="button"
@@ -987,7 +987,7 @@ export default function Voice() {
                   setMobileSessionsOpen(false);
                 }}
               >
-                {activeCall ? '�z�" Chiamata/Note' : '�?" Note'}
+                {activeCall ? 'Chiamata/Note' : ' Note'}
               </button>
             </div>
           )}

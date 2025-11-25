@@ -183,6 +183,24 @@ export default function Profile() {
   const zodiacSign = getZodiacSign(form.horoscopeBirthDate);
   const ascendantSign = getAscendantSign(form.horoscopeBirthDate, form.horoscopeBirthTime, birthLocation);
   const isMaster = Boolean(user?.roles?.includes('master'));
+  const quickFacts = [
+    {
+      label: 'Segno zodiacale',
+      value: zodiacSign ? `${zodiacSign.icon} ${zodiacSign.name}` : 'Completa la data di nascita'
+    },
+    {
+      label: 'Ascendente',
+      value: ascendantSign ? `${ascendantSign.icon} ${ascendantSign.name}` : 'Aggiungi ora e luogo'
+    },
+    {
+      label: 'Data di nascita',
+      value: form.horoscopeBirthDate ? new Date(form.horoscopeBirthDate).toLocaleDateString('it-IT') : 'Non indicata'
+    },
+    {
+      label: 'Luogo di nascita',
+      value: birthLocation || 'Non indicato'
+    }
+  ];
 
   if (loading) {
     return (
@@ -198,83 +216,70 @@ export default function Profile() {
   }
 
   return (
-    <section className="container account-profile">
-      <div className="account-profile__header">
+    <section className="container account-profile profile-mobile">
+      <div className="account-profile__header profile-mobile__intro">
         <p className="eyebrow">Profilo</p>
         <h1>La tua identita su Rivelya</h1>
-        <p className="muted">Gestisci i tuoi dati personali e fiscali. Le informazioni pubbliche (foto, nome e biografia) si modificano dall'Area Master.</p>
+        <p className="muted">Aggiorna i dati personali, fiscali e di contatto in modo rapido. Su mobile tutto e organizzato in blocchi chiari.</p>
       </div>
-      <div className="account-profile__grid account-profile__grid--stacked">
-        <div className="account-card account-card--compact">
-          <div className="account-avatar">
-            <div className="account-avatar-preview">
-              {user?.avatarUrl ? (
-                <img src={user.avatarUrl} alt="Avatar utente" />
-              ) : (
-                <span>{(user?.displayName || user?.email || 'RV').slice(0, 2).toUpperCase()}</span>
-              )}
+      <div className="account-profile__grid account-profile__grid--stacked profile-mobile__grid">
+        <div className="account-card account-card--compact profile-hero-card">
+          <div className="profile-hero__row">
+            <div className="profile-hero__identity">
+              <div className="profile-hero__avatar">
+                {user?.avatarUrl ? (
+                  <img src={user.avatarUrl} alt="Avatar utente" />
+                ) : (
+                  <span>{(user?.displayName || user?.email || 'RV').slice(0, 2).toUpperCase()}</span>
+                )}
+              </div>
+              <div className="profile-hero__meta">
+                <p className="account-meta-name">{user?.displayName || 'Profilo Rivelya'}</p>
+                <p className="muted">{user?.email}</p>
+                <div className="profile-hero__chips">
+                  <span className={`account-status${user?.isEmailVerified ? ' success' : ''}`}>
+                    {user?.isEmailVerified ? 'Email verificata' : 'Email non verificata'}
+                  </span>
+                  {!isMaster && (
+                    <span className="profile-chip">Lingua: {localeOptions.find(option => option.value === form.locale)?.label || 'Non impostata'}</span>
+                  )}
+                </div>
+              </div>
             </div>
             {isMaster ? (
-              <p className="micro muted">La foto profilo pubblica si aggiorna solo dall'Area Master.</p>
+              <p className="micro muted profile-hero__note">La foto e le info pubbliche si aggiornano solo dall'Area Master.</p>
             ) : (
-              <div className="account-avatar-actions">
-                <label className="btn outline">
+              <div className="profile-hero__actions">
+                <label className="btn outline small full-width">
                   Cambia immagine
                   <input type="file" accept="image/*" onChange={changeAvatar} disabled={avatarLoading} hidden />
                 </label>
                 {user?.avatarUrl && (
-                  <button type="button" className="btn ghost" onClick={deleteAvatar} disabled={avatarLoading}>
+                  <button type="button" className="btn ghost small full-width" onClick={deleteAvatar} disabled={avatarLoading}>
                     Rimuovi
                   </button>
                 )}
-                {avatarLoading && <p className="muted">Aggiornamento in corso...</p>}
+                {avatarLoading && <p className="muted micro">Aggiornamento in corso...</p>}
                 <p className="micro muted">Questa immagine sara visibile pubblicamente.</p>
               </div>
             )}
           </div>
-          <div className="account-meta">
-            <p className="account-meta-name">{user?.displayName || 'Profilo Rivelya'}</p>
-            <div className="public-summary">
-              <div className="public-summary__row">
-                <span>Segno zodiacale</span>
-                <strong>{zodiacSign ? `${zodiacSign.icon} ${zodiacSign.name}` : 'Inserisci la data di nascita'}</strong>
+          <div className="profile-quick-stats">
+            {quickFacts.map(fact => (
+              <div className="profile-quick-stat" key={fact.label}>
+                <p className="micro muted">{fact.label}</p>
+                <strong>{fact.value}</strong>
               </div>
-              <div className="public-summary__row">
-                <span>Ascendente</span>
-                <strong>{ascendantSign ? `${ascendantSign.icon} ${ascendantSign.name}` : 'Aggiungi ora e luogo di nascita'}</strong>
+            ))}
+            {!isMaster && (
+              <div className="profile-quick-stat profile-quick-stat--accent">
+                <p className="micro muted">Profilo pubblico</p>
+                <strong>{form.bio ? 'Descrizione presente' : 'Aggiungi una bio breve'}</strong>
               </div>
-              <div className="public-summary__row">
-                <span>Data di nascita</span>
-                <strong>{form.horoscopeBirthDate ? new Date(form.horoscopeBirthDate).toLocaleDateString('it-IT') : 'Non indicata'}</strong>
-              </div>
-              <div className="public-summary__row">
-                <span>Ora di nascita</span>
-                <strong>{form.horoscopeBirthTime || 'Non indicata'}</strong>
-              </div>
-              <div className="public-summary__row">
-                <span>Luogo di nascita</span>
-                <strong>{birthLocation || 'Non indicato'}</strong>
-              </div>
-              {!isMaster && (
-                <>
-                  <div className="public-summary__row">
-                    <span>Descrizione pubblica</span>
-                    <strong>{form.bio ? 'Presente' : 'Non ancora inserita'}</strong>
-                  </div>
-                  <div className="public-summary__row">
-                    <span>Lingua</span>
-                    <strong>{localeOptions.find(option => option.value === form.locale)?.label || 'Non impostata'}</strong>
-                  </div>
-                </>
-              )}
-            </div>
-            <p className="muted">{user?.email}</p>
-            <span className={`account-status${user?.isEmailVerified ? ' success' : ''}`}>
-              {user?.isEmailVerified ? 'Email verificata' : 'Email non verificata'}
-            </span>
+            )}
           </div>
         </div>
-        <form className="account-card" onSubmit={submit}>
+        <form className="account-card profile-form-card" onSubmit={submit}>
           {isMaster ? (
             <div className="account-section">
               <h2>Informazioni pubbliche</h2>
@@ -284,7 +289,7 @@ export default function Profile() {
             <div className="account-section">
               <h2>Profilo pubblico</h2>
               <p className="muted">Informazioni visibili agli esperti: foto profilo, descrizione e lingua.</p>
-              <div className="account-form-grid">
+              <div className="account-form-grid personal-grid">
                 <label className="input-label" data-span="2">
                   Nome pubblico
                   <input
