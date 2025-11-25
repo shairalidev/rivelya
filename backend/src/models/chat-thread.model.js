@@ -14,7 +14,6 @@ const chatThreadSchema = new mongoose.Schema({
   status: { type: String, enum: ['open', 'expired'], default: 'open', index: true }
 }, { timestamps: true });
 
-chatThreadSchema.index({ booking_id: 1 });
 chatThreadSchema.index({ expires_at: 1 });
 
 export const ChatThread = mongoose.model('ChatThread', chatThreadSchema);

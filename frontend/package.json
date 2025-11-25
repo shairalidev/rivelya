@@ -12,6 +12,7 @@
     "@reduxjs/toolkit": "^2.3.0",
     "@tanstack/react-query": "^5.59.20",
     "axios": "^1.7.7",
+    "braintree-web-drop-in": "^1.46.0",
     "dayjs": "^1.11.13",
     "prop-types": "^15.8.1",
     "react": "^18.3.1",

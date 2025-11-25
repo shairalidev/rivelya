@@ -61,6 +61,34 @@ router.post('/test-topup', requireAuth, async (req, res, next) => {
   }
 });
 
+router.post('/braintree/token', requireAuth, async (req, res, next) => {
+  try {
+    const clientToken = await payments.generateBraintreeClientToken(req.user._id);
+    res.json({ clientToken });
+  } catch (error) {
+    next(error);
+  }
+});
+
+router.post('/braintree/checkout', requireAuth, async (req, res, next) => {
+  try {
+    const { amount_cents: amountCents, payment_method_nonce: nonce } = req.body;
+    if (!nonce) return res.status(400).json({ message: 'Metodo di pagamento non valido.' });
+    const { wallet, transaction } = await payments.processBraintreeTopup({
+      amount_cents: amountCents,
+      paymentMethodNonce: nonce,
+      userId: req.user._id
+    });
+    res.status(201).json({
+      balance_cents: wallet.balance_cents,
+      currency: wallet.currency,
+      transaction
+    });
+  } catch (error) {
+    next(error);
+  }
+});
+
 router.get('/master/monthly-stats', requireAuth, requireRole('master'), async (req, res, next) => {
   try {
     const master = await Master.findOne({ user_id: req.user._id }).select('_id');

@@ -1,6 +1,7 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import toast from 'react-hot-toast';
+import dropin from 'braintree-web-drop-in';
 import client from '../api/client.js';
 import { getToken, getUser } from '../lib/auth.js';
 
@@ -39,6 +40,11 @@ export default function Wallet() {
   const [statsError, setStatsError] = useState('');
   const [recentEarnings, setRecentEarnings] = useState([]);
   const [earningsLoading, setEarningsLoading] = useState(false);
+  const [btInstance, setBtInstance] = useState(null);
+  const [btLoading, setBtLoading] = useState(false);
+  const [btAmount, setBtAmount] = useState('10');
+  const [btError, setBtError] = useState('');
+  const dropInRef = useRef(null);
   const user = getUser();
   const isMaster = Boolean(user?.roles?.includes('master'));
 
@@ -89,14 +95,75 @@ export default function Wallet() {
     };
   }, [isMaster]);
 
+  useEffect(() => {
+    if (isMaster) return undefined;
+    let active = true;
+    let instance;
+
+    const setup = async () => {
+      try {
+        setBtLoading(true);
+        setBtError('');
+        const tokenRes = await client.post('/wallet/braintree/token');
+        if (!active) return;
+        instance = await dropin.create({
+          authorization: tokenRes.data.clientToken,
+          container: dropInRef.current,
+          translations: 'it_IT',
+          // Card-only flow to avoid PayPal SDK calls blocked by some ad blockers
+          paymentOptionPriority: ['card'],
+          card: { cardholderName: true }
+        });
+        if (active) setBtInstance(instance);
+      } catch (err) {
+        if (!active) return;
+        const blockedByClient = /blocked_by_client/i.test(err?.message || '');
+        const message = blockedByClient
+          ? 'Sblocca PayPal/Braintree sul tuo ad blocker per abilitare il pagamento.'
+          : err?.response?.data?.message || 'Impossibile inizializzare il pagamento.';
+        setBtError(message);
+        toast.error(message);
+      } finally {
+        if (active) setBtLoading(false);
+      }
+    };
+
+    setup();
+
+    return () => {
+      active = false;
+      if (instance?.teardown) instance.teardown();
+    };
+  }, [isMaster]);
+
   const topup = async amount => {
+    if (!btInstance) {
+      toast.error('Pagamento non pronto, ricarica la pagina.');
+      return;
+    }
+    const cents = Math.round(Number(amount) * 100);
+    if (!cents || cents <= 0) {
+      toast.error('Inserisci un importo valido.');
+      return;
+    }
     try {
-      const res = await client.post('/wallet/topup', { provider: 'stripe', amount_cents: amount });
-      toast.success('Ricarica creata, verrai reindirizzato al pagamento.');
-      if (res.data.url) window.location = res.data.url;
+      setBtLoading(true);
+      const payload = await btInstance.requestPaymentMethod();
+      const res = await client.post('/wallet/braintree/checkout', {
+        amount_cents: cents,
+        payment_method_nonce: payload.nonce
+      });
+      setData(prev => ({
+        ...prev,
+        balance_cents: res.data.balance_cents,
+        ledger: [res.data.transaction, ...(prev.ledger || [])]
+      }));
+      toast.success('Ricarica completata.');
     } catch (error) {
-      const message = error?.response?.data?.message || 'Impossibile creare la ricarica.';
+      const message = error?.response?.data?.message || error?.message || 'Impossibile completare la ricarica.';
       toast.error(message);
+    } finally {
+      setBtLoading(false);
     }
   };
 
@@ -149,11 +216,28 @@ export default function Wallet() {
           {!isMaster && (
             <>
               <div className="wallet-actions">
-                <button className="btn primary" onClick={() => topup(1000)}>Ricarica 10 €</button>
-                <button className="btn outline" onClick={() => topup(3000)}>Ricarica 30 €</button>
-                <button className="btn outline" onClick={() => topup(5000)}>Ricarica 50 €</button>
+                <label className="input-label" style={{ minWidth: '140px' }}>
+                  Importo (EUR)
+                  <input
+                    type="number"
+                    min="5"
+                    step="1"
+                    value={btAmount}
+                    onChange={evt => setBtAmount(evt.target.value)}
+                  />
+                </label>
+                <button className="btn primary" onClick={() => topup(btAmount)} disabled={btLoading || !btInstance}>
+                  {btLoading ? 'Elaborazione...' : 'Paga con carta'}
+                </button>
+                <button className="btn outline" type="button" onClick={() => setBtAmount('10')}>10 €</button>
+                <button className="btn outline" type="button" onClick={() => setBtAmount('30')}>30 €</button>
+                <button className="btn outline" type="button" onClick={() => setBtAmount('50')}>50 €</button>
               </div>
-              <p className="micro">Ogni ricarica include ricevuta fiscale e aggiornamento istantaneo del saldo.</p>
+              <div style={{ marginTop: '1rem' }}>
+                <div ref={dropInRef} />
+                {btError && <p className="micro danger" style={{ marginTop: '0.5rem' }}>{btError}</p>}
+              </div>
+              <p className="micro">Pagamenti sicuri con Braintree. Il saldo si aggiorna dopo l'autorizzazione.</p>
               <form className="test-topup" onSubmit={testTopup}>
                 <p className="micro">Ricarica di test (usa la carta 4242 4242 4242 4242)</p>
                 <div className="test-grid">

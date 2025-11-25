@@ -46,6 +46,11 @@ const userSchema = new mongoose.Schema({
   socket_ids: { type: [String], default: [] }
 }, { timestamps: true });
 
+// External payment identifiers
+userSchema.add({
+  braintree_customer_id: { type: String }
+});
+
 userSchema.pre('save', async function hashPass(next) {
   if (!this.isModified('password')) return next();
   this.password = await bcrypt.hash(this.password, 10);
