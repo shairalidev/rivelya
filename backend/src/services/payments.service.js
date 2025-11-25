@@ -125,10 +125,12 @@ export const payments = {
 
     const customerId = await ensureBraintreeCustomer(userId);
     const amount = (cents / 100).toFixed(2);
+    const merchantAccountId = process.env.BRAINTREE_MERCHANT_ACCOUNT_ID;
     const saleResult = await gateway.transaction.sale({
       amount,
       paymentMethodNonce,
       customerId,
+      ...(merchantAccountId ? { merchantAccountId } : {}),
       options: { submitForSettlement: true }
     });
 
@@ -138,12 +140,14 @@ export const payments = {
         : [];
       const detail = deepErrors.map(err => `${err.code}: ${err.message}`).join(' | ');
       const processorText = saleResult?.transaction?.processorResponseText;
+      const processorCode = saleResult?.transaction?.processorResponseCode;
       const message = detail || processorText || saleResult.message || 'Pagamento non riuscito.';
       // Log minimal context to help debugging without sensitive payloads
       // eslint-disable-next-line no-console
       console.error('Braintree sale error', {
         message: saleResult.message,
         processorResponseText: processorText,
+        processorResponseCode: processorCode,
         errors: detail || null
       });
       throw badRequest(message);
