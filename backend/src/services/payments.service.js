@@ -133,7 +133,19 @@ export const payments = {
     });
 
     if (!saleResult.success) {
-      const message = saleResult.message || 'Pagamento non riuscito.';
+      const deepErrors = typeof saleResult?.errors?.deepErrors === 'function'
+        ? saleResult.errors.deepErrors()
+        : [];
+      const detail = deepErrors.map(err => `${err.code}: ${err.message}`).join(' | ');
+      const processorText = saleResult?.transaction?.processorResponseText;
+      const message = detail || processorText || saleResult.message || 'Pagamento non riuscito.';
+      // Log minimal context to help debugging without sensitive payloads
+      // eslint-disable-next-line no-console
+      console.error('Braintree sale error', {
+        message: saleResult.message,
+        processorResponseText: processorText,
+        errors: detail || null
+      });
       throw badRequest(message);
     }
 
