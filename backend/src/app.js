@@ -31,6 +31,9 @@ import { notFound, errorHandler } from './middleware/error.js';
 
 export const app = express();
 
+// Support both root and /api mount (covers nginx configurations that keep or strip /api)
+const routePrefixes = ['', '/api'];
+
 const defaultOrigins = [
   process.env.FRONTEND_URL,
   process.env.FRONTEND_URL?.replace('http://', 'https://'),
@@ -74,25 +77,28 @@ app.use(rateLimit({ windowMs: 60_000, max: 300 }));
 
 app.get('/health', (req, res) => res.json({ status: 'ok' }));
 
-app.use('/auth', authRoutes);
-app.use('/catalog', catalogRoutes);
-app.use('/wallet', walletRoutes);
-app.use('/session', sessionRoutes);
-app.use('/reviews', reviewRoutes);
-app.use('/admin', adminRoutes);
-app.use('/cms', cmsRoutes);
-app.use('/webhooks', webhookRoutes);
-app.use('/profile', profileRoutes);
-app.use('/availability', availabilityRoutes);
-app.use('/bookings', bookingRoutes);
-app.use('/chat', chatRoutes);
-app.use('/voice', voiceRoutes);
-app.use('/notifications', notificationRoutes);
-app.use('/session-notifications', sessionNotificationRoutes);
-app.use('/master', masterRoutes);
-app.use('/media', mediaRoutes);
-app.use('/session-management', sessionManagementRoutes);
-app.use('/presence', presenceRoutes);
+routePrefixes.forEach(prefix => {
+  const mount = path => `${prefix}${path}`;
+  app.use(mount('/auth'), authRoutes);
+  app.use(mount('/catalog'), catalogRoutes);
+  app.use(mount('/wallet'), walletRoutes);
+  app.use(mount('/session'), sessionRoutes);
+  app.use(mount('/reviews'), reviewRoutes);
+  app.use(mount('/admin'), adminRoutes);
+  app.use(mount('/cms'), cmsRoutes);
+  app.use(mount('/webhooks'), webhookRoutes);
+  app.use(mount('/profile'), profileRoutes);
+  app.use(mount('/availability'), availabilityRoutes);
+  app.use(mount('/bookings'), bookingRoutes);
+  app.use(mount('/chat'), chatRoutes);
+  app.use(mount('/voice'), voiceRoutes);
+  app.use(mount('/notifications'), notificationRoutes);
+  app.use(mount('/session-notifications'), sessionNotificationRoutes);
+  app.use(mount('/master'), masterRoutes);
+  app.use(mount('/media'), mediaRoutes);
+  app.use(mount('/session-management'), sessionManagementRoutes);
+  app.use(mount('/presence'), presenceRoutes);
+});
 
 app.use(notFound);
 app.use(errorHandler);
