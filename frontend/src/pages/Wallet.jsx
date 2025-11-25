@@ -41,6 +41,7 @@ export default function Wallet() {
   const [btLoading, setBtLoading] = useState(false);
   const [btAmount, setBtAmount] = useState('10');
   const [btError, setBtError] = useState('');
+  const [showDropin, setShowDropin] = useState(false);
   const dropInRef = useRef(null);
   const user = getUser();
   const isMaster = Boolean(user?.roles?.includes('master'));
@@ -93,7 +94,7 @@ export default function Wallet() {
   }, [isMaster]);
 
   useEffect(() => {
-    if (isMaster) return undefined;
+    if (isMaster || !showDropin) return undefined;
     let active = true;
     let instance;
 
@@ -107,7 +108,6 @@ export default function Wallet() {
           authorization: tokenRes.data.clientToken,
           container: dropInRef.current,
           translations: 'it_IT',
-          // Card-only flow to avoid PayPal SDK calls blocked by some ad blockers
           paymentOptionPriority: ['card'],
           card: { cardholderName: true }
         });
@@ -131,11 +131,11 @@ export default function Wallet() {
       active = false;
       if (instance?.teardown) instance.teardown();
     };
-  }, [isMaster]);
+  }, [isMaster, showDropin]);
 
   const topup = async amount => {
     if (!btInstance) {
-      toast.error('Pagamento non pronto, ricarica la pagina.');
+      toast.error('Apri prima il pagamento Braintree.');
       return;
     }
     const cents = Math.round(Number(amount) * 100);
@@ -201,18 +201,38 @@ export default function Wallet() {
                     onChange={evt => setBtAmount(evt.target.value)}
                   />
                 </label>
-                <button className="btn primary" onClick={() => topup(btAmount)} disabled={btLoading || !btInstance}>
-                  {btLoading ? 'Elaborazione...' : 'Paga con carta'}
+                <button
+                  className="btn primary"
+                  type="button"
+                  onClick={() => setShowDropin(true)}
+                  disabled={btLoading}
+                >
+                  {btLoading ? 'Preparazione...' : 'Paga con Braintree'}
                 </button>
                 <button className="btn outline" type="button" onClick={() => setBtAmount('10')}>10 €</button>
                 <button className="btn outline" type="button" onClick={() => setBtAmount('30')}>30 €</button>
                 <button className="btn outline" type="button" onClick={() => setBtAmount('50')}>50 €</button>
               </div>
-              <div style={{ marginTop: '1rem' }}>
-                <div ref={dropInRef} />
-                {btError && <p className="micro danger" style={{ marginTop: '0.5rem' }}>{btError}</p>}
-              </div>
-              <p className="micro">Pagamenti sicuri con Braintree. Il saldo si aggiorna dopo l'autorizzazione.</p>
+              {showDropin && (
+                <div className="card" style={{ marginTop: '1rem', padding: '1rem' }}>
+                  <p className="micro" style={{ marginBottom: '0.5rem' }}>Pagamento sicuro gestito da Braintree.</p>
+                  <div ref={dropInRef} />
+                  {btError && <p className="micro danger" style={{ marginTop: '0.5rem' }}>{btError}</p>}
+                  <button
+                    className="btn primary"
+                    style={{ marginTop: '0.75rem' }}
+                    onClick={() => topup(btAmount)}
+                    disabled={btLoading || !btInstance}
+                  >
+                    {btLoading ? 'Elaborazione...' : 'Completa il pagamento'}
+                  </button>
+                </div>
+              )}
+              {!showDropin && (
+                <p className="micro" style={{ marginTop: '0.5rem' }}>
+                  Clicca “Paga con Braintree” per aprire il form di carta in una sezione sicura.
+                </p>
+              )}
             </>
           )}
           {isMaster && (
