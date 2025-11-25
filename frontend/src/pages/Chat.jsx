@@ -111,6 +111,9 @@ export default function Chat() {
   const [noteBaseline, setNoteBaseline] = useState('');
   const [noteUpdatedAt, setNoteUpdatedAt] = useState(null);
   const [activeCall, setActiveCall] = useState(null);
+  const [isMobile, setIsMobile] = useState(() => (typeof window !== 'undefined' ? window.innerWidth <= 1024 : false));
+  const [mobileThreadsOpen, setMobileThreadsOpen] = useState(false);
+  const [mobileDetailsOpen, setMobileDetailsOpen] = useState(false);
   const [signalHandler, setSignalHandler] = useState(null);
   const signalHandlerRef = useRef(null);
   const activeCallRef = useRef(null);
@@ -152,6 +155,22 @@ export default function Chat() {
     enabled: Boolean(token)
   });
 
+  useEffect(() => {
+    const handleResize = () => {
+      setIsMobile(window.innerWidth <= 1024);
+    };
+    handleResize();
+    window.addEventListener('resize', handleResize);
+    return () => window.removeEventListener('resize', handleResize);
+  }, []);
+
+  useEffect(() => {
+    if (!isMobile) {
+      setMobileThreadsOpen(false);
+      setMobileDetailsOpen(false);
+    }
+  }, [isMobile]);
+
   const threadQuery = useQuery({
     queryKey: ['chat', 'thread', threadId],
     queryFn: () => fetchThread(threadId),
@@ -163,8 +182,15 @@ export default function Chat() {
       setNoteDraft('');
       setNoteBaseline('');
       setNoteUpdatedAt(null);
+      setMobileDetailsOpen(false);
     }
   }, [threadId]);
+
+  useEffect(() => {
+    if (threadId && isMobile) {
+      setMobileThreadsOpen(false);
+    }
+  }, [threadId, isMobile]);
 
   useEffect(() => {
     if (!threadId) return;
@@ -346,6 +372,7 @@ export default function Chat() {
   const activeThread = threadQuery.data?.thread;
   const remainingSeconds = useCountdown(activeThread?.expiresAt);
   const canPost = threadQuery.data?.canPost && (remainingSeconds == null || remainingSeconds > 0);
+  const showMobileOverlay = isMobile && (mobileThreadsOpen || mobileDetailsOpen);
 
   // Sync timer with backend every 5 seconds for active threads
   useEffect(() => {
@@ -499,13 +526,43 @@ export default function Chat() {
   const customerAvatar = activeThread?.customer?.avatarUrl || '';
   const customerInitial = getInitial(activeThread?.customer?.name || 'C');
 
+  useEffect(() => {
+    if (isMobile && activeCall) {
+      setMobileDetailsOpen(true);
+    }
+  }, [isMobile, activeCall?.callId]);
+
   return (
     <section className="container chat-page">
       <div className="chat-layout">
-        <aside className="chat-sidebar">
+        <aside className={`chat-sidebar${isMobile ? ' mobile-sheet' : ''}${mobileThreadsOpen ? ' open' : ''}`}>
+          {isMobile && (
+            <div className="chat-sheet-header">
+              <h2>Conversazioni</h2>
+              <button
+                type="button"
+                className="chat-sheet-close"
+                onClick={() => setMobileThreadsOpen(false)}
+                aria-label="Chiudi elenco conversazioni"
+              >
+                <span aria-hidden="true">←</span>
+                <span className="sheet-close-label">Indietro</span>
+              </button>
+            </div>
+          )}
           <div className="chat-sidebar-header">
             <h1>Conversazioni</h1>
             <p>Gestisci richieste e sessioni accettate.</p>
+            {isMobile && (
+              <button
+                type="button"
+                className="sheet-inline-close"
+                onClick={() => setMobileThreadsOpen(false)}
+                aria-label="Chiudi elenco conversazioni"
+              >
+                ×
+              </button>
+            )}
           </div>
           <div className="chat-thread-list">
             {threadsQuery.isLoading && <p className="chat-placeholder">Caricamento…</p>}
@@ -631,6 +688,30 @@ export default function Chat() {
           </div>
         </aside>
         <section className="chat-pane">
+          {isMobile && (
+            <div className="chat-mobile-bar">
+              <button
+                type="button"
+                className="chat-mobile-btn"
+                onClick={() => {
+                  setMobileThreadsOpen(true);
+                  setMobileDetailsOpen(false);
+                }}
+              >
+                �z(" Conversazioni
+              </button>
+              <button
+                type="button"
+                className={`chat-mobile-btn ghost${activeCall ? ' alert' : ''}`}
+                onClick={() => {
+                  setMobileDetailsOpen(true);
+                  setMobileThreadsOpen(false);
+                }}
+              >
+                {activeCall ? '�z�" Chiamata/Note' : '�?" Note & chiamata'}
+              </button>
+            </div>
+          )}
           {!threadId && (
             <div className="chat-empty-card">
               <h2>Seleziona una conversazione</h2>
@@ -713,7 +794,7 @@ export default function Chat() {
                 </div>
                 <form className="chat-input-form" onSubmit={handleSubmit}>
                   <div className="chat-input-wrapper">
-                    <div class="chat-input-container">
+                    <div className="chat-input-container">
                     <textarea
                       className="chat-input"
                       value={draft}
@@ -750,11 +831,35 @@ export default function Chat() {
             </div>
           )}
         </section>
-        <aside className="chat-sidebar-panel">
+        <aside className={`chat-sidebar-panel${isMobile ? ' mobile-sheet' : ''}${mobileDetailsOpen ? ' open' : ''}`}>
+          {isMobile && (
+            <div className="chat-sheet-header">
+              <h2>Dettagli</h2>
+              <button
+                type="button"
+                className="chat-sheet-close"
+                onClick={() => setMobileDetailsOpen(false)}
+                aria-label="Chiudi pannello dettagli"
+              >
+                <span aria-hidden="true">←</span>
+                <span className="sheet-close-label">Indietro</span>
+              </button>
+            </div>
+          )}
           <div className="chat-notes">
             <div className="chat-notes-header">
               <h3>Note personali</h3>
               <p>Visibili solo a te per questa conversazione.</p>
+              {isMobile && (
+                <button
+                  type="button"
+                  className="sheet-inline-close"
+                  onClick={() => setMobileDetailsOpen(false)}
+                  aria-label="Chiudi note"
+                >
+                  ×
+                </button>
+              )}
             </div>
             <div className="chat-notes-content">
               <textarea
@@ -799,12 +904,14 @@ export default function Chat() {
                 onSignal={setSignalHandler}
                 partnerName={callPartnerName}
                 partnerAvatar={callPartnerAvatar}
-                variant="sidebar"
+                variant={isMobile ? 'floating' : 'sidebar'}
               />
             </div>
           )}
         </aside>
       </div>
+
+      {showMobileOverlay && <div className="chat-drawer-scrim" onClick={() => { setMobileThreadsOpen(false); setMobileDetailsOpen(false); }} aria-label="Chiudi pannelli mobili" />}
       
       <ReviewModal
         isOpen={showReviewModal}

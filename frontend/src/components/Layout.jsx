@@ -352,6 +352,38 @@ export default function Layout() {
                 <span aria-hidden="true">×</span>
               </button>
             </div>
+            {user && (
+              <div className="mobile-nav-userbar">
+                <div
+                  className="mobile-user-chip"
+                  role="button"
+                  tabIndex={0}
+                  onClick={() => { navigate('/profile'); closeMenu(); }}
+                  onKeyDown={event => {
+                    if (event.key === 'Enter' || event.key === ' ') {
+                      event.preventDefault();
+                      navigate('/profile');
+                      closeMenu();
+                    }
+                  }}
+                >
+                  {user.avatarUrl ? (
+                    <span className="chip-avatar">
+                      <img src={user.avatarUrl} alt={user.displayName || user.email} />
+                    </span>
+                  ) : (
+                    <span className="chip-avatar">{(user.displayName || user.email)?.slice(0, 2).toUpperCase()}</span>
+                  )}
+                  <div className="chip-meta">
+                    <span className="chip-name">{user.displayName || user.email}</span>
+                    <span className="chip-role">{user?.roles?.includes('master') ? 'Esperto' : 'Cliente'}</span>
+                  </div>
+                </div>
+                <div className="mobile-nav-actions">
+                  <NotificationBell />
+                </div>
+              </div>
+            )}
             <nav className="mobile-nav-links">
               {navItems.map(item =>
                 item.anchor ? (

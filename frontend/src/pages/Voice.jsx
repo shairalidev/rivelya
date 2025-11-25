@@ -132,6 +132,9 @@ export default function Voice() {
   const [audioStream, setAudioStream] = useState(null);
   const [activeCall, setActiveCall] = useState(null);
   const [signalHandler, setSignalHandler] = useState(null);
+  const [isMobile, setIsMobile] = useState(() => (typeof window !== 'undefined' ? window.innerWidth <= 1024 : false));
+  const [mobileSessionsOpen, setMobileSessionsOpen] = useState(false);
+  const [mobileNotesOpen, setMobileNotesOpen] = useState(false);
 
   useEffect(() => {
     const sync = () => {
@@ -162,6 +165,22 @@ export default function Voice() {
     enabled: Boolean(token && sessionId)
   });
 
+  useEffect(() => {
+    const handleResize = () => {
+      setIsMobile(window.innerWidth <= 1024);
+    };
+    handleResize();
+    window.addEventListener('resize', handleResize);
+    return () => window.removeEventListener('resize', handleResize);
+  }, []);
+
+  useEffect(() => {
+    if (!isMobile) {
+      setMobileSessionsOpen(false);
+      setMobileNotesOpen(false);
+    }
+  }, [isMobile]);
+
   const stopAudioStream = () => {
     if (audioStream) {
       console.info('[voice] Stopping local audio stream', {
@@ -180,6 +199,7 @@ export default function Voice() {
       setNoteUpdatedAt(null);
       setIsConnected(false);
       stopAudioStream();
+      setMobileNotesOpen(false);
     }
   }, [sessionId]);
 
@@ -195,6 +215,7 @@ export default function Voice() {
   const activeSession = sessionQuery.data?.session;
   const remainingSeconds = useCountdown(activeSession?.expiresAt);
   const canCall = sessionQuery.data?.canCall && (remainingSeconds == null || remainingSeconds > 0);
+  const showMobileOverlay = isMobile && (mobileSessionsOpen || mobileNotesOpen);
 
   // Sync timer with backend every 5 seconds for active sessions
   useEffect(() => {
@@ -587,6 +608,18 @@ export default function Voice() {
   // Remove auto-start WebRTC - require manual initiation
   // WebRTC will only start when user clicks "Avvia chiamata" button
 
+  useEffect(() => {
+    if (sessionId && isMobile) {
+      setMobileSessionsOpen(false);
+    }
+  }, [sessionId, isMobile]);
+
+  useEffect(() => {
+    if (isMobile && activeCall) {
+      setMobileNotesOpen(true);
+    }
+  }, [isMobile, activeCall?.sessionId]);
+
   const noteMutation = useMutation({
     mutationFn: note => updateSessionNote(sessionId, note),
     onSuccess: data => {
@@ -759,10 +792,34 @@ export default function Voice() {
   return (
     <section className="voice-page">
       <div className="voice-layout">
-        <aside className="voice-sidebar">
+        <aside className={`voice-sidebar${isMobile ? ' mobile-sheet' : ''}${mobileSessionsOpen ? ' open' : ''}`}>
+          {isMobile && (
+            <div className="voice-sheet-header">
+              <h2>Chiamate</h2>
+              <button
+                type="button"
+                className="voice-sheet-close"
+                onClick={() => setMobileSessionsOpen(false)}
+                aria-label="Chiudi elenco chiamate"
+              >
+                <span aria-hidden="true">←</span>
+                <span className="sheet-close-label">Indietro</span>
+              </button>
+            </div>
+          )}
           <div className="voice-sidebar-header">
             <h1>Chiamate Vocali</h1>
             <p>Gestisci le tue sessioni vocali e rivedi la cronologia delle conversazioni.</p>
+            {isMobile && (
+              <button
+                type="button"
+                className="sheet-inline-close"
+                onClick={() => setMobileSessionsOpen(false)}
+                aria-label="Chiudi elenco chiamate"
+              >
+                ×
+              </button>
+            )}
             {sessions.length > 0 && (
               <div className="voice-stats">
                 <div className="voice-stat">
@@ -910,6 +967,30 @@ export default function Voice() {
           </div>
         </aside>
         <section className="voice-pane">
+          {isMobile && (
+            <div className="voice-mobile-bar">
+              <button
+                type="button"
+                className="voice-mobile-btn"
+                onClick={() => {
+                  setMobileSessionsOpen(true);
+                  setMobileNotesOpen(false);
+                }}
+              >
+                �z(" Chiamate
+              </button>
+              <button
+                type="button"
+                className={`voice-mobile-btn ghost${activeCall ? ' alert' : ''}`}
+                onClick={() => {
+                  setMobileNotesOpen(true);
+                  setMobileSessionsOpen(false);
+                }}
+              >
+                {activeCall ? '�z�" Chiamata/Note' : '�?" Note'}
+              </button>
+            </div>
+          )}
           {shouldShowEmpty && (
             <div className="voice-empty-card">
               <h2>Nessuna chiamata vocale</h2>
@@ -1111,11 +1192,35 @@ export default function Voice() {
           )}
         </section>
 
-        <aside className="voice-sidebar-panel">
+        <aside className={`voice-sidebar-panel${isMobile ? ' mobile-sheet' : ''}${mobileNotesOpen ? ' open' : ''}`}>
+          {isMobile && (
+            <div className="voice-sheet-header">
+              <h2>Note</h2>
+              <button
+                type="button"
+                className="voice-sheet-close"
+                onClick={() => setMobileNotesOpen(false)}
+                aria-label="Chiudi pannello note"
+              >
+                <span aria-hidden="true">←</span>
+                <span className="sheet-close-label">Indietro</span>
+              </button>
+            </div>
+          )}
           <div className="voice-notes">
             <div className="voice-notes-header">
               <h3>Note personali</h3>
               <p>Queste note sono private e visibili solo a te. L'altro partecipante non può vederle.</p>
+              {isMobile && (
+                <button
+                  type="button"
+                  className="sheet-inline-close"
+                  onClick={() => setMobileNotesOpen(false)}
+                  aria-label="Chiudi note"
+                >
+                  ×
+                </button>
+              )}
             </div>
             <div className="voice-notes-body">
               {sessionId && activeSession ? (
@@ -1159,6 +1264,17 @@ export default function Voice() {
           </div>
         </aside>
       </div>
+
+      {showMobileOverlay && (
+        <div
+          className="voice-drawer-scrim"
+          onClick={() => {
+            setMobileSessionsOpen(false);
+            setMobileNotesOpen(false);
+          }}
+          aria-label="Chiudi pannelli mobili"
+        />
+      )}
       
       <ConfirmModal
         isOpen={showStartModal}
