@@ -5,6 +5,10 @@ import { emitToSession } from './socket.service.js';
 import { emitSessionStatus } from '../utils/session-events.js';
 
 const client = twilio(process.env.TWILIO_ACCOUNT_SID, process.env.TWILIO_AUTH_TOKEN);
+const getApiBaseUrl = () => {
+  const raw = process.env.API_BASE_URL || process.env.BASE_URL || `http://localhost:${process.env.PORT || 8080}`;
+  return raw.replace(/\/$/, '');
+};
 
 const sanitizePhone = value => {
   if (!value) return null;
@@ -64,7 +68,7 @@ export const telephony = {
       // Create a conference room for the session
       const conference = await client.conferences.create({
         friendlyName: `rivelya-session-${session._id}`,
-        statusCallback: `${process.env.API_BASE_URL}/webhooks/twilio/conference-status`,
+        statusCallback: `${getApiBaseUrl()}/webhooks/twilio/conference-status`,
         statusCallbackEvent: ['start', 'end', 'join', 'leave'],
         statusCallbackMethod: 'POST'
       });
@@ -73,14 +77,14 @@ export const telephony = {
       const customerCall = await client.calls.create({
         to: customerPhone,
         from: process.env.TWILIO_PHONE_NUMBER,
-        twiml: `<Response><Dial><Conference statusCallbackEvent="join leave" statusCallback="${process.env.API_BASE_URL}/webhooks/twilio/participant-status">${conference.friendlyName}</Conference></Dial></Response>`
+        twiml: `<Response><Dial><Conference statusCallbackEvent="join leave" statusCallback="${getApiBaseUrl()}/webhooks/twilio/participant-status">${conference.friendlyName}</Conference></Dial></Response>`
       });
 
       // Call the master
       const masterCall = await client.calls.create({
         to: masterPhone,
         from: process.env.TWILIO_PHONE_NUMBER,
-        twiml: `<Response><Dial><Conference statusCallbackEvent="join leave" statusCallback="${process.env.API_BASE_URL}/webhooks/twilio/participant-status">${conference.friendlyName}</Conference></Dial></Response>`
+        twiml: `<Response><Dial><Conference statusCallbackEvent="join leave" statusCallback="${getApiBaseUrl()}/webhooks/twilio/participant-status">${conference.friendlyName}</Conference></Dial></Response>`
       });
 
       await Session.findByIdAndUpdate(session._id, {
