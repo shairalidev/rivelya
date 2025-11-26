@@ -748,7 +748,7 @@ const handleReschedule = (reservation) => {
                 <div className="booking-info">
                   <p><strong>Data:</strong> {formatDate(reservation.date)}</p>
                   <p><strong>Orario programmato:</strong></p>
-                  <p style={{ marginLeft: '1rem', marginTop: '0.25rem' }}>{reservation.start} - {reservation.end}</p>
+                  <p style={{marginTop: '0.25rem' }}>{reservation.start} - {reservation.end}</p>
                   {reservation.actual_started_at && (
                     <>
                       <p><strong>Avviata alle:</strong></p>

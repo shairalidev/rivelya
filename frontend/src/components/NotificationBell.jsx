@@ -13,6 +13,17 @@ const formatWhen = date => {
   return dayjs(date).fromNow();
 };
 
+const resolveActorsLine = meta => {
+  if (!meta) return '';
+  const masterName = meta.masterPublicName || meta.masterName || meta.master;
+  const clientName = meta.clientPublicName || meta.customerPublicName || meta.customerName || meta.customer;
+
+  if (masterName && clientName) return `Master: ${masterName} · Cliente: ${clientName}`;
+  if (masterName) return `Master: ${masterName}`;
+  if (clientName) return `Cliente: ${clientName}`;
+  return '';
+};
+
 export default function NotificationBell() {
   const [open, setOpen] = useState(false);
   const panelRef = useRef(null);
@@ -148,6 +159,9 @@ export default function NotificationBell() {
                 <div className="notification-copy">
                   <p className="notification-title">{item.title}</p>
                   <p className="notification-body">{item.body}</p>
+                  {resolveActorsLine(item.meta) && (
+                    <p className="notification-meta">{resolveActorsLine(item.meta)}</p>
+                  )}
                   <p className="notification-meta">{formatWhen(item.createdAt)}</p>
                 </div>
                 {!item.readAt && (
