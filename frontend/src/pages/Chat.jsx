@@ -490,6 +490,12 @@ export default function Chat() {
   const viewerRole = threadQuery.data?.viewerRole;
   const viewerMessageRole = viewerRole === 'master' ? 'master' : viewerRole === 'client' ? 'client' : null;
   const messages = threadQuery.data?.messages || [];
+  const masterName = activeThread?.master?.name || 'Esperti Rivelya';
+  const masterAvatar = activeThread?.master?.avatarUrl || '';
+  const masterInitial = getInitial(activeThread?.master?.name || 'M');
+  const customerName = activeThread?.customer?.name || 'Cliente Rivelya';
+  const customerAvatar = activeThread?.customer?.avatarUrl || '';
+  const customerInitial = getInitial(activeThread?.customer?.name || 'C');
   const activeCallThread = useMemo(
     () => threads.find(thread => thread.id === activeCall?.threadId),
     [threads, activeCall?.threadId]
@@ -519,12 +525,6 @@ export default function Chat() {
     ? `${dayjs(activeThread.booking.date).format('DD MMMM YYYY')} · ${activeThread.booking.start} - ${activeThread.booking.end}`
     : '';
   const allowedMinutes = activeThread?.allowedSeconds > 0 ? Math.ceil(activeThread.allowedSeconds / 60) : null;
-  const masterName = activeThread?.master?.name || 'Esperti Rivelya';
-  const masterAvatar = activeThread?.master?.avatarUrl || '';
-  const masterInitial = getInitial(activeThread?.master?.name || 'M');
-  const customerName = activeThread?.customer?.name || 'Cliente Rivelya';
-  const customerAvatar = activeThread?.customer?.avatarUrl || '';
-  const customerInitial = getInitial(activeThread?.customer?.name || 'C');
 
   useEffect(() => {
     if (isMobile && activeCall) {
@@ -621,10 +621,17 @@ export default function Chat() {
 
               return (
                 <div key={thread.id} className="chat-thread-container">
-                  <button
-                    type="button"
+                  <div
+                    role="button"
+                    tabIndex={0}
                     className={`chat-thread${isActive ? ' active' : ''}${swipeClass}`}
                     onClick={() => navigate(`/chat/${thread.id}`)}
+                    onKeyDown={event => {
+                      if (event.key === 'Enter' || event.key === ' ') {
+                        event.preventDefault();
+                        navigate(`/chat/${thread.id}`);
+                      }
+                    }}
                     onTouchStart={handleTouchStart}
                     onTouchMove={handleTouchMove}
                     onTouchEnd={handleTouchEnd}
@@ -681,7 +688,7 @@ export default function Chat() {
                         ✓
                       </button>
                     </div>
-                  </button>
+                  </div>
                 </div>
               );
             })}

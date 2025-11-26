@@ -20,6 +20,7 @@ export default function useVoiceWebRTC(sessionId, viewerRole, onCallEnd) {
   const hasStartedRef = useRef(false);
   const localAudio = useRef(null);
   const remoteAudio = useRef(null);
+  const normalizedViewerRole = viewerRole === 'expert' ? 'master' : viewerRole;
 
   const cleanup = useCallback(() => {
     console.log('[VoiceWebRTC] Cleaning up connection');
@@ -166,7 +167,7 @@ export default function useVoiceWebRTC(sessionId, viewerRole, onCallEnd) {
       return;
     }
 
-    if (!viewerRole) {
+    if (!normalizedViewerRole) {
       console.warn('[VoiceWebRTC] Cannot start call - viewerRole not resolved yet');
       return;
     }
@@ -176,7 +177,7 @@ export default function useVoiceWebRTC(sessionId, viewerRole, onCallEnd) {
       isStartingRef.current = true;
       hasStartedRef.current = true;
       setError(null);
-      console.log('[VoiceWebRTC] Starting call, viewerRole:', viewerRole, 'sessionId:', sessionId, 'skipOffer:', skipOffer);
+      console.log('[VoiceWebRTC] Starting call, viewerRole:', normalizedViewerRole, 'sessionId:', sessionId, 'skipOffer:', skipOffer);
       
       const stream = await requestMicrophoneAccess();
       console.log('[VoiceWebRTC] Got local stream, tracks:', stream.getTracks().length);
@@ -206,7 +207,7 @@ export default function useVoiceWebRTC(sessionId, viewerRole, onCallEnd) {
 
       // Esperti always initiates the WebRTC connection unless we're
       // starting in response to an incoming signal (skipOffer=true)
-      if (viewerRole === 'master' && !skipOffer) {
+      if (normalizedViewerRole === 'master' && !skipOffer) {
         console.log('[VoiceWebRTC] Creating offer as master');
         const offer = await pc.createOffer({
           offerToReceiveAudio: true,
@@ -233,7 +234,7 @@ export default function useVoiceWebRTC(sessionId, viewerRole, onCallEnd) {
       setIsInitializing(false);
       isStartingRef.current = false;
     }
-  }, [viewerRole, sessionId, isInitializing, initializePeerConnection, sendSignal, cleanup, requestMicrophoneAccess]);
+  }, [normalizedViewerRole, sessionId, isInitializing, initializePeerConnection, sendSignal, cleanup, requestMicrophoneAccess]);
 
   const handleSignal = useCallback(async (signal) => {
     if (!signal?.type) {

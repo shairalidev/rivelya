@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useLocation, useNavigate, useParams } from 'react-router-dom';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import toast from 'react-hot-toast';
@@ -84,14 +84,16 @@ const PhoneIcon = props => (
 
 const meterOffsets = [0, 0.12, 0.24, 0.36];
 
-const VoiceParticipant = ({ name, role, avatar, fallbackInitial, level }) => {
-  const speaking = level > 0.08;
+const VoiceParticipant = ({ name, role, avatar, fallbackInitial, level, isActive }) => {
+  const safeLevel = isActive ? level : 0;
+  const speaking = isActive && safeLevel > 0.08;
+  const visualizerClass = isActive ? ' visualized' : '';
 
   return (
     <div className="voice-participant">
-      <div className={`voice-avatar visualized${speaking ? ' speaking' : ''}`}>
-        <span className="voice-visualizer-ring" style={{ '--voice-level': level }} aria-hidden="true" />
-        <span className="voice-visualizer-pulse" style={{ '--voice-level': level }} aria-hidden="true" />
+      <div className={`voice-avatar${visualizerClass}${speaking ? ' speaking' : ''}`}>
+        <span className="voice-visualizer-ring" style={{ '--voice-level': safeLevel }} aria-hidden="true" />
+        <span className="voice-visualizer-pulse" style={{ '--voice-level': safeLevel }} aria-hidden="true" />
         {avatar ? (
           <img src={avatar} alt={name} />
         ) : (
@@ -102,7 +104,7 @@ const VoiceParticipant = ({ name, role, avatar, fallbackInitial, level }) => {
       <span className="voice-participant-role">{role}</span>
       <div className="voice-participant-meter" aria-hidden="true">
         {meterOffsets.map((offset, index) => {
-          const value = Math.max(0, Math.min(1, level - offset));
+          const value = Math.max(0, Math.min(1, safeLevel - offset));
           return <span key={index} style={{ '--voice-level': value }} />;
         })}
       </div>
@@ -135,6 +137,7 @@ export default function Voice() {
   const [isMobile, setIsMobile] = useState(() => (typeof window !== 'undefined' ? window.innerWidth <= 1024 : false));
   const [mobileSessionsOpen, setMobileSessionsOpen] = useState(false);
   const [mobileNotesOpen, setMobileNotesOpen] = useState(false);
+  const joinedSessionRef = useRef(null);
 
   useEffect(() => {
     const sync = () => {
@@ -156,13 +159,27 @@ export default function Voice() {
   const sessionsQuery = useQuery({
     queryKey: ['voice', 'sessions'],
     queryFn: fetchVoiceSessions,
-    enabled: Boolean(token)
+    enabled: Boolean(token),
+    staleTime: 30000,
+    refetchOnWindowFocus: false,
+    refetchOnReconnect: false,
+    refetchInterval: data => {
+      if (!data || !Array.isArray(data)) return false;
+      const hasActive = data.some(session => session.status === 'active' || session.status === 'created');
+      return hasActive ? 15000 : false;
+    },
+    refetchIntervalInBackground: true
   });
 
   const sessionQuery = useQuery({
     queryKey: ['voice', 'session', sessionId],
     queryFn: () => fetchVoiceSession(sessionId),
-    enabled: Boolean(token && sessionId)
+    enabled: Boolean(token && sessionId),
+    staleTime: 15000,
+    refetchOnWindowFocus: false,
+    refetchOnReconnect: false,
+    refetchInterval: data => (data?.session?.status === 'active' ? 5000 : false),
+    refetchIntervalInBackground: true
   });
 
   useEffect(() => {
@@ -181,7 +198,7 @@ export default function Voice() {
     }
   }, [isMobile]);
 
-  const stopAudioStream = () => {
+  const stopAudioStream = useCallback(() => {
     if (audioStream) {
       console.info('[voice] Stopping local audio stream', {
         trackCount: audioStream.getTracks()?.length || 0
@@ -190,7 +207,7 @@ export default function Voice() {
       setAudioStream(null);
       setIsMuted(false);
     }
-  };
+  }, [audioStream]);
 
   useEffect(() => {
     if (!sessionId) {
@@ -199,6 +216,7 @@ export default function Voice() {
       setNoteUpdatedAt(null);
       setIsConnected(false);
       stopAudioStream();
+      setActiveCall(null);
       setMobileNotesOpen(false);
     }
   }, [sessionId]);
@@ -213,36 +231,29 @@ export default function Voice() {
   }, [sessions]);
 
   const activeSession = sessionQuery.data?.session;
-  const remainingSeconds = useCountdown(activeSession?.expiresAt);
+  const countdownSeconds = useCountdown(activeSession?.expiresAt);
+  const serverRemainingSeconds = activeSession?.remainingSeconds;
+  const remainingSeconds = serverRemainingSeconds ?? countdownSeconds;
   const canCall = sessionQuery.data?.canCall && (remainingSeconds == null || remainingSeconds > 0);
   const showMobileOverlay = isMobile && (mobileSessionsOpen || mobileNotesOpen);
 
-  // Sync timer with backend every 5 seconds for active sessions
-  useEffect(() => {
-    if (!sessionId || !activeSession || activeSession.status !== 'active') return;
-    
-    const syncTimer = setInterval(() => {
-      sessionQuery.refetch();
-    }, 5000); // Sync every 5 seconds for accurate timing
-    
-    return () => clearInterval(syncTimer);
-  }, [sessionId, activeSession?.status, sessionQuery]);
-
-  // Also sync sessions list every 10 seconds to update sidebar timers
-  useEffect(() => {
-    if (!token) return;
-    
-    const syncSessionsTimer = setInterval(() => {
-      sessionsQuery.refetch();
-    }, 10000); // Sync sessions every 10 seconds
-    
-    return () => clearInterval(syncSessionsTimer);
-  }, [token, sessionsQuery]);
   const isNoteDirty = noteDraft !== noteBaseline;
   const isSessionActive = activeSession?.status === 'active';
   const isSessionEnded = activeSession?.status === 'ended';
   const shouldShowEmpty = !sessionId && sessions.length === 0 && !sessionsQuery.isLoading;
-  const viewerRole = sessionQuery.data?.viewerRole;
+  const rawViewerRole = sessionQuery.data?.viewerRole;
+  const resolvedViewerRole = useMemo(() => {
+    const masterId = activeSession?.master?.id || activeSession?.master?._id;
+    const customerId = activeSession?.customer?.id || activeSession?.customer?._id;
+
+    if (rawViewerRole === 'master' || rawViewerRole === 'expert') return 'master';
+    if (rawViewerRole === 'client' || rawViewerRole === 'customer') return 'client';
+
+    if (viewerId && masterId && viewerId === masterId) return 'master';
+    if (viewerId && customerId && viewerId === customerId) return 'client';
+
+    return 'client';
+  }, [rawViewerRole, activeSession?.master?.id, activeSession?.master?._id, activeSession?.customer?.id, activeSession?.customer?._id, viewerId]);
   const {
     isConnected: webrtcConnected,
     isMuted: webrtcMuted,
@@ -254,7 +265,7 @@ export default function Voice() {
     toggleMute: toggleWebRTCMute,
     endCall: endWebRTCCall,
     error: webrtcError
-  } = useVoiceWebRTC(sessionId, viewerRole, () => {
+  } = useVoiceWebRTC(sessionId, resolvedViewerRole, () => {
     setActiveCall(null);
     setIsConnected(false);
   });
@@ -264,16 +275,36 @@ export default function Voice() {
   });
   const remoteAudioLevel = useSimulatedVoiceActivity(isConnected && !isSessionEnded);
 
+  const cleanupSessionResources = useCallback(() => {
+    setActiveCall(null);
+    setIsConnected(false);
+    stopAudioStream();
+    endWebRTCCall();
+    joinedSessionRef.current = null;
+
+    if (socket && sessionId) {
+      try {
+        console.info('[voice] Leaving voice session room (cleanup)', { sessionId });
+        socket.emit('voice:session:leave', { sessionId });
+      } catch (error) {
+        console.error('Failed to leave voice session during cleanup:', error);
+      }
+    }
+  }, [endWebRTCCall, sessionId, socket, stopAudioStream]);
+
   useEffect(() => {
-    if (!activeSession) return;
+    if (!sessionId || !activeSession) {
+      cleanupSessionResources();
+      return;
+    }
 
     if (activeSession.status === 'active') {
       setIsConnected(true);
-      // Join the voice session room
-      if (socket && sessionId) {
+      if (socket && joinedSessionRef.current !== sessionId) {
         try {
           console.info('[voice] Joining voice session room', { sessionId });
           socket.emit('voice:session:join', { sessionId });
+          joinedSessionRef.current = sessionId;
           setSocketError(null);
         } catch (error) {
           console.error('Failed to join voice session:', error);
@@ -281,19 +312,17 @@ export default function Voice() {
         }
       }
     } else {
-      setIsConnected(false);
-      stopAudioStream();
-      // Leave the voice session room
-      if (socket && sessionId) {
-        try {
-          console.info('[voice] Leaving voice session room', { sessionId });
-          socket.emit('voice:session:leave', { sessionId });
-        } catch (error) {
-          console.error('Failed to leave voice session:', error);
-        }
-      }
+      cleanupSessionResources();
     }
-  }, [activeSession?.status, socket, sessionId]);
+  }, [activeSession?.status, cleanupSessionResources, sessionId, socket]);
+
+  const cleanupRef = useRef(cleanupSessionResources);
+
+  useEffect(() => {
+    cleanupRef.current = cleanupSessionResources;
+  }, [cleanupSessionResources]);
+
+  useEffect(() => () => cleanupRef.current?.(), []);
 
 
   useEffect(() => {
@@ -394,8 +423,7 @@ export default function Voice() {
     
     const handleSessionEnded = payload => {
       if (payload.sessionId === sessionId) {
-        setIsConnected(false);
-        stopAudioStream();
+        cleanupSessionResources();
         setShowEndModal(false);
         toastInfo('Chiamata terminata dal partner');
         queryClient.setQueryData(['voice', 'session', sessionId], previous => {
@@ -433,8 +461,7 @@ export default function Voice() {
     
     const handleSessionExpired = payload => {
       if (payload.sessionId === sessionId) {
-        setIsConnected(false);
-        stopAudioStream();
+        cleanupSessionResources();
         setShowEndModal(false);
         toastWarning('⏰ Sessione scaduta automaticamente');
         queryClient.setQueryData(['voice', 'session', sessionId], previous => {
@@ -486,9 +513,7 @@ export default function Voice() {
 
     const handleCallEnded = payload => {
       if (payload.sessionId === sessionId) {
-        setActiveCall(null);
-        setIsConnected(false);
-        endWebRTCCall();
+        cleanupSessionResources();
         setShowEndModal(false);
         queryClient.setQueryData(['voice', 'session', sessionId], previous => {
           if (!previous?.session) return previous;
@@ -586,7 +611,7 @@ export default function Voice() {
       socket.off('session:review:prompt', handleReviewPrompt);
       socket.off('session:completed', handleSessionCompleted);
     };
-  }, [socket, queryClient, sessionId, activeSession, viewerId, signalHandler]);
+  }, [socket, queryClient, sessionId, activeSession, viewerId, signalHandler, cleanupSessionResources]);
 
   // Set up WebRTC signal handler
   useEffect(() => {
@@ -598,12 +623,12 @@ export default function Voice() {
 
   // Ensure WebRTC only starts once the viewer role is known
   useEffect(() => {
-    if (!viewerRole || !sessionId || !isSessionActive || !isConnected) return;
+    if (!resolvedViewerRole || !sessionId || !isSessionActive || !isConnected) return;
     if (webrtcConnected || webrtcInitializing) return;
 
-    console.info('[voice] Viewer role resolved, (re)starting WebRTC', { viewerRole, sessionId });
+    console.info('[voice] Viewer role resolved, (re)starting WebRTC', { viewerRole: resolvedViewerRole, sessionId });
     startWebRTCCall();
-  }, [viewerRole, sessionId, isSessionActive, isConnected, webrtcConnected, webrtcInitializing, startWebRTCCall]);
+  }, [resolvedViewerRole, sessionId, isSessionActive, isConnected, webrtcConnected, webrtcInitializing, startWebRTCCall]);
 
   // Remove auto-start WebRTC - require manual initiation
   // WebRTC will only start when user clicks "Avvia chiamata" button
@@ -756,11 +781,8 @@ export default function Voice() {
   const endCall = async () => {
     try {
       const response = await client.post(`/voice/session/${sessionId}/end`);
-      setIsConnected(false);
+      cleanupSessionResources();
       setShowEndModal(false);
-      setActiveCall(null);
-      endWebRTCCall();
-      stopAudioStream();
       toast.success('Chiamata terminata');
       queryClient.invalidateQueries({ queryKey: ['voice', 'session', sessionId] });
       queryClient.invalidateQueries({ queryKey: ['voice', 'sessions'] });
@@ -782,12 +804,15 @@ export default function Voice() {
   const customerName = activeSession?.customer?.name || 'Cliente Rivelya';
   const customerAvatar = activeSession?.customer?.avatarUrl || '';
   const customerInitial = customerName.charAt(0).toUpperCase();
-  const resolvedViewerRole = viewerRole || 'client';
   const masterAudioLevel = resolvedViewerRole === 'master' ? localAudioLevel : remoteAudioLevel;
   const customerAudioLevel = resolvedViewerRole === 'client' ? localAudioLevel : remoteAudioLevel;
   const actuallyConnected = webrtcConnected || isConnected;
   const actuallyMuted = webrtcConnected ? webrtcMuted : isMuted;
+  const showVoiceVisualization = isSessionActive && actuallyConnected;
+  const masterDisplayLevel = showVoiceVisualization ? masterAudioLevel : 0;
+  const customerDisplayLevel = showVoiceVisualization ? customerAudioLevel : 0;
   const canTerminateCall = actuallyConnected && isSessionActive && resolvedViewerRole === 'client';
+  const canToggleMute = isSessionActive && (webrtcConnected || audioStream || isConnected);
 
   return (
     <section className="voice-page">
@@ -1039,12 +1064,12 @@ export default function Voice() {
                     </div>
                   </div>
                 </div>
-                <div className="voice-room-timer">
-                  <span>Tempo residuo</span>
-                  <strong className={canCall && !isSessionEnded ? '' : 'expired'}>
+                  <div className="voice-room-timer">
+                    <span>Tempo residuo</span>
+                    <strong className={canCall && !isSessionEnded ? '' : 'expired'}>
                     {isSessionEnded ? '00:00' : formatDuration(remainingSeconds)}
-                  </strong>
-                </div>
+                    </strong>
+                  </div>
               </header>
 
               <div className="voice-room-main">
@@ -1055,14 +1080,16 @@ export default function Voice() {
                       role="Esperti"
                       avatar={masterAvatar}
                       fallbackInitial={masterInitial}
-                      level={masterAudioLevel}
+                      level={masterDisplayLevel}
+                      isActive={showVoiceVisualization}
                     />
                     <VoiceParticipant
                       name={customerName}
                       role="Cliente"
                       avatar={customerAvatar}
                       fallbackInitial={customerInitial}
-                      level={customerAudioLevel}
+                      level={customerDisplayLevel}
+                      isActive={showVoiceVisualization}
                     />
                   </div>
 
@@ -1081,7 +1108,7 @@ export default function Voice() {
                       </button>
                     )}
                     
-                    {canTerminateCall && (
+                    {canToggleMute && (
                       <>
                         <button
                           type="button"
@@ -1091,13 +1118,15 @@ export default function Voice() {
                         >
                           {actuallyMuted ? <MicOffIcon /> : <MicIcon />}
                         </button>
-                        <button
-                          type="button"
-                          className="voice-control-btn end-call"
-                          onClick={() => setShowEndModal(true)}
-                        >
-                          Termina chiamata
-                        </button>
+                        {canTerminateCall && (
+                          <button
+                            type="button"
+                            className="voice-control-btn end-call"
+                            onClick={() => setShowEndModal(true)}
+                          >
+                            Termina chiamata
+                          </button>
+                        )}
                       </>
                     )}
                   </div>
@@ -1107,7 +1136,7 @@ export default function Voice() {
                     <div style={{ fontSize: '12px', color: '#666', marginBottom: '8px' }}>
                       Socket: {socket?.connected ? '🟢 Connesso' : '🔴 Disconnesso'} | 
                       Session: {activeSession?.status} | 
-                      Role: {viewerRole} | 
+                      Role: {resolvedViewerRole} | 
                       Handler: {signalHandler ? '✅' : '❌'}
                     </div>
                     
