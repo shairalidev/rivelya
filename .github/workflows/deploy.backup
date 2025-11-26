@@ -3,7 +3,7 @@ name: CI/CD - Deploy to Rivelya Server
 on:
   push:
     branches:
-      - voice
+      - main
 
 jobs:
   deploy:
@@ -24,23 +24,16 @@ jobs:
           script_stop: true
           script: |
             echo "🚀 Starting deployment on $(hostname)"
-
-            cd /var/www/rivelya/rivelya || { 
-              echo "❌ Directory /var/www/rivelya/rivelya not found"; 
-              exit 1; 
-            }
+            cd /var/www/rivelya/rivelya || { echo "❌ Directory /var/www/rivelya/rivelya not found"; exit 1; }
 
             echo "📦 Pulling latest code..."
-            git fetch origin voice
-            git reset --hard origin/voice
+            git fetch origin main
+            git reset --hard origin/main
 
             echo "📂 Installing backend dependencies..."
             cd backend
             npm ci --omit=dev
-
-            echo "♻️ Restarting backend service..."
-            pm2 restart rivelya-backend
-
+            pm2 restart rivelya-backend || pm2 start server.js --name rivelya-backend
             cd ..
 
             echo "🧱 Building frontend..."
