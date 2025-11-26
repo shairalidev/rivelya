@@ -12,9 +12,9 @@ import usePresence from '../hooks/usePresence.js';
 
 const categories = [
   { value: 'all', label: 'Tutte le categorie' },
-  { value: 'cartomancy-divination', label: 'Cartomancy & Divination' },
-  { value: 'spirituality-intuition', label: 'Spirituality & Intuition' },
-  { value: 'inner-wellness-life-coaching', label: 'Inner Wellness & Life Coaching' }
+  { value: 'cartomancy-divination', label: 'Cartomanzia e Divinazione' },
+  { value: 'spirituality-intuition', label: 'Spiritualità e Intuizione' },
+  { value: 'inner-wellness-life-coaching', label: 'Benessere interiore e Life Coaching' }
 ];
 
 const sorts = [

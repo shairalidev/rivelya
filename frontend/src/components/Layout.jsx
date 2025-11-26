@@ -19,9 +19,9 @@ const navItems = [
 
 const catalogNav = [
   { label: 'Tutti i master', to: '/catalog?sort=rating' },
-  { label: 'Cartomancy & Divination', to: '/catalog?category=cartomancy-divination' },
-  { label: 'Spirituality & Intuition', to: '/catalog?category=spirituality-intuition' },
-  { label: 'Inner Wellness & Life Coaching', to: '/catalog?category=inner-wellness-life-coaching' }
+  { label: 'Cartomanzia e Divinazione', to: '/catalog?category=cartomancy-divination' },
+  { label: 'Spiritualità e Intuizione', to: '/catalog?category=spirituality-intuition' },
+  { label: 'Benessere interiore e Life Coaching', to: '/catalog?category=inner-wellness-life-coaching' }
 ];
 
 export default function Layout() {
