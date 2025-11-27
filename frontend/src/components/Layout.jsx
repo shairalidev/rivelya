@@ -13,7 +13,7 @@ import {
 const navItems = [
   { label: 'Esperienze', to: '/', exact: true },
   { label: 'Esperti', to: '/catalog' },
-  { label: 'Business', to: '/#business', anchor: true },
+  { label: 'Business', to: '/business' },
   { label: 'Supporto', to: '/support' }
 ];
 
@@ -487,7 +487,7 @@ export default function Layout() {
               <p className="footer-title">Esplora</p>
               <Link to="/catalog" className="footer-link">Catalogo Esperti</Link>
               <Link to="/experiences" className="footer-link">Esperienze</Link>
-              <Link to="/clients" className="footer-link">Area Clienti</Link>
+              <Link to="/login" className="footer-link">Area Clienti</Link>
             </div>
             <div>
               <p className="footer-title">Per Professionisti</p>

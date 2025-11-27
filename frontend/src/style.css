@@ -7819,6 +7819,94 @@ html {
   text-decoration: none;
 }
 
+.business-page {
+  display: flex;
+  flex-direction: column;
+  gap: 2rem;
+  padding: 2rem 1rem;
+}
+
+.business-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+  gap: 1.5rem;
+}
+
+.business-card {
+  background: rgba(15, 21, 34, 0.9);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: var(--radius-lg);
+  padding: 2rem;
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+  box-shadow: 0 25px 60px -45px rgba(0, 0, 0, 0.9);
+}
+
+.business-card.closing {
+  grid-column: 1 / -1;
+  background: linear-gradient(135deg, rgba(61, 216, 182, 0.12), rgba(15, 22, 38, 0.95));
+}
+
+.business-card h2 {
+  margin: 0;
+  font-size: 1.35rem;
+}
+
+.business-card p {
+  margin: 0;
+  color: rgba(246, 248, 255, 0.8);
+  line-height: 1.6;
+}
+
+.card-number {
+  font-size: 1rem;
+  text-transform: uppercase;
+  letter-spacing: 0.3em;
+  color: rgba(255, 255, 255, 0.65);
+}
+
+.business-list-heading {
+  margin-top: 1rem;
+  font-weight: 600;
+  color: var(--text);
+}
+
+.business-list {
+  margin: 0;
+  padding-left: 1rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.2rem;
+  color: var(--muted);
+}
+
+.business-list li {
+  list-style: none;
+  position: relative;
+  padding-left: 0.75rem;
+}
+
+.business-list li::before {
+  content: '•';
+  position: absolute;
+  left: 0;
+  color: var(--brand);
+}
+
+.cta-link {
+  margin-top: 0.5rem;
+  font-weight: 600;
+  color: var(--brand);
+  text-decoration: none;
+  transition: color 0.2s ease;
+}
+
+.cta-link:hover {
+  color: #f6f8ff;
+}
+
 .faq-section {
   background: rgba(10, 15, 30, 0.7);
   border: 1px solid rgba(255, 255, 255, 0.08);
