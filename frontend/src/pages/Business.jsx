@@ -17,7 +17,7 @@ export default function Business() {
             Entra a far parte della nostra squadra di astrologi, tarologi, coach e professionisti del benessere.
             Offriamo massima visibilità, strumenti avanzati, pagamenti sicuri e un ambiente professionale in cui esprimere le tue competenze.
           </p>
-          <a className="cta-link" href="">Candidati per diventare un Esperto su Rivelia</a>
+          <span className="cta-link">Candidati per diventare un Esperto su Rivelia</span>
         </article>
 
         <article className="business-card">
@@ -34,7 +34,7 @@ export default function Business() {
             <li>consulenze personalizzate per HR e management,</li>
             <li>soluzioni professionali regolamentate da SLA.</li>
           </ul>
-          <a className="cta-link" href="">Richiedi una collaborazione aziendale</a>
+          <span className="cta-link">Richiedi una collaborazione aziendale</span>
         </article>
 
         <article className="business-card">
@@ -52,14 +52,14 @@ export default function Business() {
             <li>programmi di affiliazione,</li>
             <li>accordi tecnici e professionali.</li>
           </ul>
-          <a className="cta-link" href="">Proponi una partnership o un’integrazione</a>
+          <span className="cta-link">Proponi una partnership o un’integrazione</span>
         </article>
       </div>
 
       <article className="business-card closing">
         <p>
           Per qualunque richiesta professionale, il nostro team è a tua disposizione per valutare la soluzione più adatta. Se desideri candidarti o proporre una collaborazione, invia la tua richiesta direttamente via email a{" "}
-          <a className="cta-link" href="mailto:business@rivelya.com">business@rivelya.com</a>
+          <a className="cta-link" href="mailto:support@rivelya.com">support@rivelya.com</a>
         </p>
       </article>
     </section>
