@@ -473,7 +473,7 @@ export default function Layout() {
           <div className="footer-brand">
             <p className="brand-mark">Rivelya</p>
             <p className="footer-copy">
-              Consulenze guidate da esperti in cartomanzia, spiritualit? e crescita personale: sessioni trasparenti, sicure e pensate per ogni esigenza.
+              Consulenze guidate da esperti in cartomanzia, spiritualità e crescita personale: sessioni trasparenti, sicure e pensate per ogni esigenza.
             </p>
           </div>
           <div className="footer-columns">

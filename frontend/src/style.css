@@ -5548,7 +5548,7 @@ body.nav-open {
 
 .footer {
   margin-top: auto;
-  padding: 3.6rem 0 2.6rem;
+  padding: 3.6rem 1.5rem 2.6rem;
   background: rgba(5, 7, 18, 0.9);
   border-top: 1px solid rgba(255, 255, 255, 0.06);
 }
@@ -5607,6 +5607,46 @@ body.nav-open {
 .footer-legal {
   display: flex;
   gap: 1.4rem;
+}
+
+@media (max-width: 768px) {
+  .footer {
+    padding: 3.5rem 1.25rem 2.5rem;
+  }
+
+  .footer-top {
+    flex-direction: column;
+    align-items: stretch;
+    gap: 2.5rem;
+  }
+
+  .footer-brand {
+    max-width: none;
+  }
+
+  .footer-columns {
+    grid-template-columns: 1fr;
+    gap: 1.75rem;
+  }
+
+  .footer-title {
+    margin-bottom: 0.6rem;
+  }
+
+  .footer-link {
+    margin-bottom: 0.5rem;
+  }
+
+  .footer-bottom {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 0.4rem;
+  }
+
+  .footer-legal {
+    flex-wrap: wrap;
+    gap: 1rem;
+  }
 }
 
 @keyframes shimmer {
