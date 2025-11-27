@@ -62,7 +62,7 @@ export default function Cookie() {
 
         <h2>7. Contatti</h2>
         <p>Per domande sui cookie o sulle impostazioni di consenso, contattaci a: <a href="mailto:privacy@rivelya.com">privacy@rivelya.com</a></p>
-        <p>RedLine S.r.l. - gestore del servizio "Rivelya", P. IVA 10051650017, con sede legale in Italia.</p>
+        <p>Red Line - gestore del servizio "Rivelya", P. IVA 10051650017, con sede legale in Italia.</p>
       </div>
     </section>
   );

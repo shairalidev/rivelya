@@ -8,7 +8,7 @@ export default function Privacy() {
 
       <div className="legal-content">
         <h2>1. Titolare del Trattamento</h2>
-        <p>RedLine S.r.l., gestore del servizio \"Rivelya\", P. IVA 10051650017 con sede legale in Italia, e' il titolare del trattamento dei dati personali raccolti attraverso la piattaforma.</p>
+        <p>Red Line, gestore del servizio \"Rivelya\", P. IVA 10051650017 con sede legale in Italia, e' il titolare del trattamento dei dati personali raccolti attraverso la piattaforma.</p>
 
         <h2>2. Dati Raccolti</h2>
         <p>Raccogliamo i seguenti tipi di dati:</p>
@@ -55,7 +55,7 @@ export default function Privacy() {
 
         <h2>8. Contatti</h2>
         <p>Per esercitare i tuoi diritti o per qualsiasi domanda sulla privacy, contattaci a: <a href="mailto:privacy@rivelya.com">privacy@rivelya.com</a></p>
-        <p>RedLine S.r.l. - gestore del servizio \"Rivelya\", P. IVA 10051650017, con sede legale in Italia.</p>
+        <p>Red Line - gestore del servizio \"Rivelya\", P. IVA 10051650017, con sede legale in Italia.</p>
       </div>
     </section>
   );

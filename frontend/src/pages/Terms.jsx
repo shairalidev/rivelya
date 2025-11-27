@@ -31,7 +31,6 @@ export default function Terms() {
           <li>I servizi vengono fatturati al minuto secondo le tariffe pubblicate nella piattaforma.</li>
           <li>I pagamenti e le transazioni sono elaborati tramite Stripe.</li>
           <li>Le ricariche del wallet sono disponibili immediatamente dopo la conferma del pagamento.</li>
-          <li>Eventuali rimborsi seguono la nostra politica di rimborso.</li>
           <li>L'utente e' responsabile della correttezza dei propri metodi di pagamento.</li>
         </ul>
 
@@ -86,7 +85,7 @@ export default function Terms() {
 
         <h2>12. Contatti</h2>
         <p>Per domande sui Termini di Servizio e' possibile contattarci all'indirizzo: <a href="mailto:legal@rivelya.com">legal@rivelya.com</a></p>
-        <p>Il servizio \"Rivelya\" e' gestito da RedLine, P. IVA 10051650017, con sede legale in Italia.</p>
+        <p>Il servizio \"Rivelya\" e' gestito da Red Line, P. IVA 10051650017, con sede legale in Italia.</p>
       </div>
     </section>
   );

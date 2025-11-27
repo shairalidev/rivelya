@@ -715,7 +715,7 @@ export default function Chat() {
                   setMobileThreadsOpen(false);
                 }}
               >
-                {activeCall ? ' Chiamata/Note' : ' Note & chiamata'}
+                {activeCall ? 'Note' : ' Note'}
               </button>
             </div>
           )}

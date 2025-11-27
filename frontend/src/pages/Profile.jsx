@@ -318,10 +318,21 @@ export default function Profile() {
               </div>
             </div>
           )}
-          <div className="account-section">
-            <h2>Dettagli personali (non pubblici)</h2>
-            <p className="muted">Usati internamente per documenti, ricevute e verifica identita.</p>
-            <div className="account-form-grid">
+          <div className="account-section account-section--private">
+            <div className="account-section__header">
+              <div>
+                <h2>Dettagli personali (non pubblici)</h2>
+                <p className="muted">Usati internamente per documenti, ricevute e verifica identita.</p>
+              </div>
+              <span className="account-section__chip">Solo per te</span>
+            </div>
+            <div className="account-section__notice">
+              <p className="muted">
+                Queste informazioni non saranno visibili nel tuo profilo pubblico. Compila tutti i campi per
+                velocizzare verifiche e ricevute anche da mobile.
+              </p>
+            </div>
+            <div className="account-form-grid account-form-grid--stacked">
               <label className="input-label">
                 Nome
                 <input name="firstName" value={form.firstName} onChange={updateField} placeholder="Nome" />
@@ -426,7 +437,7 @@ export default function Profile() {
           <div className="account-section">
             <h2>Dettagli di contatto</h2>
             <p className="muted">Non pubblici: aggiornali per supporto e fatturazione.</p>
-            <div className="account-form-grid">
+            <div className="account-form-grid account-form-grid--stacked">
               <label className="input-label">
                 Email
                 <input value={user?.email || ''} disabled />

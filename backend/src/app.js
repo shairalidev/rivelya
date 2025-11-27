@@ -73,7 +73,7 @@ app.use(cors({
 }));
 app.use(express.json({ limit: '1mb' }));
 app.use(morgan('tiny'));
-app.use(rateLimit({ windowMs: 60_000, max: 300 }));
+app.use(rateLimit({ windowMs: 60_000, max: 300, trustProxy: true }));
 
 const registerRoutes = router => {
   router.get('/health', (req, res) => res.json({ status: 'ok' }));

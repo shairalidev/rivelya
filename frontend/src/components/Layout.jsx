@@ -14,7 +14,7 @@ const navItems = [
   { label: 'Esperienza', to: '/', exact: true },
   { label: 'Esperti', to: '/catalog' },
   { label: 'Business', to: '/#business', anchor: true },
-  { label: 'Supporto', to: '/#supporto', anchor: true }
+  { label: 'Supporto', to: '/support' }
 ];
 
 const catalogNav = [
@@ -491,7 +491,7 @@ export default function Layout() {
             </div>
             <div>
               <p className="footer-title">Risorse</p>
-              <a href="#" className="footer-link">Supporto</a>
+              <Link to="/support" className="footer-link">Supporto</Link>
               <a href="#" className="footer-link">Diventa Esperti</a>
               <a href="#" className="footer-link">Press kit</a>
             </div>

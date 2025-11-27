@@ -20,6 +20,7 @@ import Privacy from './pages/Privacy.jsx';
 import Cookie from './pages/Cookie.jsx';
 import Terms from './pages/Terms.jsx';
 import ClientProfile from './pages/ClientProfile.jsx';
+import Support from './pages/Support.jsx';
 
 export default function App() {
   return (
@@ -63,6 +64,7 @@ export default function App() {
           <Route path="/privacy" element={<Privacy />} />
           <Route path="/cookie" element={<Cookie />} />
           <Route path="/terms" element={<Terms />} />
+          <Route path="/support" element={<Support />} />
           <Route path="*" element={<Navigate to="/" replace />} />
         </Route>
       </Routes>

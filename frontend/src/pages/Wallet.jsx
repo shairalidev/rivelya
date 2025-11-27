@@ -48,6 +48,12 @@ export default function Wallet() {
   const isMaster = Boolean(user?.roles?.includes('master'));
 
   useEffect(() => {
+    if (!isMaster) {
+      setShowDropin(true);
+    }
+  }, [isMaster]);
+
+  useEffect(() => {
     if (!getToken()) {
       toast.error('Accedi per visualizzare il tuo wallet.');
       navigate('/login?returnTo=/wallet');
@@ -122,26 +128,37 @@ export default function Wallet() {
           card: {
             cardholderName: true,
             overrides: {
+              fields: {
+                number: { placeholder: '0000 0000 0000 0000' },
+                expirationDate: { placeholder: 'MM/AA' },
+                cvv: { placeholder: 'CVV' },
+                postalCode: { placeholder: 'CAP' }
+              },
               styles: {
                 input: {
-                  color: '#f6f8ff',
+                  color: '#0a1024',
                   'font-family': '\'Manrope\', system-ui, -apple-system, BlinkMacSystemFont, \'Segoe UI\', sans-serif',
                   'font-size': '16px',
                   'line-height': '22px',
-                  'letter-spacing': '0.02em'
+                  'letter-spacing': '0.02em',
+                  'background-color': '#f7f8ff',
+                  'border': '1px solid #d7ddf0',
+                  'border-radius': '12px'
                 },
                 ':focus': {
-                  color: '#ffffff',
-                  'box-shadow': '0 0 0 2px rgba(109, 91, 255, 0.5)'
+                  color: '#050914',
+                  'box-shadow': '0 0 0 3px rgba(109, 91, 255, 0.32)',
+                  'border-color': '#6d5bff',
+                  'background-color': '#ffffff'
                 },
                 '::placeholder': {
-                  color: 'rgba(246, 248, 255, 0.7)'
+                  color: '#6b7495'
                 },
                 '.invalid': {
                   color: '#ff7b7b'
                 },
                 '.valid': {
-                  color: '#3dd8b6'
+                  color: '#0a1024'
                 }
               }
             }
@@ -323,7 +340,13 @@ export default function Wallet() {
                     <div className="wallet-dropin-head">
                       <div>
                         <p className="ledger-title" style={{ margin: 0 }}>Inserisci i dati della carta</p>
-                        <p className="micro muted">Visa, Mastercard, Amex. Il form A8 ospitato da Braintree e cifrato.</p>
+                        <p className="micro muted">Visa, Mastercard, Amex. Modulo cifrato ospitato da Braintree.</p>
+                        <ul className="wallet-dropin-bullets micro muted">
+                          <li>Numero carta</li>
+                          <li>Scadenza</li>
+                          <li>CVV/CVC</li>
+                          <li>Intestatario e CAP (se richiesto)</li>
+                        </ul>
                       </div>
                       <div className="wallet-card-brands">
                         <span>VISA</span>
