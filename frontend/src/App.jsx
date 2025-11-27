@@ -22,6 +22,7 @@ import Terms from './pages/Terms.jsx';
 import ClientProfile from './pages/ClientProfile.jsx';
 import Support from './pages/Support.jsx';
 import Business from './pages/Business.jsx';
+import Experience from './pages/Experience.jsx';
 
 export default function App() {
   return (
@@ -67,6 +68,7 @@ export default function App() {
           <Route path="/terms" element={<Terms />} />
           <Route path="/support" element={<Support />} />
           <Route path="/business" element={<Business />} />
+          <Route path="/experience" element={<Experience />} />
           <Route path="*" element={<Navigate to="/" replace />} />
         </Route>
       </Routes>

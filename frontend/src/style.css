@@ -1219,9 +1219,58 @@ body.nav-open {
   border: 1px solid var(--border);
 }
 
+.experience-section {
+  position: relative;
+}
+
+.mystic-head {
+  position: relative;
+  z-index: 2;
+  text-align: left;
+}
+
+.experience-aurora {
+  position: relative;
+  display: flex;
+  align-items: flex-start;
+  gap: 1.5rem;
+  margin: 1.5rem 0 2.5rem;
+  z-index: 2;
+}
+
+.experience-veil {
+  flex: 0 0 180px;
+  height: 180px;
+  display: grid;
+  place-items: center;
+  position: relative;
+  pointer-events: none;
+}
+
+.experience-veil span {
+  width: 120px;
+  height: 120px;
+  border-radius: 999px;
+  border: 1px solid rgba(109, 91, 255, 0.4);
+  box-shadow: 0 0 45px rgba(109, 91, 255, 0.55);
+  animation: pulse 6s linear infinite;
+  mix-blend-mode: screen;
+}
+
+.experience-veil span:nth-child(2) {
+  width: 160px;
+  height: 160px;
+  animation-delay: 1.5s;
+}
+
 .experience-intro {
-  max-width: 760px;
-  margin-bottom: 2rem;
+  flex: 1;
+  max-width: 640px;
+  padding: 1.9rem;
+  border-radius: var(--radius-lg);
+  background: rgba(10, 14, 28, 0.75);
+  border: 1px solid rgba(109, 91, 255, 0.2);
+  box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.05);
 }
 
 .experience-intro-subtext {
@@ -1229,7 +1278,24 @@ body.nav-open {
   gap: 0.6rem;
 }
 
+.experience-grid-wrapper {
+  position: relative;
+  padding-top: 0.5rem;
+  z-index: 2;
+}
+
+.experience-orbit {
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  background: radial-gradient(circle at 20% 20%, rgba(109, 91, 255, 0.15), transparent 60%);
+  filter: blur(30px);
+  opacity: 0.55;
+  pointer-events: none;
+}
+
 .experience-grid {
+  position: relative;
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
   gap: 1.75rem;
@@ -1239,13 +1305,14 @@ body.nav-open {
 .experience-card {
   padding: 1.8rem;
   border-radius: var(--radius-lg);
-  background: rgba(255, 255, 255, 0.02);
-  border: 1px solid rgba(255, 255, 255, 0.08);
-  box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.02), var(--shadow);
+  background: rgba(11, 16, 34, 0.8);
+  border: 1px solid rgba(109, 91, 255, 0.15);
+  box-shadow: 0 20px 45px rgba(5, 8, 20, 0.65);
   display: flex;
   flex-direction: column;
   gap: 0.75rem;
   min-height: 200px;
+  backdrop-filter: blur(8px);
 }
 
 .experience-card h3 {
@@ -1261,10 +1328,10 @@ body.nav-open {
 }
 
 .experience-card--highlight {
-  background: rgba(255, 255, 255, 0.04);
-  border-color: rgba(255, 255, 255, 0.12);
-  box-shadow: 0 35px 70px -50px rgba(0, 0, 0, 0.8);
-  margin-top: 2rem;
+  background: linear-gradient(135deg, rgba(109, 91, 255, 0.25), rgba(19, 209, 255, 0.2));
+  border-color: rgba(109, 91, 255, 0.45);
+  box-shadow: 0 30px 60px rgba(9, 12, 28, 0.6);
+  margin: 0;
 }
 
 .experience-points {
@@ -1281,22 +1348,85 @@ body.nav-open {
 }
 
 .experience-points li::before {
-  content: '•';
+  content: '✷';
   position: absolute;
   left: 0;
   color: var(--accent);
+  font-size: 0.95rem;
 }
 
 .experience-card--cta {
-  margin-top: 1.8rem;
-  border-color: rgba(255, 255, 255, 0.18);
-  background: rgba(255, 255, 255, 0.03);
-  box-shadow: 0 20px 40px -30px rgba(0, 0, 0, 0.9);
+  border-color: rgba(109, 91, 255, 0.45);
+  background: linear-gradient(145deg, rgba(109, 91, 255, 0.25), rgba(19, 209, 255, 0.18));
+  box-shadow: 0 25px 55px rgba(9, 12, 28, 0.7);
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
 }
 
 .experience-card--cta .link {
   margin-top: 0.25rem;
   font-weight: 600;
+}
+
+.experience-verse {
+  position: relative;
+  z-index: 2;
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+  gap: 1.75rem;
+  margin-top: 2rem;
+}
+
+@keyframes pulse {
+  0% {
+    transform: scale(0.9);
+    opacity: 0.4;
+  }
+  50% {
+    transform: scale(1.1);
+    opacity: 0.8;
+  }
+  100% {
+    transform: scale(0.9);
+    opacity: 0.4;
+  }
+}
+
+@media (max-width: 768px) {
+  .experience-aurora {
+    flex-direction: column;
+  }
+
+  .experience-veil {
+    align-self: center;
+    justify-self: center;
+  }
+
+  .experience-verse {
+    grid-template-columns: 1fr;
+  }
+
+  .experience-grid {
+    gap: 1.25rem;
+  }
+
+  .experience-card {
+    min-height: auto;
+  }
+
+  .experience-card--highlight,
+  .experience-card--cta {
+    padding: 1.5rem;
+  }
+
+  .experience-card--cta .link {
+    align-self: flex-start;
+  }
+
+  .experience-section .section-head h2 {
+    margin: 0 16px 0;
+  }
 }
 
 .testimonials {

@@ -11,7 +11,8 @@ import {
 } from '../lib/auth.js';
 
 const navItems = [
-  { label: 'Esperienze', to: '/', exact: true },
+  { label: 'Home', to: '/', exact: true },
+  { label: 'Esperienze', to: '/experience' },
   { label: 'Esperti', to: '/catalog' },
   { label: 'Business', to: '/business' },
   { label: 'Supporto', to: '/support' }
@@ -486,7 +487,7 @@ export default function Layout() {
             <div>
               <p className="footer-title">Esplora</p>
               <Link to="/catalog" className="footer-link">Catalogo Esperti</Link>
-              <Link to="/experiences" className="footer-link">Esperienze</Link>
+              <Link to="/experience" className="footer-link">Esperienze</Link>
               <Link to="/login" className="footer-link">Area Clienti</Link>
             </div>
             <div>
