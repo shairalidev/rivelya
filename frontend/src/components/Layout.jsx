@@ -11,7 +11,7 @@ import {
 } from '../lib/auth.js';
 
 const navItems = [
-  { label: 'Esperienza', to: '/', exact: true },
+  { label: 'Esperienze', to: '/', exact: true },
   { label: 'Esperti', to: '/catalog' },
   { label: 'Business', to: '/#business', anchor: true },
   { label: 'Supporto', to: '/support' }
@@ -472,33 +472,33 @@ export default function Layout() {
           <div className="footer-brand">
             <p className="brand-mark">Rivelya</p>
             <p className="footer-copy">
-              Una piattaforma curata di consulenti certificati in cartomanzia, spiritualità e percorsi di inner wellness. Sessioni immediate, trasparenti e sicure.
+              Consulenze guidate da esperti in cartomanzia, spiritualit? e crescita personale: sessioni trasparenti, sicure e pensate per ogni esigenza.
             </p>
-            <p className="footer-copy">Partita IVA : 10051650017</p>
           </div>
           <div className="footer-columns">
             <div>
               <p className="footer-title">Contatti</p>
               <a href="mailto:info@rivelya.com" className="footer-link">info@rivelya.com</a>
               <a href="tel:+390110243717" className="footer-link">+39 011 024 3717</a>
-              <p className="footer-link">Lun-Dom · 10:00 - 20:00</p>
+              <p className="footer-link">Lun–Dom· 10:00 – 20:00</p>
+           
             </div>
             <div>
-              <p className="footer-title">Piattaforma</p>
+              <p className="footer-title">Esplora</p>
               <Link to="/catalog" className="footer-link">Catalogo Esperti</Link>
-              <Link to="/login" className="footer-link">Area clienti</Link>
-              <Link to="/register" className="footer-link">Diventa cliente</Link>
+              <Link to="/experiences" className="footer-link">Esperienze</Link>
+              <Link to="/clients" className="footer-link">Area Clienti</Link>
             </div>
             <div>
-              <p className="footer-title">Risorse</p>
+              <p className="footer-title">Per Professionisti</p>
+              <Link to="/become-expert" className="footer-link">Diventa un Esperto</Link>
+              <Link to="/business" className="footer-link">Business</Link>
               <Link to="/support" className="footer-link">Supporto</Link>
-              <a href="#" className="footer-link">Diventa Esperti</a>
-              <a href="#" className="footer-link">Press kit</a>
             </div>
           </div>
         </div>
         <div className="container footer-bottom">
-          <span>© {new Date().getFullYear()} Rivelya. Tutti i diritti riservati.</span>
+          <span>? {new Date().getFullYear()} Rivelya. Tutti i diritti riservati.</span>
           <div className="footer-legal">
             <Link to="/privacy" className="footer-link">Privacy</Link>
             <Link to="/cookie" className="footer-link">Cookie</Link>
