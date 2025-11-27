@@ -11,7 +11,7 @@ export default function Business() {
 
       <div className="business-grid">
         <article className="business-card">
-          <div className="card-number">1</div>
+          <div className="card-number"></div>
           <h2>Collabora come Esperto</h2>
           <p>
             Entra a far parte della nostra squadra di astrologi, tarologi, coach e professionisti del benessere.
@@ -21,7 +21,7 @@ export default function Business() {
         </article>
 
         <article className="business-card">
-          <div className="card-number">2</div>
+          <div className="card-number"></div>
           <h2>Soluzioni per Aziende &amp; Brand</h2>
           <p>
             Rivelia supporta aziende, enti e realtà professionali che desiderano offrire ai propri dipendenti servizi di consulenza personalizzata nel campo dello sviluppo personale, del benessere e della crescita interiore.
@@ -38,7 +38,7 @@ export default function Business() {
         </article>
 
         <article className="business-card">
-          <div className="card-number">3</div>
+          <div className="card-number"></div>
           <h2>Partnership &amp; Integrazioni</h2>
           <p>
             Rivelia collabora anche con aziende, brand e realtà tecnologiche interessate a sviluppare progetti congiunti o integrazioni avanzate.
@@ -57,7 +57,7 @@ export default function Business() {
       </div>
 
       <article className="business-card closing">
-        <h2>Chiusura</h2>
+        
         <p>
           Per qualunque richiesta professionale, il nostro team è a disposizione per valutare la soluzione più adatta.
           Scegli l’area di tuo interesse tra i box qui sopra e utilizza il pulsante dedicato per inviare la tua richiesta o candidatura.
