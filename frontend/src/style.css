@@ -5361,7 +5361,7 @@ body.nav-open {
 .footer-link {
   color: var(--muted);
   display: block;
-  margin-bottom: 0.45rem;
+  margin: 0 0 0.45rem;
 }
 
 .footer-link:hover {
