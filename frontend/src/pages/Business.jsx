@@ -17,7 +17,7 @@ export default function Business() {
             Entra a far parte della nostra squadra di astrologi, tarologi, coach e professionisti del benessere.
             Offriamo massima visibilità, strumenti avanzati, pagamenti sicuri e un ambiente professionale in cui esprimere le tue competenze.
           </p>
-          <a className="cta-link" href="/become-expert">→ Candidati per diventare un Esperto su Rivelia</a>
+          <a className="cta-link" href="">→ Candidati per diventare un Esperto su Rivelia</a>
         </article>
 
         <article className="business-card">
@@ -34,7 +34,7 @@ export default function Business() {
             <li>consulenze personalizzate per HR e management,</li>
             <li>soluzioni professionali regolamentate da SLA.</li>
           </ul>
-          <a className="cta-link" href="/business">→ Richiedi una collaborazione aziendale</a>
+          <a className="cta-link" href="">→ Richiedi una collaborazione aziendale</a>
         </article>
 
         <article className="business-card">
@@ -52,7 +52,7 @@ export default function Business() {
             <li>programmi di affiliazione,</li>
             <li>accordi tecnici e professionali.</li>
           </ul>
-          <a className="cta-link" href="/business">→ Proponi una partnership o un’integrazione</a>
+          <a className="cta-link" href="">→ Proponi una partnership o un’integrazione</a>
         </article>
       </div>
 
