@@ -43,8 +43,9 @@ const initialFormState = {
 
 export default function Support() {
   const [form, setForm] = useState({ ...initialFormState, target: 'cliente' });
-  const formCardRef = useRef(null);
+  const [activeForm, setActiveForm] = useState(null);
   const [submitting, setSubmitting] = useState(false);
+  const formCardRef = useRef(null);
 
   const handleChange = event => {
     const { name, value, type, checked } = event.target;
@@ -57,6 +58,10 @@ export default function Support() {
   const handleFileChange = event => {
     const file = event.target.files?.[0] ?? null;
     setForm(prev => ({ ...prev, screenshot: file }));
+  };
+
+  const resetForm = target => {
+    setForm({ ...initialFormState, target });
   };
 
   const handleSubmit = async event => {
@@ -84,7 +89,8 @@ export default function Support() {
         headers: { 'Content-Type': 'multipart/form-data' }
       });
       toast.success(response.data?.message || 'Richiesta inviata, ti contatteremo a breve.');
-      setForm(initialFormState);
+      resetForm(activeForm ?? 'cliente');
+      setActiveForm(null);
     } catch (error) {
       const message = error?.response?.data?.message || 'Impossibile inviare la richiesta. Riprova.';
       toast.error(message);
@@ -100,9 +106,16 @@ export default function Support() {
   };
 
   const handleQuickJump = target => {
-    setForm(prev => ({ ...prev, target }));
+    setActiveForm(target);
+    resetForm(target);
     setTimeout(scrollToForm, 100);
   };
+
+  const handleCloseForm = () => {
+    setActiveForm(null);
+  };
+
+  const formTitle = activeForm === 'esperto' ? 'Esperti' : 'Clienti';
 
   return (
     <section className="container support-page">
@@ -154,105 +167,110 @@ export default function Support() {
         </article>
       </div>
 
-      <div className="support-forms">
-        <article className="support-form-card single" ref={formCardRef}>
-          <div className="support-form-card-head">
-            <h2>
-              Modulo di assistenza per {form.target === 'esperto' ? 'Esperti' : 'Clienti'}
-            </h2>
-            <p className="muted">
-              Specifica il tipo di richiesta ({form.target === 'esperto' ? 'Esperti' : 'Clienti'}) e allega informazioni
-              o screenshot utili: risponderemo entro 24/48 ore.
-            </p>
-          </div>
-          <form className="support-form" onSubmit={handleSubmit}>
-            <label className="input-label">
-              La segnalazione riguarda
-              <select name="target" value={form.target} onChange={handleChange} required>
-                <option value="" disabled>Seleziona</option>
-                {complaintTargets.map(option => (
-                  <option key={option.value} value={option.value}>{option.label}</option>
-                ))}
-              </select>
-            </label>
-            <label className="input-label">
-              Nome
-              <input
-                name="name"
-                value={form.name}
-                onChange={handleChange}
-                type="text"
-                placeholder={form.target === 'esperto' ? 'Es. Matteo Bianchi (Esperto)' : 'Es. Maria Rossi'}
-                required
-              />
-            </label>
-            <label className="input-label">
-              Email
-              <input
-                name="email"
-                value={form.email}
-                onChange={handleChange}
-                type="email"
-                placeholder="nome@email.com"
-                required
-              />
-            </label>
-            <label className="input-label">
-              Tipo di problema
-              <select name="issueType" value={form.issueType} onChange={handleChange} required>
-                <option value="" disabled>Seleziona opzione</option>
-                {selectOptions.map(option => (
-                  <option key={option.value} value={option.value}>{option.label}</option>
-                ))}
-              </select>
-            </label>
-            <label className="input-label">
-              Descrizione
-              <textarea
-                name="description"
-                value={form.description}
-                onChange={handleChange}
-                rows="4"
-                placeholder={
-                  form.target === 'esperto'
-                    ? 'Es. Hai bisogno di supporto su disponibilità, pagamenti o profilo esperto?'
-                    : 'Descrivi il problema relativo a chat, pagamento o account...'
-                }
-                required
-              />
-            </label>
-            <label className="input-label">
-              Screenshot (opzionale)
-              <input
-                type="file"
-                accept="image/*"
-                onChange={handleFileChange}
-              />
-              {form.screenshot && (
-                <span className="micro muted">File selezionato: {form.screenshot.name}</span>
-              )}
-            </label>
-            <label className="checkbox-label" htmlFor="support-consent">
-              <span>Acconsento al trattamento dei dati personali secondo la privacy policy.</span>
-              <input
-                id="support-consent"
-                name="consent"
-                type="checkbox"
-                checked={form.consent}
-                onChange={handleChange}
-                required
-              />
-            </label>
-            <button
-              type="submit"
-              className="btn primary"
-              disabled={submitting || !form.consent}
-            >
-              {submitting ? 'Invio in corso...' : 'Invia richiesta'}
-            </button>
-          </form>
-        </article>
-      </div>
+      {activeForm && (
+        <div className="support-forms" ref={formCardRef}>
+          <article className="support-form-card single">
+            <div className="support-form-card-head">
+              <div className="support-form-header">
+                <h2>Modulo di assistenza per {formTitle}</h2>
+                <button type="button" className="btn ghost small" onClick={handleCloseForm}>
+                  Chiudi modulo
+                </button>
+              </div>
+              <p className="muted">
+                Specifica il tipo di richiesta ({formTitle}), allega informazioni utili e invia il modulo:
+                risponderemo entro 24/48 ore.
+              </p>
+            </div>
+            <form className="support-form" onSubmit={handleSubmit}>
+              <label className="input-label">
+                La segnalazione riguarda
+                <select name="target" value={form.target} onChange={handleChange} required>
+                  <option value="" disabled>Seleziona</option>
+                  {complaintTargets.map(option => (
+                    <option key={option.value} value={option.value}>{option.label}</option>
+                  ))}
+                </select>
+              </label>
+              <label className="input-label">
+                Nome
+                <input
+                  name="name"
+                  value={form.name}
+                  onChange={handleChange}
+                  type="text"
+                  placeholder={form.target === 'esperto' ? 'Es. Matteo Bianchi (Esperto)' : 'Es. Maria Rossi'}
+                  required
+                />
+              </label>
+              <label className="input-label">
+                Email
+                <input
+                  name="email"
+                  value={form.email}
+                  onChange={handleChange}
+                  type="email"
+                  placeholder="nome@email.com"
+                  required
+                />
+              </label>
+              <label className="input-label">
+                Tipo di problema
+                <select name="issueType" value={form.issueType} onChange={handleChange} required>
+                  <option value="" disabled>Seleziona opzione</option>
+                  {selectOptions.map(option => (
+                    <option key={option.value} value={option.value}>{option.label}</option>
+                  ))}
+                </select>
+              </label>
+              <label className="input-label">
+                Descrizione
+                <textarea
+                  name="description"
+                  value={form.description}
+                  onChange={handleChange}
+                  rows="4"
+                  placeholder={
+                    form.target === 'esperto'
+                      ? 'Hai bisogno di supporto su disponibilità, pagamenti o profilo esperto?'
+                      : 'Descrivi il problema relativo a chat, pagamento o account...'
+                  }
+                  required
+                />
+              </label>
+              <label className="input-label">
+                Screenshot (opzionale)
+                <input
+                  type="file"
+                  accept="image/*"
+                  onChange={handleFileChange}
+                />
+                {form.screenshot && (
+                  <span className="micro muted">File selezionato: {form.screenshot.name}</span>
+                )}
+              </label>
+              <label className="checkbox-label" htmlFor="support-consent">
+                <span>Acconsento al trattamento dei dati personali secondo la privacy policy.</span>
+                <input
+                  id="support-consent"
+                  name="consent"
+                  type="checkbox"
+                  checked={form.consent}
+                  onChange={handleChange}
+                  required
+                />
+              </label>
+              <button
+                type="submit"
+                className="btn primary"
+                disabled={submitting || !form.consent}
+              >
+                {submitting ? 'Invio in corso...' : 'Invia richiesta'}
+              </button>
+            </form>
+          </article>
+        </div>
+      )}
 
       <section className="support-contact">
         <h2>Tempi e contatti</h2>

@@ -7736,6 +7736,13 @@ html {
   box-shadow: var(--shadow);
 }
 
+.support-form-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 1rem;
+}
+
 .support-form-card-head h2 {
   margin: 0;
 }
