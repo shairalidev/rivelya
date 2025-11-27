@@ -108,9 +108,10 @@ export default function Support() {
               <input type="file" accept="image/*" />
             </label>
             <label className="checkbox-label">
-              <input type="checkbox" />
               Acconsento al trattamento dei dati personali secondo la privacy policy.
-            </label>
+              <input type="checkbox" />
+            </label>  
+            
             <button type="submit" className="btn primary">Invia richiesta</button>
           </form>
         </article>

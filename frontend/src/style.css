@@ -7745,8 +7745,7 @@ html {
   gap: 1rem;
 }
 
-.support-form .input-label,
-.support-form .checkbox-label {
+.support-form .input-label {
   display: flex;
   flex-direction: column;
   gap: 0.35rem;
@@ -7805,33 +7804,20 @@ html {
 }
 
 .checkbox-label {
-  flex-direction: row;
+  display: flex;
   align-items: center;
-  gap: 0.75rem;
+  gap: 0.35rem;
   font-size: 0.95rem;
-  font-weight: 500;
   color: var(--text);
-  border: 1px solid transparent;
-  border-radius: var(--radius-sm);
-  padding: 0.5rem 0.75rem;
-  background: rgba(255, 255, 255, 0.02);
-  transition: border-color 0.2s ease, background 0.2s ease;
-  width: fit-content;
+  line-height: 1.2;
 }
 
-.checkbox-label:hover {
-  border-color: rgba(109, 91, 255, 0.4);
-  background: rgba(109, 91, 255, 0.08);
-}
-
-.checkbox-label input {
-  width: 20px;
-  height: 20px;
+.support-form .checkbox-label input {
+  width: 14px;
+  height: 14px;
   margin: 0;
   accent-color: var(--brand);
-  border-radius: 6px;
-  border: 1px solid rgba(255, 255, 255, 0.3);
-  background: rgba(255, 255, 255, 0.08);
+  flex-shrink: 0;
 }
 
 .support-contact {
