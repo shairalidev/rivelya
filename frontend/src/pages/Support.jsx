@@ -31,6 +31,152 @@ const complaintTargets = [
   { value: 'esperto', label: 'Esperto' }
 ];
 
+const faqSections = [
+  {
+    title: 'CLIENTI',
+    items: [
+      {
+        question: '1. Non riesco a effettuare un pagamento. Cosa devo fare?',
+        answer: [
+          'Controlla che la tua carta sia valida e con saldo disponibile.',
+          'Se il problema persiste, prova un altro metodo di pagamento o contatta il supporto allegando uno screenshot.'
+        ]
+      },
+      {
+        question: '2. Ho ricaricato il wallet ma non vedo il credito.',
+        answer: [
+          'L’accredito è immediato.',
+          'Se il saldo non si aggiorna, ricarica la pagina.',
+          'In caso di errore, contatta il supporto indicando l’ID della transazione.'
+        ]
+      },
+      {
+        question: '3. La chat o la chiamata non funzionano.',
+        answer: [
+          'Verifica la tua connessione Internet e riapri la sessione.',
+          'Se il problema continua, invia uno screenshot e specifica il dispositivo che stai utilizzando.'
+        ]
+      },
+      {
+        question: '4. Come posso lasciare una recensione all’Esperto?',
+        answer: [
+          'Dopo la consulenza compare automaticamente una finestra per lasciare la recensione.',
+          'Se non compare, puoi farlo dal tuo profilo nella sezione “Le mie sessioni”.'
+        ]
+      },
+      {
+        question: '5. Posso contattare l’Esperto fuori dalla piattaforma?',
+        answer: [
+          'No. È severamente vietato.',
+          'Per ragioni di tutela, sicurezza e privacy, ogni comunicazione deve avvenire solo tramite Rivelya.',
+          'La violazione comporta la chiusura dell’account.'
+        ]
+      },
+      {
+        question: '6. Posso ottenere un rimborso?',
+        answer: [
+          'I rimborsi non sono garantiti.',
+          'Sono valutati caso per caso solo in presenza di problemi tecnici imputabili alla piattaforma.'
+        ]
+      },
+      {
+        question: '7. Come modifico la mia email o il numero di telefono?',
+        answer: [
+          'Puoi farlo nella sezione Profilo.',
+          'Se riscontri difficoltà, contatta il supporto.'
+        ]
+      },
+      {
+        question: '8. Non riesco ad accedere al mio account.',
+        answer: [
+          'Assicurati di usare email e password corrette.',
+          'Puoi richiedere la reimpostazione della password dalla schermata di login.',
+          'Se non ricevi l’email, controlla la casella spam.'
+        ]
+      }
+    ]
+  },
+  {
+    title: 'ESPERTI',
+    items: [
+      {
+        question: '1. Non riesco a modificare la mia disponibilità.',
+        answer: [
+          'Vai nel tuo profilo alla sezione Disponibilità.',
+          'Se il calendario non si aggiorna, prova ad uscire e rientrare.',
+          'Se il problema persiste, contatta il supporto.'
+        ]
+      },
+      {
+        question: '2. Come ricevo i compensi?',
+        answer: [
+          'I compensi vengono inviati automaticamente tramite il metodo di pagamento configurato nel tuo profilo.',
+          'Assicurati che i tuoi dati siano corretti e aggiornati.'
+        ]
+      },
+      {
+        question: '3. Posso comunicare con un cliente fuori dalla piattaforma?',
+        answer: [
+          'Assolutamente no.',
+          'È vietato condividere numeri, email, social o qualsiasi contatto privato.',
+          'La violazione comporta l’espulsione immediata dalla piattaforma.'
+        ]
+      },
+      {
+        question: '4. La chat o la chiamata si sono interrotte.',
+        answer: [
+          'Le interruzioni possono dipendere dalla connessione o dal dispositivo.',
+          'Invia uno screenshot e indica modello del dispositivo e browser utilizzato.'
+        ]
+      },
+      {
+        question: '5. Non riesco a modificare le informazioni del mio profilo.',
+        answer: [
+          'Alcuni campi vengono verificati manualmente per motivi di qualità.',
+          'Se un’informazione non si salva, contatta il supporto.'
+        ]
+      },
+      {
+        question: '6. Il mio saldo compensi non è aggiornato.',
+        answer: [
+          'A volte il sistema richiede qualche minuto.',
+          'Ricarica la pagina.',
+          'Se non cambia entro 15 minuti, contatta il supporto.'
+        ]
+      },
+      {
+        question: '7. Come funzionano le recensioni?',
+        answer: [
+          'Le recensioni vengono lasciate dai clienti al termine della sessione.',
+          'Non possono essere modificate o rimosse manualmente.'
+        ]
+      }
+    ]
+  },
+  {
+    title: 'GENERICHE',
+    items: [
+      {
+        question: '1. Come posso contattare l’assistenza?',
+        answer: [
+          'Puoi usare i moduli presenti in questa pagina oppure scrivere a:',
+          '📧 support@rivelya.com'
+        ]
+      },
+      {
+        question: '2. In quanto tempo rispondete?',
+        answer: ['Generalmente entro 24/48 ore, tutti i giorni.']
+      },
+      {
+        question: '3. I miei dati sono al sicuro?',
+        answer: [
+          'Sì. Rivelya utilizza connessioni protette e sistemi di sicurezza avanzati per proteggere tutte le informazioni.'
+        ]
+      }
+    ]
+  }
+];
+
 const initialFormState = {
   target: '',
   name: '',
@@ -271,6 +417,35 @@ export default function Support() {
           </article>
         </div>
       )}
+
+      <section className="faq-section">
+        <div className="faq-header">
+          <h2>FAQ – Domande Frequenti</h2>
+          <p className="muted">Tutte le risposte organizzate per categorie per raggiungere subito la soluzione.</p>
+        </div>
+
+        <div className="faq-grid">
+          {faqSections.map(section => (
+            <article key={section.title} className="faq-card">
+              <header>
+                <h3>{section.title}</h3>
+              </header>
+              <div className="faq-list">
+                {section.items.map(item => (
+                  <details key={item.question} className="faq-item">
+                    <summary>{item.question}</summary>
+                    <div className="faq-answer">
+                      {item.answer.map((line, index) => (
+                        <p key={index}>{line}</p>
+                      ))}
+                    </div>
+                  </details>
+                ))}
+              </div>
+            </article>
+          ))}
+        </div>
+      </section>
 
       <section className="support-contact">
         <h2>Tempi e contatti</h2>
