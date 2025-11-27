@@ -6,11 +6,12 @@ export default function Experience() {
       <section className="container section experience-section" id="esperienze">
         <div className="section-head mystic-head">
           <span className="badge-soft">Esperienze su Rivelya</span>
-          <h2>Esperienze su Rivelya</h2>
+          
         </div>
 
         <div className="experience-aurora">
           <div className="experience-intro">
+            <h2>Esperienze su Rivelya</h2>
             <p className="lead">Un viaggio interiore, guidato da chi sa ascoltare l'anima.</p>
             <div className="experience-intro-subtext">
               <p className="muted">
@@ -31,35 +32,50 @@ export default function Experience() {
           <div className="experience-orbit" aria-hidden="true"></div>
           <div className="experience-grid">
             <article className="experience-card">
-              <h3>Chiarezza</h3>
+              <h3>
+                <span className="experience-icon" aria-hidden="true">&#x2728;</span>
+                Chiarezza
+              </h3>
               <p>
                 Quando la mente si confonde e senti il bisogno di una risposta nitida, di un segno o di una direzione. Le nostre guide ti accompagnano a vedere ci&ograve; che gi&agrave; esiste dentro di te.
               </p>
             </article>
 
             <article className="experience-card">
-              <h3>Connessione</h3>
+              <h3>
+                <span className="experience-icon" aria-hidden="true">&#x1F52E;</span>
+                Connessione
+              </h3>
               <p>
                 Un'esperienza che ti avvicina ai tuoi simboli interiori, alla tua intuizione profonda, al linguaggio dell'energia che ti circonda.
               </p>
             </article>
 
             <article className="experience-card">
-              <h3>Riequilibrio</h3>
+              <h3>
+                <span className="experience-icon" aria-hidden="true">&#x1F33F;</span>
+                Riequilibrio
+              </h3>
               <p>
                 Per ritrovare calma, respiro, centratura e leggerezza quando il mondo esterno pesa troppo e hai bisogno di rimetterti al centro.
               </p>
             </article>
 
             <article className="experience-card">
-              <h3>Trasformazione</h3>
+              <h3>
+                <span className="experience-icon" aria-hidden="true">&#x1F317;</span>
+                Trasformazione
+              </h3>
               <p>
                 Un percorso che scioglie e libera: emozioni bloccate, cicli ripetuti, nodi interiori che aspettano solo di essere ascoltati e superati.
               </p>
             </article>
 
             <article className="experience-card">
-              <h3>Allineamento</h3>
+              <h3>
+                <span className="experience-icon" aria-hidden="true">&#x1F31F;</span>
+                Allineamento
+              </h3>
               <p>
                 Quando senti che qualcosa sta cambiando in te e sei pronta a fare un passo avanti, con la guida di chi pu&ograve; aiutarti a leggere le tue energie.
               </p>
@@ -69,7 +85,10 @@ export default function Experience() {
 
         <div className="experience-verse">
           <article className="experience-card experience-card--highlight">
-            <h3>Il cuore delle nostre esperienze</h3>
+            <h3>
+              <span className="experience-icon" aria-hidden="true">&#x1F4AB;</span>
+              Il cuore delle nostre esperienze
+            </h3>
             <ul className="muted experience-points">
               <li>un incontro autentico,</li>
               <li>una guida sensibile e professionale,</li>
@@ -80,7 +99,10 @@ export default function Experience() {
           </article>
 
           <article className="experience-card experience-card--cta">
-            <h3>Lasciati guidare</h3>
+            <h3>
+              <span className="experience-icon" aria-hidden="true">&#x2728;</span>
+              Lasciati guidare
+            </h3>
             <p>
               Ora scegli il modo in cui vuoi essere accompagnata. Segui ci&ograve; che senti e accedi agli esperti che risuonano con la tua energia.
             </p>

@@ -59,7 +59,7 @@ export default function Business() {
       <article className="business-card closing">
         <p>
           Per qualunque richiesta professionale, il nostro team è a tua disposizione per valutare la soluzione più adatta. Se desideri candidarti o proporre una collaborazione, invia la tua richiesta direttamente via email a{" "}
-          <a className="cta-link" href="mailto:support@rivelya.com">support@rivelya.com</a>
+          <a className="cta-link" href="mailto:business@rivelya.com">business@rivelya.com</a>
         </p>
       </article>
     </section>

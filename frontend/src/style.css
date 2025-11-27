@@ -1315,10 +1315,27 @@ body.nav-open {
   backdrop-filter: blur(8px);
 }
 
+.experience-section .section-head {
+  text-align: center;
+}
+
 .experience-card h3 {
   margin: 0;
   font-size: 1.35rem;
   letter-spacing: 0.02em;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.6rem;
+  text-align: center;
+}
+
+.experience-icon {
+  font-size: 1.45rem;
+  color: var(--accent);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
 }
 
 .experience-card p {
