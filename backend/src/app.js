@@ -26,6 +26,7 @@ import masterRoutes from './routes/master.routes.js';
 import mediaRoutes from './routes/media.routes.js';
 import sessionManagementRoutes from './routes/session-management.routes.js';
 import presenceRoutes from './routes/presence.routes.js';
+import supportRoutes from './routes/support.routes.js';
 
 import { notFound, errorHandler } from './middleware/error.js';
 
@@ -96,6 +97,7 @@ const registerRoutes = router => {
   router.use('/media', mediaRoutes);
   router.use('/session-management', sessionManagementRoutes);
   router.use('/presence', presenceRoutes);
+  router.use('/support', supportRoutes);
 };
 
 // Mount routes both at root and under /api to match nginx proxy behavior
