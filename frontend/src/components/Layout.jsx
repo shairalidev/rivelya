@@ -499,7 +499,7 @@ export default function Layout() {
           </div>
         </div>
         <div className="container footer-bottom">
-          <span>? {new Date().getFullYear()} Rivelya. Tutti i diritti riservati.</span>
+          <span>{new Date().getFullYear()} Rivelya. Tutti i diritti riservati.</span>
           <div className="footer-legal">
             <Link to="/privacy" className="footer-link">Privacy</Link>
             <Link to="/cookie" className="footer-link">Cookie</Link>
