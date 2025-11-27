@@ -22,6 +22,11 @@ const selectOptions = [
   { value: 'altro', label: 'Altro' }
 ];
 
+const complaintTargets = [
+  { value: 'cliente', label: 'Cliente' },
+  { value: 'master', label: 'Master' }
+];
+
 export default function Support() {
   return (
     <section className="container support-page">
@@ -62,12 +67,21 @@ export default function Support() {
       </div>
 
       <div className="support-forms">
-        <article className="support-form-card">
+        <article className="support-form-card single">
           <div className="support-form-card-head">
-            <h2>Modulo Clienti</h2>
-            <p className="muted">Raccontaci il problema e ti risponderemo entro 24/48 ore.</p>
+            <h2>Modulo di Assistenza</h2>
+            <p className="muted">Descrivi il problema e indica se riguarda un cliente o un master. Ti risponderemo entro 24/48 ore.</p>
           </div>
           <form className="support-form">
+            <label className="input-label">
+              La segnalazione riguarda
+              <select defaultValue="">
+                <option value="" disabled>Seleziona</option>
+                {complaintTargets.map(option => (
+                  <option key={option.value} value={option.value}>{option.label}</option>
+                ))}
+              </select>
+            </label>
             <label className="input-label">
               Nome
               <input type="text" placeholder="Es. Maria Rossi" />
@@ -97,46 +111,7 @@ export default function Support() {
               <input type="checkbox" />
               Acconsento al trattamento dei dati personali secondo la privacy policy.
             </label>
-            <button type="submit" className="btn primary">Invia richiesta Cliente</button>
-          </form>
-        </article>
-
-        <article className="support-form-card">
-          <div className="support-form-card-head">
-            <h2>Modulo Master</h2>
-            <p className="muted">Ci occupiamo della tua disponibilità, pagamenti e profilo.</p>
-          </div>
-          <form className="support-form">
-            <label className="input-label">
-              Nome del Master
-              <input type="text" placeholder="Es. Matteo Bianchi" />
-            </label>
-            <label className="input-label">
-              Email
-              <input type="email" placeholder="nome@email.com" />
-            </label>
-            <label className="input-label">
-              Tipo di problema
-              <select defaultValue="">
-                <option value="" disabled>Seleziona opzione</option>
-                {selectOptions.map(option => (
-                  <option key={option.value} value={option.value}>{option.label}</option>
-                ))}
-              </select>
-            </label>
-            <label className="input-label">
-              Descrizione
-              <textarea rows="4" placeholder="Ci serve il maggior numero di dettagli..." />
-            </label>
-            <label className="input-label">
-              Screenshot (opzionale)
-              <input type="file" accept="image/*" />
-            </label>
-            <label className="checkbox-label">
-              <input type="checkbox" />
-              Acconsento al trattamento dei dati personali secondo la privacy policy.
-            </label>
-            <button type="submit" className="btn ghost">Invia richiesta Master</button>
+            <button type="submit" className="btn primary">Invia richiesta</button>
           </form>
         </article>
       </div>

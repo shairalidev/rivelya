@@ -7763,6 +7763,8 @@ html {
   color: var(--text);
   font: inherit;
   min-height: 44px;
+  width: 100%;
+  box-sizing: border-box;
 }
 
 .support-form textarea {
@@ -7785,17 +7787,51 @@ html {
   background: rgba(255, 255, 255, 0.04);
 }
 
+.support-form input[type="file"]::file-selector-button {
+  margin-right: 0.3rem;
+  padding: 0.45rem 0.9rem;
+  border: 1px solid rgba(255, 255, 255, 0.4);
+  border-radius: 999px;
+  background: var(--brand);
+  color: #f6f8ff;
+  font-weight: 600;
+  cursor: pointer;
+  transition: filter 0.2s ease, transform 0.2s ease;
+}
+
+.support-form input[type="file"]::file-selector-button:hover {
+  filter: brightness(1.1);
+  transform: translateY(-1px);
+}
+
 .checkbox-label {
   flex-direction: row;
   align-items: center;
-  gap: 0.6rem;
-  font-size: 0.9rem;
+  gap: 0.75rem;
+  font-size: 0.95rem;
+  font-weight: 500;
+  color: var(--text);
+  border: 1px solid transparent;
+  border-radius: var(--radius-sm);
+  padding: 0.5rem 0.75rem;
+  background: rgba(255, 255, 255, 0.02);
+  transition: border-color 0.2s ease, background 0.2s ease;
+  width: fit-content;
+}
+
+.checkbox-label:hover {
+  border-color: rgba(109, 91, 255, 0.4);
+  background: rgba(109, 91, 255, 0.08);
 }
 
 .checkbox-label input {
-  width: 18px;
-  height: 18px;
-  accent-color: #6d5bff;
+  width: 20px;
+  height: 20px;
+  margin: 0;
+  accent-color: var(--brand);
+  border-radius: 6px;
+  border: 1px solid rgba(255, 255, 255, 0.3);
+  background: rgba(255, 255, 255, 0.08);
 }
 
 .support-contact {
@@ -7833,6 +7869,10 @@ html {
   .support-card,
   .support-contact {
     padding: 1.2rem;
+  }
+
+  .support-forms {
+    grid-template-columns: 1fr;
   }
 }
 
