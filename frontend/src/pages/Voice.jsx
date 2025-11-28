@@ -209,6 +209,12 @@ export default function Voice() {
     }
   }, [audioStream]);
 
+  const releasePreviewStream = useCallback(() => {
+    if (audioStream) {
+      stopAudioStream();
+    }
+  }, [audioStream, stopAudioStream]);
+
   useEffect(() => {
     if (!sessionId) {
       setNoteDraft('');
@@ -274,6 +280,12 @@ export default function Voice() {
     disabled: !audioStream || isMuted || !isConnected || !isSessionActive
   });
   const remoteAudioLevel = useSimulatedVoiceActivity(isConnected && !isSessionEnded);
+
+  useEffect(() => {
+    if ((webrtcConnected || webrtcInitializing) && audioStream) {
+      stopAudioStream();
+    }
+  }, [webrtcConnected, webrtcInitializing, audioStream, stopAudioStream]);
 
   const cleanupSessionResources = useCallback(() => {
     setActiveCall(null);
@@ -406,11 +418,13 @@ export default function Voice() {
         setTimeout(() => {
           if (socket?.connected) {
             console.log('[voice] Starting WebRTC after partner started session');
+            releasePreviewStream();
             startWebRTCCall();
           } else {
             console.warn('[voice] Socket not connected, delaying WebRTC start');
             setTimeout(() => {
               if (socket?.connected) {
+                releasePreviewStream();
                 startWebRTCCall();
               }
             }, 2000);
@@ -611,7 +625,7 @@ export default function Voice() {
       socket.off('session:review:prompt', handleReviewPrompt);
       socket.off('session:completed', handleSessionCompleted);
     };
-  }, [socket, queryClient, sessionId, activeSession, viewerId, signalHandler, cleanupSessionResources]);
+  }, [socket, queryClient, sessionId, activeSession, viewerId, signalHandler, cleanupSessionResources, releasePreviewStream]);
 
   // Set up WebRTC signal handler
   useEffect(() => {
@@ -627,8 +641,9 @@ export default function Voice() {
     if (webrtcConnected || webrtcInitializing) return;
 
     console.info('[voice] Viewer role resolved, (re)starting WebRTC', { viewerRole: resolvedViewerRole, sessionId });
+    releasePreviewStream();
     startWebRTCCall();
-  }, [resolvedViewerRole, sessionId, isSessionActive, isConnected, webrtcConnected, webrtcInitializing, startWebRTCCall]);
+  }, [resolvedViewerRole, sessionId, isSessionActive, isConnected, webrtcConnected, webrtcInitializing, startWebRTCCall, releasePreviewStream]);
 
   // Remove auto-start WebRTC - require manual initiation
   // WebRTC will only start when user clicks "Avvia chiamata" button
@@ -744,15 +759,20 @@ export default function Voice() {
       toast.success('Chiamata avviata');
       queryClient.invalidateQueries({ queryKey: ['voice', 'session', sessionId] });
       
+      // Release any preview stream so the WebRTC call can grab the mic
+      releasePreviewStream();
+
       // Then start WebRTC connection after ensuring socket is ready
       setTimeout(() => {
         if (socket?.connected) {
           console.log('[voice] Starting WebRTC after session start');
+          releasePreviewStream();
           startWebRTCCall();
         } else {
           console.warn('[voice] Socket not connected, delaying WebRTC start');
           setTimeout(() => {
             if (socket?.connected) {
+              releasePreviewStream();
               startWebRTCCall();
             }
           }, 2000);
