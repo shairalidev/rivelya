@@ -159,6 +159,10 @@ export default function Layout() {
 
   const isCatalog = location.pathname.startsWith('/catalog');
   const isChat = location.pathname.startsWith('/chat') || location.pathname.startsWith('/voice');
+  const isExpertUser = Boolean(user?.roles?.includes('master'));
+  const visibleNavItems = isExpertUser
+    ? navItems.filter(item => item.to !== '/become-expert')
+    : navItems;
 
   const isChipActive = item => {
     if (!isCatalog) return false;
@@ -301,7 +305,7 @@ export default function Layout() {
             <span className="brand-sub">Consulenze in tempo reale</span>
           </Link>
           <nav className="primary-nav">
-            {navItems.map(item =>
+            {visibleNavItems.map(item =>
               item.anchor ? (
                 <Link key={item.label} to={item.to} className="nav-link" onClick={handleNavClick}>
                   {item.label}
@@ -384,7 +388,7 @@ export default function Layout() {
               </div>
             )}
             <nav className="mobile-nav-links">
-              {navItems.map(item =>
+            {visibleNavItems.map(item =>
                 item.anchor ? (
                   <Link key={item.label} to={item.to} className="nav-link" onClick={handleNavClick}>
                     {item.label}
