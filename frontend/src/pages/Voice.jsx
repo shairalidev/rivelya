@@ -140,6 +140,7 @@ export default function Voice() {
   const joinedSessionRef = useRef(null);
   const manualCallInitiatedRef = useRef(false);
   const autoStartSessionRef = useRef(null);
+  const lastConnectionStatusRef = useRef({ status: null, reason: null });
 
   useEffect(() => {
     const sync = () => {
@@ -244,6 +245,20 @@ export default function Voice() {
   const remainingSeconds = serverRemainingSeconds ?? countdownSeconds;
   const canCall = sessionQuery.data?.canCall && (remainingSeconds == null || remainingSeconds > 0);
   const showMobileOverlay = isMobile && (mobileSessionsOpen || mobileNotesOpen);
+
+  const masterUserId = activeSession?.master?.id || activeSession?.master?._id;
+  const customerUserId = activeSession?.customer?.id || activeSession?.customer?._id;
+  const connectionStatus = useMemo(() => {
+    if (webrtcConnected) return 'connected';
+    if (webrtcError) return 'error';
+    if (webrtcInitializing) return 'initializing';
+    if (activeSession?.status === 'active') return 'waiting';
+    return 'idle';
+  }, [webrtcConnected, webrtcError, webrtcInitializing, activeSession?.status]);
+  const connectionPartnerId = useMemo(() => {
+    if (!resolvedViewerRole) return null;
+    return resolvedViewerRole === 'master' ? customerUserId : masterUserId;
+  }, [resolvedViewerRole, masterUserId, customerUserId]);
 
   const isNoteDirty = noteDraft !== noteBaseline;
   const isSessionActive = activeSession?.status === 'active';
@@ -638,6 +653,32 @@ export default function Voice() {
       setSignalHandler(() => handleWebRTCSignal);
     }
   }, [handleWebRTCSignal, sessionId]);
+
+  useEffect(() => {
+    if (!socket || !sessionId || !connectionPartnerId) return;
+    const reason = webrtcError || null;
+    const previous = lastConnectionStatusRef.current;
+    if (previous.status === connectionStatus && previous.reason === reason) return;
+
+    try {
+      console.info('[voice] Emitting connection status update', {
+        sessionId,
+        status: connectionStatus,
+        reason,
+        targetUserId: connectionPartnerId
+      });
+      socket.emit('voice:session:connection:update', {
+        sessionId,
+        status: connectionStatus,
+        reason,
+        targetUserId: connectionPartnerId
+      });
+    } catch (error) {
+      console.error('[voice] Failed to emit connection status update', error);
+    }
+
+    lastConnectionStatusRef.current = { status: connectionStatus, reason };
+  }, [socket, sessionId, connectionPartnerId, connectionStatus, webrtcError]);
 
   // Ensure WebRTC only starts once the viewer role is known
   useEffect(() => {

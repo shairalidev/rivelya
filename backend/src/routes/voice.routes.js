@@ -6,6 +6,18 @@ import { notifyVoiceSessionEnded, notifyVoiceSessionStarted } from '../utils/voi
 import { emitSessionStatus } from '../utils/session-events.js';
 import { completeBookingAndPromptReview } from '../utils/booking-events.js';
 
+const resolveUserReference = (value) => {
+  if (!value) return null;
+  if (typeof value === 'string') return value;
+  if (value._id) {
+    return value._id.toString();
+  }
+  if (typeof value.toString === 'function') {
+    return value.toString();
+  }
+  return null;
+};
+
 const router = Router();
 
 // GET /voice/sessions - Get user's voice sessions
@@ -95,6 +107,8 @@ router.get('/session/:id', requireAuth, async (req, res, next) => {
 
     const viewerRole = isCustomer ? 'client' : isMaster ? 'master' : null;
     const canCall = session.status === 'created' || session.status === 'active';
+    const masterUserId = resolveUserReference(session.master_id?.user_id);
+    const customerUserId = resolveUserReference(session.user_id);
 
     const userId = req.user._id.toString();
     const userNote = session.notes?.get(userId);
@@ -109,10 +123,12 @@ router.get('/session/:id', requireAuth, async (req, res, next) => {
         startTime: session.start_ts,
         endTime: session.end_ts,
         master: session.master_id ? {
+          id: masterUserId,
           name: session.master_id.display_name || 'Master Rivelya',
           avatarUrl: session.master_id.media?.avatar_url
         } : null,
         customer: session.user_id ? {
+          id: customerUserId,
           name: session.user_id.display_name || 'Cliente',
           avatarUrl: session.user_id.avatar_url
         } : null,
