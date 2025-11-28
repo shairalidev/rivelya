@@ -5,6 +5,42 @@ import { User } from '../models/user.model.js';
 import { presenceService } from '../services/presence.service.js';
 
 let ioInstance = null;
+const sessionParticipants = new Map();
+
+const emitSessionReadyState = (sessionId) => {
+  if (!ioInstance || !sessionId) return;
+  const participants = sessionParticipants.get(sessionId);
+  const uniqueUsers = participants ? new Set(participants.values()) : new Set();
+  const ready = uniqueUsers.size >= 2;
+  ioInstance.to(`session:${sessionId}`).emit('voice:session:ready', {
+    sessionId,
+    ready,
+    participantCount: uniqueUsers.size,
+    userIds: Array.from(uniqueUsers)
+  });
+  if (!participants || participants.size === 0) {
+    sessionParticipants.delete(sessionId);
+  }
+};
+
+const registerSessionParticipant = (sessionId, socket) => {
+  if (!sessionId || !socket?.data?.user?._id) return;
+  if (!sessionParticipants.has(sessionId)) {
+    sessionParticipants.set(sessionId, new Map());
+  }
+  sessionParticipants.get(sessionId).set(socket.id, socket.data.user._id.toString());
+  socket.data.voiceSessions?.add(sessionId);
+  emitSessionReadyState(sessionId);
+};
+
+const unregisterSessionParticipant = (sessionId, socket) => {
+  if (!sessionId) return;
+  const participants = sessionParticipants.get(sessionId);
+  if (!participants) return;
+  participants.delete(socket.id);
+  socket.data.voiceSessions?.delete(sessionId);
+  emitSessionReadyState(sessionId);
+};
 
 const normalizeUserId = userId => {
   if (!userId) return null;
@@ -73,6 +109,7 @@ export const initSocket = server => {
   });
 
   ioInstance.on('connection', async socket => {
+    socket.data.voiceSessions = new Set();
     const userId = socket.data.user._id.toString();
     socket.join(`user:${userId}`);
     
@@ -108,6 +145,7 @@ export const initSocket = server => {
     socket.on('voice:session:join', (data) => {
       if (data.sessionId) {
         socket.join(`session:${data.sessionId}`);
+        registerSessionParticipant(data.sessionId, socket);
         console.info('[voice] User joined voice session room', { userId, sessionId: data.sessionId });
       }
     });
@@ -115,6 +153,7 @@ export const initSocket = server => {
     socket.on('voice:session:leave', (data) => {
       if (data.sessionId) {
         socket.leave(`session:${data.sessionId}`);
+        unregisterSessionParticipant(data.sessionId, socket);
         console.info('[voice] User left voice session room', { userId, sessionId: data.sessionId });
       }
     });
@@ -203,6 +242,9 @@ export const initSocket = server => {
     });
 
     socket.on('disconnect', async (reason) => {
+      const voiceSessions = socket.data.voiceSessions || new Set();
+      voiceSessions.forEach(sessionId => unregisterSessionParticipant(sessionId, socket));
+
       // Set user offline and clean up
       await presenceService.handleSocketDisconnect(socket.id);
       

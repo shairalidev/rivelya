@@ -134,6 +134,7 @@ export default function Voice() {
   const [audioStream, setAudioStream] = useState(null);
   const [activeCall, setActiveCall] = useState(null);
   const [signalHandler, setSignalHandler] = useState(null);
+  const [sessionReady, setSessionReady] = useState(false);
   const [isMobile, setIsMobile] = useState(() => (typeof window !== 'undefined' ? window.innerWidth <= 1024 : false));
   const [mobileSessionsOpen, setMobileSessionsOpen] = useState(false);
   const [mobileNotesOpen, setMobileNotesOpen] = useState(false);
@@ -141,6 +142,7 @@ export default function Voice() {
   const manualCallInitiatedRef = useRef(false);
   const autoStartSessionRef = useRef(null);
   const lastConnectionStatusRef = useRef({ status: null, reason: null });
+  const wakeLockRef = useRef(null);
 
   useEffect(() => {
     const sync = () => {
@@ -230,6 +232,12 @@ export default function Voice() {
     }
   }, [sessionId]);
 
+  useEffect(() => {
+    if (!sessionId || activeSession?.status !== 'active') {
+      setSessionReady(false);
+    }
+  }, [sessionId, activeSession?.status]);
+
   const sessions = useMemo(() => sessionsQuery.data || [], [sessionsQuery.data]);
   const viewerId = useMemo(() => decodeTokenSub(token), [token]);
   
@@ -313,6 +321,11 @@ export default function Voice() {
     autoStartSessionRef.current = null;
     joinedSessionRef.current = null;
     manualCallInitiatedRef.current = false;
+    setSessionReady(false);
+    if (wakeLockRef.current) {
+      wakeLockRef.current.release?.().catch(() => {});
+      wakeLockRef.current = null;
+    }
 
     if (socket && sessionId) {
       try {
@@ -614,6 +627,13 @@ export default function Voice() {
       setShowReviewModal(true);
     };
     
+    const handleSessionReady = payload => {
+      if (payload.sessionId === sessionId) {
+        setSessionReady(Boolean(payload.ready));
+        console.info('[voice] Received voice:session:ready', payload);
+      }
+    };
+    
     socket.on('voice:session:updated', handleSessionUpdate);
     socket.on('voice:session:started', handleSessionStarted);
     socket.on('voice:session:ended', handleSessionEnded);
@@ -626,6 +646,7 @@ export default function Voice() {
     socket.on('voice:webrtc:signal', handleWebRTCSignal);
     socket.on('voice:session:connection:status', handleConnectionStatus);
     socket.on('voice:session:sync', handleSessionSync);
+    socket.on('voice:session:ready', handleSessionReady);
     socket.on('session:review:prompt', handleReviewPrompt);
     socket.on('session:completed', handleSessionCompleted);
 
@@ -642,6 +663,7 @@ export default function Voice() {
       socket.off('voice:webrtc:signal', handleWebRTCSignal);
       socket.off('voice:session:connection:status', handleConnectionStatus);
       socket.off('voice:session:sync', handleSessionSync);
+      socket.off('voice:session:ready', handleSessionReady);
       socket.off('session:review:prompt', handleReviewPrompt);
       socket.off('session:completed', handleSessionCompleted);
     };
@@ -683,11 +705,7 @@ export default function Voice() {
 
   // Ensure WebRTC only starts once the viewer role is known
   useEffect(() => {
-    if (manualCallInitiatedRef.current) {
-      console.info('[voice] Manual call already in progress; auto-start skipped');
-      return;
-    }
-    if (!resolvedViewerRole || resolvedViewerRole !== 'master' || !sessionId || !isSessionActive || !isConnected) return;
+    if (!resolvedViewerRole || resolvedViewerRole !== 'master' || !sessionId || !isSessionActive || !isConnected || !sessionReady) return;
     if (webrtcConnected || webrtcInitializing) return;
     if (autoStartSessionRef.current === sessionId) {
       return;
@@ -697,7 +715,47 @@ export default function Voice() {
     autoStartSessionRef.current = sessionId;
     releasePreviewStream();
     startWebRTCCall();
-  }, [resolvedViewerRole, sessionId, isSessionActive, isConnected, webrtcConnected, webrtcInitializing, startWebRTCCall, releasePreviewStream]);
+  }, [resolvedViewerRole, sessionId, isSessionActive, isConnected, webrtcConnected, webrtcInitializing, sessionReady, startWebRTCCall, releasePreviewStream]);
+
+  useEffect(() => {
+    if (!isSessionActive) {
+      if (wakeLockRef.current) {
+        wakeLockRef.current.release?.().catch(() => {});
+        wakeLockRef.current = null;
+      }
+      return undefined;
+    }
+
+    if (typeof navigator === 'undefined' || !('wakeLock' in navigator) || !navigator.wakeLock?.request) {
+      return undefined;
+    }
+
+    let activeLock = null;
+    const requestLock = async () => {
+      try {
+        activeLock = await navigator.wakeLock.request('screen');
+        wakeLockRef.current = activeLock;
+        activeLock.addEventListener('release', () => {
+          if (wakeLockRef.current === activeLock) {
+            wakeLockRef.current = null;
+          }
+        });
+      } catch (error) {
+        console.info('[voice] Wake lock unavailable', error);
+      }
+    };
+
+    requestLock();
+
+    return () => {
+      if (activeLock) {
+        activeLock.release?.().catch(() => {});
+        if (wakeLockRef.current === activeLock) {
+          wakeLockRef.current = null;
+        }
+      }
+    };
+  }, [isSessionActive]);
 
   // Remove auto-start WebRTC - require manual initiation
   // WebRTC will only start when user clicks "Avvia chiamata" button
@@ -821,22 +879,8 @@ export default function Voice() {
       // Release any preview stream so the WebRTC call can grab the mic
       releasePreviewStream();
 
-      // Then start WebRTC connection after ensuring socket is ready
-      setTimeout(() => {
-        if (socket?.connected) {
-          console.log('[voice] Starting WebRTC after session start');
-          releasePreviewStream();
-          startWebRTCCall();
-        } else {
-          console.warn('[voice] Socket not connected, delaying WebRTC start');
-          setTimeout(() => {
-            if (socket?.connected) {
-              releasePreviewStream();
-              startWebRTCCall();
-            }
-          }, 2000);
-        }
-      }, 1000);
+      // Wait for both participants to arrive before starting WebRTC
+      console.info('[voice] Waiting for both participants before starting WebRTC');
       
       console.info('[voice] Voice call start API succeeded', { sessionId, status: response.data?.status });
     } catch (error) {
