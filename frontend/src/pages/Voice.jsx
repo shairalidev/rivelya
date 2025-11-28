@@ -232,12 +232,6 @@ export default function Voice() {
     }
   }, [sessionId]);
 
-  useEffect(() => {
-    if (!sessionId || activeSession?.status !== 'active') {
-      setSessionReady(false);
-    }
-  }, [sessionId, activeSession?.status]);
-
   const sessions = useMemo(() => sessionsQuery.data || [], [sessionsQuery.data]);
   const viewerId = useMemo(() => decodeTokenSub(token), [token]);
   
@@ -301,6 +295,12 @@ export default function Voice() {
     if (!resolvedViewerRole) return null;
     return resolvedViewerRole === 'master' ? customerUserId : masterUserId;
   }, [resolvedViewerRole, masterUserId, customerUserId]);
+
+  useEffect(() => {
+    if (!sessionId || activeSession?.status !== 'active') {
+      setSessionReady(false);
+    }
+  }, [sessionId, activeSession?.status]);
 
   const localAudioLevel = useAudioLevel(audioStream, {
     disabled: !audioStream || isMuted || !isConnected || !isSessionActive
