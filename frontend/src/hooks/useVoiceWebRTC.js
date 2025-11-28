@@ -1,10 +1,55 @@
 import { useEffect, useRef, useState, useCallback } from 'react';
 import client from '../api/client.js';
 
-const ICE_SERVERS = [
+const DEFAULT_ICE_SERVERS = [
   { urls: 'stun:stun.l.google.com:19302' },
   { urls: 'stun:stun1.l.google.com:19302' }
 ];
+
+const buildEnvIceServers = () => {
+  const servers = [];
+  const rawJson = import.meta.env.VITE_ICE_SERVERS_JSON;
+
+  if (rawJson) {
+    try {
+      const parsed = JSON.parse(rawJson);
+      if (Array.isArray(parsed)) {
+        parsed.forEach(entry => {
+          if (entry && (entry.urls || entry.url)) {
+            servers.push({
+              urls: entry.urls || entry.url,
+              username: entry.username,
+              credential: entry.credential
+            });
+          }
+        });
+      }
+    } catch (error) {
+      console.warn('[VoiceWebRTC] Failed to parse VITE_ICE_SERVERS_JSON', error);
+    }
+  }
+
+  const turnUrl = import.meta.env.VITE_ICE_TURN_URL;
+  const turnUsername = import.meta.env.VITE_ICE_TURN_USERNAME;
+  const turnCredential = import.meta.env.VITE_ICE_TURN_CREDENTIAL;
+
+  if (turnUrl) {
+    const turnServer = { urls: turnUrl };
+    if (turnUsername) turnServer.username = turnUsername;
+    if (turnCredential) turnServer.credential = turnCredential;
+    servers.push(turnServer);
+  }
+
+  return servers;
+};
+
+const ICE_SERVERS = (() => {
+  const envDriven = buildEnvIceServers();
+  if (envDriven.length > 0) {
+    return [...envDriven, ...DEFAULT_ICE_SERVERS];
+  }
+  return DEFAULT_ICE_SERVERS;
+})();
 
 export default function useVoiceWebRTC(sessionId, viewerRole, onCallEnd) {
   const [isConnected, setIsConnected] = useState(false);
