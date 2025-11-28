@@ -138,6 +138,7 @@ export default function Voice() {
   const [mobileSessionsOpen, setMobileSessionsOpen] = useState(false);
   const [mobileNotesOpen, setMobileNotesOpen] = useState(false);
   const joinedSessionRef = useRef(null);
+  const manualCallInitiatedRef = useRef(false);
 
   useEffect(() => {
     const sync = () => {
@@ -293,6 +294,7 @@ export default function Voice() {
     stopAudioStream();
     endWebRTCCall();
     joinedSessionRef.current = null;
+    manualCallInitiatedRef.current = false;
 
     if (socket && sessionId) {
       try {
@@ -637,6 +639,10 @@ export default function Voice() {
 
   // Ensure WebRTC only starts once the viewer role is known
   useEffect(() => {
+    if (manualCallInitiatedRef.current) {
+      console.info('[voice] Manual call already in progress; auto-start skipped');
+      return;
+    }
     if (!resolvedViewerRole || !sessionId || !isSessionActive || !isConnected) return;
     if (webrtcConnected || webrtcInitializing) return;
 
@@ -750,6 +756,11 @@ export default function Voice() {
   };
 
   const startCall = async () => {
+    if (manualCallInitiatedRef.current) {
+      console.info('[voice] Start call already in progress; ignoring extra request');
+      return;
+    }
+    manualCallInitiatedRef.current = true;
     console.info('[voice] Attempting to start voice call', { sessionId });
     
     try {
@@ -784,6 +795,7 @@ export default function Voice() {
       const message = error?.response?.data?.message || 'Impossibile avviare la chiamata';
       toast.error(message);
       setShowStartModal(false);
+      manualCallInitiatedRef.current = false;
       console.error('[voice] Voice call start API failed', {
         sessionId,
         message: error?.response?.data?.message || error.message
