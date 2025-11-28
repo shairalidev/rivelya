@@ -1,4 +1,5 @@
-import { Link } from 'react-router-dom';
+import { useState } from 'react';
+import client from '../api/client.js';
 
 const requirements = [
   'avere esperienza comprovabile nel proprio settore',
@@ -17,7 +18,86 @@ const offers = [
   'una community di esperti seri e certificati'
 ];
 
+const fieldOptions = [
+  'Cartomanzia',
+  'Tarologia',
+  'Astrologia',
+  'Benessere interiore',
+  'Spiritualità',
+  'Energie',
+  'Coaching emotivo',
+  'Altro'
+];
+
+const initialForm = {
+  name: '',
+  email: '',
+  phone: '',
+  domain: '',
+  description: '',
+  links: '',
+  consent: false,
+  marketingConsent: false
+};
+
 export default function BecomeExpert() {
+  const [form, setForm] = useState(initialForm);
+  const [modalOpen, setModalOpen] = useState(false);
+  const [submitted, setSubmitted] = useState(false);
+  const [modalError, setModalError] = useState('');
+
+  const openModal = () => {
+    setModalOpen(true);
+    setSubmitted(false);
+    setModalError('');
+  };
+
+  const closeModal = () => {
+    setModalOpen(false);
+    setForm(initialForm);
+    setSubmitted(false);
+    setModalError('');
+  };
+
+  const handleChange = event => {
+    const { name, value, type, checked } = event.target;
+    setForm(prev => ({
+      ...prev,
+      [name]: type === 'checkbox' ? checked : value
+    }));
+  };
+
+  const handleSubmit = async event => {
+    event.preventDefault();
+    if (!form.name || !form.email || !form.phone || !form.domain || !form.description || !form.consent) {
+      setModalError('Compila tutti i campi obbligatori e accetta il consenso privacy.');
+      return;
+    }
+    setModalError('');
+    const formData = new FormData();
+    formData.append('target', 'esperto');
+    formData.append('name', form.name);
+    formData.append('email', form.email);
+    formData.append('issueType', 'Candidatura Esperto');
+    formData.append('description', `${form.description}\nAmbito: ${form.domain}\nTelefono: ${form.phone}\nLink: ${form.links || 'Nessuno'}`);
+    formData.append('consent', form.consent ? 'on' : 'off');
+    formData.append('metadata', JSON.stringify({
+      phone: form.phone,
+      domain: form.domain,
+      links: form.links,
+      marketingConsent: form.marketingConsent
+    }));
+
+    try {
+      await client.post('/support', formData, {
+        headers: { 'Content-Type': 'multipart/form-data' }
+      });
+      setSubmitted(true);
+    } catch (error) {
+      setModalError('Si è verificato un errore durante l\'invio. Riprova più tardi.');
+    }
+  };
+
   return (
     <div className="become-expert-page">
       <section className="container section">
@@ -83,9 +163,131 @@ export default function BecomeExpert() {
           <p className="muted">
             Se possiedi tutti i requisiti sopra elencati, puoi compilare il modulo di candidatura. Ogni profilo viene valutato con attenzione. Se ritenuto idoneo, sarai ricontattato per il processo di onboarding.
           </p>
-          <Link to="/support" className="link">
-            &rarr; Compila la candidatura
-          </Link>
+          <button type="button" className="btn primary become-expert-cta-trigger" onClick={openModal}>
+            Invia candidatura
+          </button>
+          {modalOpen && (
+            <div className="become-expert-modal" role="dialog" aria-modal="true">
+              <div className="become-expert-modal-card">
+                <button type="button" className="become-expert-modal-close" onClick={closeModal} aria-label="Chiudi">
+                  ×
+                </button>
+                {submitted ? (
+                  <div className="become-expert-modal-success">
+                    <h3>Grazie!</h3>
+                    <p>
+                      Grazie. La tua candidatura è stata inviata. Il nostro team ti contatterà via email o telefono se il tuo profilo sarà ritenuto idoneo.
+                    </p>
+                    <button type="button" className="btn outline" onClick={closeModal}>
+                      Chiudi
+                    </button>
+                  </div>
+                ) : (
+                  <form className="become-expert-form" onSubmit={handleSubmit}>
+                    <div className="become-expert-form-row">
+                      <div className="become-expert-form-group">
+                        <label htmlFor="name">Nome e cognome *</label>
+                        <input
+                          id="name"
+                          name="name"
+                          type="text"
+                          value={form.name}
+                          onChange={handleChange}
+                          required
+                        />
+                      </div>
+                      <div className="become-expert-form-group">
+                        <label htmlFor="email">Email *</label>
+                        <input
+                          id="email"
+                          name="email"
+                          type="email"
+                          value={form.email}
+                          onChange={handleChange}
+                          required
+                        />
+                      </div>
+                    </div>
+                    <div className="become-expert-form-row">
+                      <div className="become-expert-form-group">
+                        <label htmlFor="phone">Numero di telefono *</label>
+                        <input
+                          id="phone"
+                          name="phone"
+                          type="tel"
+                          value={form.phone}
+                          onChange={handleChange}
+                          required
+                        />
+                      </div>
+                      <div className="become-expert-form-group">
+                        <label htmlFor="domain">In quale ambito lavori? *</label>
+                        <select id="domain" name="domain" value={form.domain} onChange={handleChange} required>
+                          <option value="">Seleziona</option>
+                          {fieldOptions.map(option => (
+                            <option key={option} value={option}>
+                              {option}
+                            </option>
+                          ))}
+                        </select>
+                      </div>
+                    </div>
+                    <div className="become-expert-form-group">
+                      <label htmlFor="description">
+                        Breve descrizione della tua esperienza (max 3–4 righe) *
+                      </label>
+                      <textarea
+                        id="description"
+                        name="description"
+                        rows="3"
+                        value={form.description}
+                        onChange={handleChange}
+                        required
+                      />
+                    </div>
+                    <div className="become-expert-form-group">
+                      <label htmlFor="links">Link ai tuoi profili o materiali (opzionale)</label>
+                      <input
+                        id="links"
+                        name="links"
+                        type="url"
+                        value={form.links}
+                        onChange={handleChange}
+                        placeholder="Instagram, sito web, YouTube…"
+                      />
+                    </div>
+                    <div className="become-expert-form-group checkbox">
+                      <label>
+                        <input
+                          name="consent"
+                          type="checkbox"
+                          checked={form.consent}
+                          onChange={handleChange}
+                          required
+                        />
+                        Autorizzo il trattamento dei dati personali ai sensi del GDPR.
+                      </label>
+                    </div>
+                    <div className="become-expert-form-group checkbox">
+                      <label>
+                        <input
+                          name="marketingConsent"
+                          type="checkbox"
+                          checked={form.marketingConsent}
+                          onChange={handleChange}
+                        />
+                        Desidero ricevere aggiornamenti e comunicazioni promozionali da Rivelya (opzionale).
+                      </label>
+                    </div>
+                    {modalError && <p className="become-expert-modal-error">{modalError}</p>}
+                    <button type="submit" className="btn primary full-width">
+                      Invia candidatura
+                    </button>
+                  </form>
+                )}
+              </div>
+            </div>
+          )}
         </article>
       </section>
     </div>

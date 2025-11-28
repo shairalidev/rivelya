@@ -1251,6 +1251,121 @@ body.nav-open {
   color: var(--muted);
   line-height: 1.7;
 }
+
+.become-expert-cta-trigger {
+  margin-top: 1rem;
+}
+
+.become-expert-modal {
+  position: fixed;
+  inset: 0;
+  background: rgba(3, 5, 12, 0.75);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 1.5rem;
+  z-index: 9999;
+}
+
+.become-expert-modal-card {
+  width: min(520px, 100%);
+  background: var(--surface-strong);
+  border-radius: var(--radius-lg);
+  padding: 2rem;
+  position: relative;
+  box-shadow: 0 30px 70px rgba(3, 5, 12, 0.7);
+  max-height: 88vh;
+  overflow-y: auto;
+}
+
+.become-expert-modal-close {
+  position: absolute;
+  top: 0.8rem;
+  right: 0.8rem;
+  border: none;
+  background: transparent;
+  color: var(--text);
+  font-size: 1.8rem;
+  cursor: pointer;
+}
+
+.become-expert-form {
+  display: grid;
+  gap: 1rem;
+}
+
+.become-expert-form-row {
+  display: grid;
+  gap: 1rem;
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+}
+
+.become-expert-form-group {
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+}
+
+.become-expert-form-group.checkbox {
+  flex-direction: row;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.become-expert-form-group input:not([type="checkbox"]),
+.become-expert-form-group select,
+.become-expert-form-group textarea {
+  border-radius: var(--radius-sm);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  background: rgba(10, 14, 28, 0.9);
+  padding: 0.75rem 0.9rem;
+  color: var(--text);
+  font-family: inherit;
+}
+
+.become-expert-form-group textarea {
+  resize: vertical;
+}
+
+.become-expert-form-group.checkbox input[type="checkbox"] {
+  margin: 0;
+  accent-color: var(--accent);
+}
+
+.become-expert-modal-error {
+  color: var(--danger);
+  font-size: 0.9rem;
+  margin: 0;
+}
+
+.become-expert-modal-success {
+  display: grid;
+  gap: 1rem;
+  text-align: center;
+}
+
+.become-expert-modal-success h3 {
+  margin: 0;
+}
+
+.become-expert-modal-success button {
+  justify-self: center;
+}
+
+@media (max-width: 640px) {
+  .become-expert-modal-card {
+    padding: 1.5rem;
+  }
+
+  .become-expert-modal-close {
+    top: 0.4rem;
+    right: 0.4rem;
+  }
+
+  .become-expert-form-row {
+    grid-template-columns: 1fr;
+  }
+}
 .info-card {
   padding: 1.8rem;
   border-radius: var(--radius-lg);
@@ -6034,11 +6149,6 @@ html {
 
 /* Improve tap targets */
 @media (max-width: 900px) {
-  a, button, input, select, textarea, [role="button"], [tabindex] {
-    min-height: 44px;
-    min-width: 44px;
-  }
-  
   .tag, .badge-soft, .status {
     min-height: 32px;
     padding: 0.4rem 0.8rem;
