@@ -21,6 +21,10 @@ export default function useVoiceWebRTC(sessionId, viewerRole, onCallEnd) {
   const localAudio = useRef(null);
   const remoteAudio = useRef(null);
   const normalizedViewerRole = viewerRole === 'expert' ? 'master' : viewerRole;
+  const markConnected = useCallback(() => {
+    setIsConnected(true);
+    setError(null);
+  }, []);
 
   const cleanup = useCallback(() => {
     console.log('[VoiceWebRTC] Cleaning up connection');
@@ -137,9 +141,8 @@ export default function useVoiceWebRTC(sessionId, viewerRole, onCallEnd) {
 
     pc.onconnectionstatechange = () => {
       console.log('[VoiceWebRTC] Connection state:', pc.connectionState);
-      if (pc.connectionState === 'connected') {
-        setIsConnected(true);
-        setError(null);
+      if (pc.connectionState === 'connected' || pc.connectionState === 'completed') {
+        markConnected();
       } else if (pc.connectionState === 'failed') {
         setIsConnected(false);
         setError('Connessione fallita. Riprova.');
@@ -158,8 +161,17 @@ export default function useVoiceWebRTC(sessionId, viewerRole, onCallEnd) {
       }
     };
 
+    pc.oniceconnectionstatechange = () => {
+      console.log('[VoiceWebRTC] ICE connection state:', pc.iceConnectionState);
+      if (pc.iceConnectionState === 'completed') {
+        markConnected();
+      } else if (pc.iceConnectionState === 'failed') {
+        setIsConnected(false);
+      }
+    };
+
     return pc;
-  }, [sendSignal]);
+  }, [sendSignal, markConnected, cleanup, sessionId]);
 
   const startCall = useCallback(async ({ skipOffer = false } = {}) => {
     if (isInitializing || peerConnection.current || isStartingRef.current || hasStartedRef.current) {
@@ -173,7 +185,7 @@ export default function useVoiceWebRTC(sessionId, viewerRole, onCallEnd) {
     }
 
     try {
-      setIsInitializing(true);
+    setIsInitializing(true);
       isStartingRef.current = true;
       hasStartedRef.current = true;
       setError(null);
