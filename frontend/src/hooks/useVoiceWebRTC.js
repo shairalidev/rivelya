@@ -66,6 +66,7 @@ export default function useVoiceWebRTC(sessionId, viewerRole, onCallEnd) {
   const hasStartedRef = useRef(false);
   const localAudio = useRef(null);
   const remoteAudio = useRef(null);
+  const pendingIceCandidatesRef = useRef([]);
   const normalizedViewerRole = viewerRole === 'expert' ? 'master' : viewerRole;
   const markConnected = useCallback(() => {
     setIsConnected(true);
@@ -83,7 +84,6 @@ export default function useVoiceWebRTC(sessionId, viewerRole, onCallEnd) {
     // Stop any ongoing initialization
     isStartingRef.current = false;
     hasStartedRef.current = false;
-    
     const activeStream = localStreamRef.current;
     if (activeStream) {
       activeStream.getTracks().forEach(track => track.stop());
@@ -95,6 +95,7 @@ export default function useVoiceWebRTC(sessionId, viewerRole, onCallEnd) {
       }
       peerConnection.current = null;
     }
+    pendingIceCandidatesRef.current = [];
     updateLocalStream(null);
     setRemoteStream(null);
     setIsConnected(false);
@@ -225,6 +226,19 @@ export default function useVoiceWebRTC(sessionId, viewerRole, onCallEnd) {
     return pc;
   }, [sendSignal, markConnected, cleanup, sessionId]);
 
+  const flushPendingIceCandidates = useCallback(async (pc) => {
+    if (!pc) return;
+    const queued = pendingIceCandidatesRef.current.splice(0);
+    if (queued.length === 0) return;
+    for (const candidate of queued) {
+      try {
+        await pc.addIceCandidate(new RTCIceCandidate(candidate));
+      } catch (error) {
+        console.warn('[VoiceWebRTC] Failed to add queued ICE candidate:', error);
+      }
+    }
+  }, []);
+
   const startCall = useCallback(async ({ skipOffer = false } = {}) => {
     if (isInitializing || peerConnection.current || isStartingRef.current || hasStartedRef.current) {
       console.log('[VoiceWebRTC] Call already initializing, active, or previously started');
@@ -335,6 +349,7 @@ export default function useVoiceWebRTC(sessionId, viewerRole, onCallEnd) {
           }
           console.log('[VoiceWebRTC] Received offer, setting remote description and creating answer');
           await pc.setRemoteDescription(new RTCSessionDescription(signal.data));
+          await flushPendingIceCandidates(pc);
           
           if (pc.signalingState === 'closed') {
             console.warn('[VoiceWebRTC] Connection closed after setting remote description');
@@ -345,6 +360,7 @@ export default function useVoiceWebRTC(sessionId, viewerRole, onCallEnd) {
           await pc.setLocalDescription(answer);
           console.log('[VoiceWebRTC] Sending answer');
           await sendSignal('answer', answer);
+          await flushPendingIceCandidates(pc);
           break;
 
         case 'answer':
@@ -363,6 +379,7 @@ export default function useVoiceWebRTC(sessionId, viewerRole, onCallEnd) {
 
           console.log('[VoiceWebRTC] Received answer, setting remote description');
           await pc.setRemoteDescription(new RTCSessionDescription(signal.data));
+          await flushPendingIceCandidates(pc);
           break;
 
         case 'ice-candidate':
@@ -375,20 +392,10 @@ export default function useVoiceWebRTC(sessionId, viewerRole, onCallEnd) {
             return;
           }
           console.log('[VoiceWebRTC] Received ICE candidate, adding to peer connection');
-          if (pc.remoteDescription) {
+          if (pc.remoteDescription && pc.remoteDescription.type) {
             await pc.addIceCandidate(new RTCIceCandidate(signal.data));
           } else {
-            console.log('[VoiceWebRTC] Queuing ICE candidate until remote description is set');
-            // Queue the candidate for later
-            setTimeout(async () => {
-              if (pc.remoteDescription && pc.signalingState !== 'closed') {
-                try {
-                  await pc.addIceCandidate(new RTCIceCandidate(signal.data));
-                } catch (e) {
-                  console.warn('[VoiceWebRTC] Failed to add queued ICE candidate:', e);
-                }
-              }
-            }, 1000);
+            pendingIceCandidatesRef.current.push(signal.data);
           }
           break;
       }
@@ -396,7 +403,7 @@ export default function useVoiceWebRTC(sessionId, viewerRole, onCallEnd) {
       console.error('[VoiceWebRTC] Failed to handle signal:', error);
       setError('Errore durante la negoziazione: ' + error.message);
     }
-  }, [sendSignal, startCall]);
+  }, [sendSignal, startCall, flushPendingIceCandidates]);
 
   const toggleMute = useCallback(() => {
     if (localStream) {
