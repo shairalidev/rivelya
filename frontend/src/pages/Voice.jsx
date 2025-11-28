@@ -248,17 +248,6 @@ export default function Voice() {
 
   const masterUserId = activeSession?.master?.id || activeSession?.master?._id;
   const customerUserId = activeSession?.customer?.id || activeSession?.customer?._id;
-  const connectionStatus = useMemo(() => {
-    if (webrtcConnected) return 'connected';
-    if (webrtcError) return 'error';
-    if (webrtcInitializing) return 'initializing';
-    if (activeSession?.status === 'active') return 'waiting';
-    return 'idle';
-  }, [webrtcConnected, webrtcError, webrtcInitializing, activeSession?.status]);
-  const connectionPartnerId = useMemo(() => {
-    if (!resolvedViewerRole) return null;
-    return resolvedViewerRole === 'master' ? customerUserId : masterUserId;
-  }, [resolvedViewerRole, masterUserId, customerUserId]);
 
   const isNoteDirty = noteDraft !== noteBaseline;
   const isSessionActive = activeSession?.status === 'active';
@@ -292,6 +281,18 @@ export default function Voice() {
     setActiveCall(null);
     setIsConnected(false);
   });
+
+  const connectionStatus = useMemo(() => {
+    if (webrtcConnected) return 'connected';
+    if (webrtcError) return 'error';
+    if (webrtcInitializing) return 'initializing';
+    if (activeSession?.status === 'active') return 'waiting';
+    return 'idle';
+  }, [webrtcConnected, webrtcError, webrtcInitializing, activeSession?.status]);
+  const connectionPartnerId = useMemo(() => {
+    if (!resolvedViewerRole) return null;
+    return resolvedViewerRole === 'master' ? customerUserId : masterUserId;
+  }, [resolvedViewerRole, masterUserId, customerUserId]);
 
   const localAudioLevel = useAudioLevel(audioStream, {
     disabled: !audioStream || isMuted || !isConnected || !isSessionActive
