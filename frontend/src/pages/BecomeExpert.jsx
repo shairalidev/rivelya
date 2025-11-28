@@ -23,7 +23,7 @@ const fieldOptions = [
   'Tarologia',
   'Astrologia',
   'Benessere interiore',
-  'Spiritualità',
+  'Spiritualit&agrave;',
   'Energie',
   'Coaching emotivo',
   'Altro'
@@ -42,21 +42,22 @@ const initialForm = {
 
 export default function BecomeExpert() {
   const [form, setForm] = useState(initialForm);
-  const [modalOpen, setModalOpen] = useState(false);
+  const [formOpen, setFormOpen] = useState(false);
   const [submitted, setSubmitted] = useState(false);
-  const [modalError, setModalError] = useState('');
+  const [formError, setFormError] = useState('');
+  const [submitting, setSubmitting] = useState(false);
 
-  const openModal = () => {
-    setModalOpen(true);
+  const openForm = () => {
+    setFormOpen(true);
     setSubmitted(false);
-    setModalError('');
+    setFormError('');
   };
 
-  const closeModal = () => {
-    setModalOpen(false);
+  const closeForm = () => {
+    setFormOpen(false);
     setForm(initialForm);
     setSubmitted(false);
-    setModalError('');
+    setFormError('');
   };
 
   const handleChange = event => {
@@ -70,17 +71,24 @@ export default function BecomeExpert() {
   const handleSubmit = async event => {
     event.preventDefault();
     if (!form.name || !form.email || !form.phone || !form.domain || !form.description || !form.consent) {
-      setModalError('Compila tutti i campi obbligatori e accetta il consenso privacy.');
+      setFormError('Compila tutti i campi obbligatori e accetta il consenso privacy.');
       return;
     }
-    setModalError('');
+
+    setFormError('');
+    setSubmitting(true);
+
     const formData = new FormData();
     formData.append('target', 'esperto');
     formData.append('name', form.name);
     formData.append('email', form.email);
     formData.append('issueType', 'Candidatura Esperto');
-    formData.append('description', `${form.description}\nAmbito: ${form.domain}\nTelefono: ${form.phone}\nLink: ${form.links || 'Nessuno'}`);
+    formData.append(
+      'description',
+      `${form.description}\nAmbito: ${form.domain}\nTelefono: ${form.phone}\nLink: ${form.links || 'Nessuno'}`
+    );
     formData.append('consent', form.consent ? 'on' : 'off');
+    formData.append('marketingConsent', form.marketingConsent ? 'on' : 'off');
     formData.append('metadata', JSON.stringify({
       phone: form.phone,
       domain: form.domain,
@@ -94,7 +102,9 @@ export default function BecomeExpert() {
       });
       setSubmitted(true);
     } catch (error) {
-      setModalError('Si è verificato un errore durante l\'invio. Riprova più tardi.');
+      setFormError('Si &egrave; verificato un errore durante l\'invio. Riprova pi&ugrave; tardi.');
+    } finally {
+      setSubmitting(false);
     }
   };
 
@@ -163,23 +173,31 @@ export default function BecomeExpert() {
           <p className="muted">
             Se possiedi tutti i requisiti sopra elencati, puoi compilare il modulo di candidatura. Ogni profilo viene valutato con attenzione. Se ritenuto idoneo, sarai ricontattato per il processo di onboarding.
           </p>
-          <button type="button" className="btn primary become-expert-cta-trigger" onClick={openModal}>
+          <button type="button" className="btn primary become-expert-cta-trigger" onClick={openForm}>
             Invia candidatura
           </button>
-          {modalOpen && (
-            <div className="become-expert-modal" role="dialog" aria-modal="true">
-              <div className="become-expert-modal-card">
-                <button type="button" className="become-expert-modal-close" onClick={closeModal} aria-label="Chiudi">
-                  ×
-                </button>
+          {formOpen && (
+            <section className="become-expert-form-panel">
+              <article className="become-expert-form-card">
+                  <div className="become-expert-form-card-head">
+                  <div className="become-expert-form-header">
+                    <h2>Modulo di candidatura</h2>
+                    <button type="button" className="btn ghost small" onClick={closeForm}>
+                      Chiudi modulo
+                    </button>
+                  </div>
+                  <p className="muted">
+                    Completa il modulo qui sotto: il nostro team valuter&agrave; la tua candidatura e ti risponder&agrave; entro 24/48 ore.
+                  </p>
+                </div>
                 {submitted ? (
-                  <div className="become-expert-modal-success">
+                  <div className="become-expert-form-success">
                     <h3>Grazie!</h3>
                     <p>
-                      Grazie. La tua candidatura è stata inviata. Il nostro team ti contatterà via email o telefono se il tuo profilo sarà ritenuto idoneo.
+                      Grazie. La tua candidatura &egrave; stata inviata. Il nostro team ti contatter&agrave; via email o telefono se il tuo profilo sar&agrave; ritenuto idoneo.
                     </p>
-                    <button type="button" className="btn outline" onClick={closeModal}>
-                      Chiudi
+                    <button type="button" className="btn outline" onClick={closeForm}>
+                      Chiudi modulo
                     </button>
                   </div>
                 ) : (
@@ -234,7 +252,7 @@ export default function BecomeExpert() {
                     </div>
                     <div className="become-expert-form-group">
                       <label htmlFor="description">
-                        Breve descrizione della tua esperienza (max 3–4 righe) *
+                        Breve descrizione della tua esperienza (max 3-4 righe) *
                       </label>
                       <textarea
                         id="description"
@@ -253,7 +271,7 @@ export default function BecomeExpert() {
                         type="url"
                         value={form.links}
                         onChange={handleChange}
-                        placeholder="Instagram, sito web, YouTube…"
+                        placeholder="Instagram, sito web, YouTube."
                       />
                     </div>
                     <div className="become-expert-form-group checkbox">
@@ -279,14 +297,14 @@ export default function BecomeExpert() {
                         Desidero ricevere aggiornamenti e comunicazioni promozionali da Rivelya (opzionale).
                       </label>
                     </div>
-                    {modalError && <p className="become-expert-modal-error">{modalError}</p>}
-                    <button type="submit" className="btn primary full-width">
-                      Invia candidatura
+                    {formError && <p className="become-expert-form-error">{formError}</p>}
+                    <button type="submit" className="btn primary full-width" disabled={submitting}>
+                      {submitting ? 'Invio in corso...' : 'Invia candidatura'}
                     </button>
                   </form>
                 )}
-              </div>
-            </div>
+              </article>
+            </section>
           )}
         </article>
       </section>

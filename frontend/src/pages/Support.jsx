@@ -184,6 +184,7 @@ const initialFormState = {
   issueType: '',
   description: '',
   consent: false,
+  marketingConsent: false,
   screenshot: null
 };
 
@@ -225,6 +226,7 @@ export default function Support() {
     formData.append('issueType', form.issueType);
     formData.append('description', form.description);
     formData.append('consent', form.consent ? 'on' : 'off');
+    formData.append('marketingConsent', form.marketingConsent ? 'on' : 'off');
     if (form.screenshot) {
       formData.append('screenshot', form.screenshot);
     }
@@ -404,6 +406,16 @@ export default function Support() {
                   checked={form.consent}
                   onChange={handleChange}
                   required
+                />
+              </label>
+              <label className="checkbox-label" htmlFor="support-marketing">
+                <span>Desidero ricevere aggiornamenti e comunicazioni promozionali da Rivelya (opzionale).</span>
+                <input
+                  id="support-marketing"
+                  name="marketingConsent"
+                  type="checkbox"
+                  checked={form.marketingConsent}
+                  onChange={handleChange}
                 />
               </label>
               <button

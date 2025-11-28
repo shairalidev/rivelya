@@ -1256,37 +1256,35 @@ body.nav-open {
   margin-top: 1rem;
 }
 
-.become-expert-modal {
-  position: fixed;
-  inset: 0;
-  background: rgba(3, 5, 12, 0.75);
+.become-expert-form-panel {
+  margin-top: 2rem;
+  animation: slideDown 0.35s ease;
+}
+
+.become-expert-form-card {
+  margin-top: 1.5rem;
+  padding: 2rem;
+  border-radius: var(--radius-lg);
+  background: rgba(7, 11, 20, 0.95);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  box-shadow: 0 25px 60px rgba(3, 5, 12, 0.55);
+}
+
+.become-expert-form-card-head {
+  margin-bottom: 1.25rem;
+}
+
+.become-expert-form-header {
   display: flex;
   align-items: center;
-  justify-content: center;
-  padding: 1.5rem;
-  z-index: 9999;
+  justify-content: space-between;
+  gap: 0.75rem;
+  flex-wrap: wrap;
 }
 
-.become-expert-modal-card {
-  width: min(520px, 100%);
-  background: var(--surface-strong);
-  border-radius: var(--radius-lg);
-  padding: 2rem;
-  position: relative;
-  box-shadow: 0 30px 70px rgba(3, 5, 12, 0.7);
-  max-height: 88vh;
-  overflow-y: auto;
-}
-
-.become-expert-modal-close {
-  position: absolute;
-  top: 0.8rem;
-  right: 0.8rem;
-  border: none;
-  background: transparent;
-  color: var(--text);
-  font-size: 1.8rem;
-  cursor: pointer;
+.become-expert-form-header h2 {
+  margin: 0;
+  font-size: 1.4rem;
 }
 
 .become-expert-form {
@@ -1323,47 +1321,53 @@ body.nav-open {
   font-family: inherit;
 }
 
-.become-expert-form-group textarea {
-  resize: vertical;
-}
-
 .become-expert-form-group.checkbox input[type="checkbox"] {
   margin: 0;
   accent-color: var(--accent);
 }
 
-.become-expert-modal-error {
+.become-expert-form-group textarea {
+  resize: vertical;
+}
+
+.become-expert-form-error {
   color: var(--danger);
-  font-size: 0.9rem;
+  font-size: 0.95rem;
   margin: 0;
 }
 
-.become-expert-modal-success {
+.become-expert-form-success {
   display: grid;
   gap: 1rem;
   text-align: center;
 }
 
-.become-expert-modal-success h3 {
+.become-expert-form-success h3 {
   margin: 0;
 }
 
-.become-expert-modal-success button {
+.become-expert-form-success button {
   justify-self: center;
 }
 
 @media (max-width: 640px) {
-  .become-expert-modal-card {
+  .become-expert-form-card {
     padding: 1.5rem;
-  }
-
-  .become-expert-modal-close {
-    top: 0.4rem;
-    right: 0.4rem;
   }
 
   .become-expert-form-row {
     grid-template-columns: 1fr;
+  }
+}
+
+@keyframes slideDown {
+  from {
+    opacity: 0;
+    transform: translateY(-10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
   }
 }
 .info-card {
