@@ -59,6 +59,7 @@ export default function useVoiceWebRTC(sessionId, viewerRole, onCallEnd) {
   const [error, setError] = useState(null);
   const [isInitializing, setIsInitializing] = useState(false);
   const micPermissionState = useRef('unknown');
+  const localStreamRef = useRef(null);
 
   const peerConnection = useRef(null);
   const isStartingRef = useRef(false);
@@ -71,6 +72,11 @@ export default function useVoiceWebRTC(sessionId, viewerRole, onCallEnd) {
     setError(null);
   }, []);
 
+  const updateLocalStream = useCallback(stream => {
+    localStreamRef.current = stream;
+    setLocalStream(stream);
+  }, []);
+
   const cleanup = useCallback(() => {
     console.log('[VoiceWebRTC] Cleaning up connection');
     
@@ -78,8 +84,9 @@ export default function useVoiceWebRTC(sessionId, viewerRole, onCallEnd) {
     isStartingRef.current = false;
     hasStartedRef.current = false;
     
-    if (localStream) {
-      localStream.getTracks().forEach(track => track.stop());
+    const activeStream = localStreamRef.current;
+    if (activeStream) {
+      activeStream.getTracks().forEach(track => track.stop());
     }
     if (peerConnection.current) {
       // Check if already closed to avoid errors
@@ -88,16 +95,16 @@ export default function useVoiceWebRTC(sessionId, viewerRole, onCallEnd) {
       }
       peerConnection.current = null;
     }
-    setLocalStream(null);
+    updateLocalStream(null);
     setRemoteStream(null);
     setIsConnected(false);
     setError(null);
     setIsInitializing(false);
-  }, [localStream]);
+  }, [updateLocalStream, setError]);
 
   const requestMicrophoneAccess = useCallback(async () => {
-    if (localStream) {
-      return localStream;
+    if (localStreamRef.current) {
+      return localStreamRef.current;
     }
 
     if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
@@ -125,7 +132,7 @@ export default function useVoiceWebRTC(sessionId, viewerRole, onCallEnd) {
       });
 
       micPermissionState.current = 'granted';
-      setLocalStream(stream);
+      updateLocalStream(stream);
       if (localAudio.current) {
         localAudio.current.srcObject = stream;
         localAudio.current.muted = true;
@@ -145,7 +152,7 @@ export default function useVoiceWebRTC(sessionId, viewerRole, onCallEnd) {
       }
       throw error;
     }
-  }, [localStream, setError]);
+  }, [updateLocalStream]);
 
   const sendSignal = useCallback(async (type, data) => {
     if (!sessionId) {
