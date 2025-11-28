@@ -3,7 +3,7 @@ name: CI/CD - Deploy to Rivelya Server
 on:
   push:
     branches:
-      - voice
+      - voco
 
 jobs:
   deploy:
@@ -31,8 +31,8 @@ jobs:
             }
 
             echo "📦 Pulling latest code..."
-            git fetch origin voice
-            git reset --hard origin/voice
+            git fetch origin voco
+            git reset --hard origin/voco
 
             echo "📂 Installing backend dependencies..."
             cd backend
