@@ -1276,7 +1276,7 @@ body.nav-open {
 
 .become-expert-form-header {
   display: flex;
-  align-items: center;
+  align-items: flex-start;
   justify-content: space-between;
   gap: 0.75rem;
   flex-wrap: wrap;

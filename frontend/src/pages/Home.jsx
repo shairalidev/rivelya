@@ -142,22 +142,7 @@ export default function Home() {
         ))}
       </section>
 
-      <section className="container section" id="business">
-        <div className="section-head">
-          <span className="badge-soft">Per aziende</span>
-          <h2>Soluzione enterprise con SLA dedicati</h2>
-          <p className="muted">Integra gli Esperti Rivelya nel tuo servizio clienti o offri benefit esclusivi al tuo team con wallet condivisi e fatturazione centralizzata.</p>
-        </div>
-        <div className="grid-two">
-          {steps.map(step => (
-            <div key={step.title} className="step-card">
-              <h3>{step.title}</h3>
-              <p className="muted">{step.description}</p>
-            </div>
-          ))}
-        </div>
-      </section>
-
+      
     </div>
   );
 }
