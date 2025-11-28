@@ -645,7 +645,7 @@ export default function Voice() {
       console.info('[voice] Manual call already in progress; auto-start skipped');
       return;
     }
-    if (!resolvedViewerRole || !sessionId || !isSessionActive || !isConnected) return;
+    if (!resolvedViewerRole || resolvedViewerRole !== 'master' || !sessionId || !isSessionActive || !isConnected) return;
     if (webrtcConnected || webrtcInitializing) return;
     if (autoStartSessionRef.current === sessionId) {
       return;
