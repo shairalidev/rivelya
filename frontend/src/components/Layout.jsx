@@ -15,6 +15,7 @@ const navItems = [
   { label: 'Esperienze', to: '/experience' },
   { label: 'Esperti', to: '/catalog' },
   { label: 'Business', to: '/business' },
+  { label: 'Diventa un Esperto', to: '/become-expert' },
   { label: 'Supporto', to: '/support' }
 ];
 
