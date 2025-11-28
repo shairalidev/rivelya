@@ -143,6 +143,7 @@ export default function Voice() {
   const autoStartSessionRef = useRef(null);
   const lastConnectionStatusRef = useRef({ status: null, reason: null });
   const wakeLockRef = useRef(null);
+  const timerAutoEndRef = useRef(false);
 
   useEffect(() => {
     const sync = () => {
@@ -337,6 +338,40 @@ export default function Voice() {
     }
   }, [endWebRTCCall, sessionId, socket, stopAudioStream]);
 
+  const applySessionEndUpdates = useCallback((payload = {}) => {
+    const targetId = payload?.sessionId || sessionId;
+    if (!targetId) return;
+
+    queryClient.setQueryData(['voice', 'session', targetId], previous => {
+      if (!previous?.session) return previous;
+      return {
+        ...previous,
+        session: {
+          ...previous.session,
+          status: 'ended',
+          endTime: payload?.endTime ?? previous.session.endTime,
+          duration: payload?.duration ?? previous.session.duration,
+          cost: payload?.cost ?? previous.session.cost
+        }
+      };
+    });
+
+    queryClient.setQueryData(['voice', 'sessions'], previous => {
+      if (!Array.isArray(previous)) return previous;
+      return previous.map(session =>
+        session.id === targetId
+          ? {
+            ...session,
+            status: 'ended',
+            endTime: payload?.endTime ?? session.endTime,
+            duration: payload?.duration ?? session.duration,
+            cost: payload?.cost ?? session.cost
+          }
+          : session
+      );
+    });
+  }, [queryClient, sessionId]);
+
   useEffect(() => {
     if (!sessionId || !activeSession) {
       cleanupSessionResources();
@@ -473,33 +508,7 @@ export default function Voice() {
         cleanupSessionResources();
         setShowEndModal(false);
         toastInfo('Chiamata terminata dal partner');
-        queryClient.setQueryData(['voice', 'session', sessionId], previous => {
-          if (!previous?.session) return previous;
-          return {
-            ...previous,
-            session: {
-              ...previous.session,
-              status: 'ended',
-              endTime: payload?.endTime || previous.session.endTime,
-              duration: payload?.duration ?? previous.session.duration,
-              cost: payload?.cost ?? previous.session.cost
-            }
-          };
-        });
-        queryClient.setQueryData(['voice', 'sessions'], previous => {
-          if (!Array.isArray(previous)) return previous;
-          return previous.map(session =>
-            session.id === sessionId
-              ? {
-                ...session,
-                status: 'ended',
-                endTime: payload?.endTime || session.endTime,
-                duration: payload?.duration ?? session.duration,
-                cost: payload?.cost ?? session.cost
-              }
-              : session
-          );
-        });
+        applySessionEndUpdates(payload);
         queryClient.invalidateQueries({ queryKey: ['voice', 'session', sessionId] });
       }
       queryClient.invalidateQueries({ queryKey: ['voice', 'sessions'] });
@@ -667,7 +676,7 @@ export default function Voice() {
       socket.off('session:review:prompt', handleReviewPrompt);
       socket.off('session:completed', handleSessionCompleted);
     };
-  }, [socket, queryClient, sessionId, activeSession, viewerId, signalHandler, cleanupSessionResources, releasePreviewStream]);
+  }, [socket, queryClient, sessionId, activeSession, viewerId, signalHandler, cleanupSessionResources, releasePreviewStream, applySessionEndUpdates]);
 
   // Set up WebRTC signal handler
   useEffect(() => {
@@ -861,7 +870,7 @@ export default function Voice() {
     }
   };
 
-  const startCall = async () => {
+  const startCall = useCallback(async () => {
     if (manualCallInitiatedRef.current) {
       console.info('[voice] Start call already in progress; ignoring extra request');
       return;
@@ -893,7 +902,7 @@ export default function Voice() {
         message: error?.response?.data?.message || error.message
       });
     }
-  };
+  }, [queryClient, releasePreviewStream, sessionId]);
 
   // Auto-request mic permission when session becomes active
   useEffect(() => {
@@ -911,25 +920,54 @@ export default function Voice() {
     requestMicPermission();
   }, [audioStream, isSessionActive, micPermission, webrtcConnected, webrtcInitializing]);
 
-  const endCall = async () => {
+  const endCall = useCallback(async () => {
+    setShowEndModal(false);
+    cleanupSessionResources();
     try {
       const response = await client.post(`/voice/session/${sessionId}/end`);
-      cleanupSessionResources();
-      setShowEndModal(false);
       toast.success('Chiamata terminata');
+      applySessionEndUpdates({
+        sessionId,
+        endTime: response.data?.endTime ?? response.data?.endedAt,
+        duration: response.data?.duration,
+        cost: response.data?.cost
+      });
       queryClient.invalidateQueries({ queryKey: ['voice', 'session', sessionId] });
       queryClient.invalidateQueries({ queryKey: ['voice', 'sessions'] });
       console.info('[voice] Voice call end API succeeded', { sessionId, status: response.data?.status });
     } catch (error) {
       const message = error?.response?.data?.message || 'Errore durante la chiusura della chiamata';
       toast.error(message);
-      setShowEndModal(false);
       console.error('[voice] Voice call end API failed', {
         sessionId,
         message: error?.response?.data?.message || error.message
       });
     }
-  };
+  }, [applySessionEndUpdates, cleanupSessionResources, queryClient, sessionId]);
+
+  useEffect(() => {
+    if (!sessionId || !isSessionActive) {
+      timerAutoEndRef.current = false;
+      return;
+    }
+
+    if (remainingSeconds == null) {
+      return;
+    }
+
+    if (remainingSeconds > 0) {
+      timerAutoEndRef.current = false;
+      return;
+    }
+
+    if (timerAutoEndRef.current) {
+      return;
+    }
+
+    timerAutoEndRef.current = true;
+    toastWarning('Tempo scaduto: chiusura automatica della sessione in corso.');
+    endCall();
+  }, [remainingSeconds, isSessionActive, sessionId, endCall]);
 
   const masterName = activeSession?.master?.name || 'Esperti Rivelya';
   const masterAvatar = activeSession?.master?.avatarUrl || '';
