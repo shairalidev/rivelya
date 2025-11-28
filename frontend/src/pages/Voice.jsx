@@ -139,6 +139,7 @@ export default function Voice() {
   const [mobileNotesOpen, setMobileNotesOpen] = useState(false);
   const joinedSessionRef = useRef(null);
   const manualCallInitiatedRef = useRef(false);
+  const autoStartSessionRef = useRef(null);
 
   useEffect(() => {
     const sync = () => {
@@ -293,6 +294,7 @@ export default function Voice() {
     setIsConnected(false);
     stopAudioStream();
     endWebRTCCall();
+    autoStartSessionRef.current = null;
     joinedSessionRef.current = null;
     manualCallInitiatedRef.current = false;
 
@@ -645,8 +647,12 @@ export default function Voice() {
     }
     if (!resolvedViewerRole || !sessionId || !isSessionActive || !isConnected) return;
     if (webrtcConnected || webrtcInitializing) return;
+    if (autoStartSessionRef.current === sessionId) {
+      return;
+    }
 
     console.info('[voice] Viewer role resolved, (re)starting WebRTC', { viewerRole: resolvedViewerRole, sessionId });
+    autoStartSessionRef.current = sessionId;
     releasePreviewStream();
     startWebRTCCall();
   }, [resolvedViewerRole, sessionId, isSessionActive, isConnected, webrtcConnected, webrtcInitializing, startWebRTCCall, releasePreviewStream]);
@@ -805,10 +811,19 @@ export default function Voice() {
 
   // Auto-request mic permission when session becomes active
   useEffect(() => {
-    if (isSessionActive && !audioStream && micPermission !== 'denied') {
-      requestMicPermission();
+    if (
+      !isSessionActive ||
+      audioStream ||
+      micPermission === 'denied' ||
+      manualCallInitiatedRef.current ||
+      webrtcInitializing ||
+      webrtcConnected
+    ) {
+      return;
     }
-  }, [isSessionActive, audioStream, micPermission]);
+
+    requestMicPermission();
+  }, [audioStream, isSessionActive, micPermission, webrtcConnected, webrtcInitializing]);
 
   const endCall = async () => {
     try {
